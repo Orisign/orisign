@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package auth.v1;
+
+service AuthService {
+  rpc SendOtp (SendOtpRequest) returns (SendOtpResponse);
+  rpc VerifyOtp (VerifyOtpRequest) returns (VerifyOtpResponse);
+
+  rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc Logout (LogoutRequest) returns (LogoutResponse);
+
+  rpc ListSessions (ListSessionsRequest) returns (ListSessionsResponse);
+  rpc RevokeSession (RevokeSessionRequest) returns (RevokeSessionResponse);
+}
+
+message SendOtpRequest {
+  string phone     = 1;
+  string device_id = 2;
+}
+
+message SendOtpResponse {
+  bool ok = 1;
+}
+
+message VerifyOtpRequest {
+  string phone     = 1;
+  string code      = 2;
+  string device_id = 3;
+
+  UserInfo user_info = 4;
+}
+
+message UserInfo {
+  string ip         = 1;
+  string user_agent = 2;
+}
+
+message VerifyOtpResponse {
+  optional bool requires_password = 1;
+
+  string access_token  = 2;
+  string refresh_token = 3;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+
+  UserInfo user_info = 2;
+}
+
+message RefreshTokenResponse {
+  string access_token  = 1;
+  string refresh_token = 2;
+}
+
+message LogoutRequest {
+  string account_id    = 1;
+  string refresh_token = 2;
+}
+
+message LogoutResponse {
+  bool ok = 1;
+}
+
+message ListSessionsRequest {
+  string account_id = 1;
+  string device_id  = 2;
+}
+
+message ListSessionsResponse {
+  repeated Session sessions = 1;
+}
+
+message Session {
+  string           id           = 1;
+  string           device_id    = 2;
+  string           user_agent   = 3;
+  string           ip           = 4;
+  int64 created_at   = 5;
+  int64            last_seen_at = 6;
+  bool             current      = 7;
+}
+
+message RevokeSessionRequest {
+  string id         = 1;
+  string account_id = 2;
+}
+
+message RevokeSessionResponse {
+  bool ok = 1;
+}

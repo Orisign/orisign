@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package call.v1;
+
+service CallService {
+  rpc CallStream (stream CallMessage) returns (stream CallMessage);
+}
+
+message CallMessage {
+  oneof content {
+    InitParams   init   = 1;
+    CallOffer    offer  = 2;
+    CallAnswer   answer = 3;
+    IceCandidate ice    = 4;
+    CallEnd      end    = 5;
+  }
+}
+
+message InitParams {
+  string access_token = 1;
+}
+
+message CallOffer {
+  string caller_user_id = 1;
+  string target_user_id = 2;
+  string sdp            = 3;
+}
+
+message CallAnswer {
+  string answering_user_id = 1;
+  string target_user_id    = 2;
+  string sdp               = 3;
+}
+
+message IceCandidate {
+  string sender_user_id   = 1;
+  string target_user_id   = 2;
+  string candidate        = 3;
+  string sdp_mid          = 4;
+  int32  sdp_m_line_index = 5;
+}
+
+message CallEnd {
+  string sender_user_id = 1;
+  string target_user_id = 2;
+  string reason         = 3;
+}

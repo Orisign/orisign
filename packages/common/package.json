@@ -1,0 +1,24 @@
+{
+  "name": "@repo/common",
+  "version": "1.0.0",
+  "description": "Core shared components for Photon microservice ecosystem",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "format": "prettier --write \"src/**/*.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "prettier": "^3.7.4",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.1.14",
+    "@nestjs/config": "^4.0.3",
+    "@nestjs/microservices": "^11.1.14"
+  }
+}

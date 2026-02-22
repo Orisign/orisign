@@ -1,0 +1,57 @@
+generator client {
+  provider = "prisma-client"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Account {
+  id String @id @default(cuid())
+
+  phone String  @unique
+  email String? @unique
+
+  isPhoneVerified Boolean @default(false) @map("is_phone_verified")
+  isEmailVerified Boolean @default(false) @map("is_email_verified")
+
+  role Role @default(USER)
+
+  sessions Session[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("accounts")
+}
+
+model Session {
+  id String @id @default(cuid())
+
+  account   Account @relation(fields: [accountId], references: [id])
+  accountId String  @map("account_id")
+
+  refreshTokenHash String @map("refresh_token_hash")
+
+  deviceId  String? @map("device_id")
+  userAgent String? @map("user_agent")
+  ip        String?
+
+  createdAt  DateTime @default(now()) @map("created_at")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+
+  revokedAt       DateTime? @map("revoked_at")
+  reuseDetectedAt DateTime? @map("reuse_detected_at")
+
+  @@index([accountId])
+  @@unique([accountId, deviceId])
+  @@map("sessions")
+}
+
+enum Role {
+  USER
+  ADMIN
+
+  @@map("roles")
+}
