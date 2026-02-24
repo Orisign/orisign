@@ -9,6 +9,7 @@ dist/
 out/
 build/
 *.tgz
+**/storybook-static/
 
 # coverage
 coverage/
@@ -22,6 +23,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 report.*.json
+**/debug-storybook.log
 
 # env files (keep only examples in git)
 .env
