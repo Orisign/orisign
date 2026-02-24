@@ -1,5 +1,5 @@
 {
-  "name": "photon",
+  "name": "orisign",
   "private": true,
   "workspaces": [
     "apps/*",
