@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id              String           @id @default(cuid())
+  username        String?          @unique
+  firstName       String           @map("first_name")
+  lastName        String?          @map("last_name")
+  avatars         String[]
+  birthDate       DateTime?        @map("birth_date")
+  privacySettings PrivacySettings?
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model PrivacySettings {
+  id           String      @id @default(cuid())
+  userId       String      @unique @map("user_id")
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone        PrivacyType @default(PRIVACY_TYPE_UNSPECIFIED)
+  lastSeenTime PrivacyType @default(PRIVACY_TYPE_UNSPECIFIED) @map("last_seen_time")
+  photo        PrivacyType @default(PRIVACY_TYPE_UNSPECIFIED)
+  bio          PrivacyType @default(PRIVACY_TYPE_UNSPECIFIED)
+  call         PrivacyType @default(PRIVACY_TYPE_UNSPECIFIED)
+  reply        PrivacyType @default(PRIVACY_TYPE_UNSPECIFIED)
+  invite       PrivacyType @default(PRIVACY_TYPE_UNSPECIFIED)
+  mediaMessage PrivacyType @default(PRIVACY_TYPE_UNSPECIFIED) @map("media_message")
+  message      PrivacyType @default(PRIVACY_TYPE_UNSPECIFIED)
+  birthDate    PrivacyType @default(PRIVACY_TYPE_UNSPECIFIED) @map("birth_date")
+
+  @@map("privacy_settings")
+}
+
+enum PrivacyType {
+  PRIVACY_TYPE_UNSPECIFIED
+  ALL
+  CONTACTS
+  NOBODY
+}

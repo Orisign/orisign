@@ -1,7 +1,7 @@
 {
   "name": "@repo/common",
   "version": "1.0.0",
-  "description": "Core shared components for Photon microservice ecosystem",
+  "description": "Core shared components for orisign microservice ecosystem",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [

@@ -18,6 +18,7 @@ import type {
 } from '@repo/contracts/gen/ts/auth'
 import { createHash } from 'node:crypto'
 
+import { UsersClientService } from '@/infra/grpc/users-client.service'
 import { SessionRepository } from '@/shared/repo/session.repository'
 import { UserRepository } from '@/shared/repo/user.repository'
 
@@ -29,6 +30,7 @@ export class AuthService {
 	public constructor(
 		private readonly userRepo: UserRepository,
 		private readonly sessionRepo: SessionRepository,
+		private readonly usersClient: UsersClientService,
 		private readonly otpService: OtpService,
 		private readonly tokenService: TokenService
 	) {}
@@ -69,6 +71,7 @@ export class AuthService {
 
 		if (!account.isPhoneVerified) {
 			await this.userRepo.update(account.id, { isPhoneVerified: true })
+			await this.usersClient.createUser({ id: account.id })
 		}
 
 		const { refreshToken, accessToken } = this.tokenService.generate(

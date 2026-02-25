@@ -2,5 +2,127 @@ syntax = "proto3";
 
 package users.v1;
 
+// Users service exposes profile and privacy management operations.
 service UsersService {
+  // Returns a user by id or by username.
+  rpc GetUser (GetUserRequest) returns (GetUserResponse);
+  // Creates a user profile shell for the given id.
+  rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
+  // Partially updates base user profile fields.
+  rpc PatchUser (PatchUserRequest) returns (PatchResponse);
+  // Partially updates privacy settings.
+  rpc PatchPrivacySettings (PatchPrivacySettingsRequest) returns (PatchResponse);
+}
+
+// Request to fetch user by exactly one identifier.
+message GetUserRequest {
+  oneof identifier {
+    // Internal stable user id.
+    string id       = 1;
+    // Public username.
+    string username = 2;
+  }
+}
+
+// User fetch response.
+message GetUserResponse {
+  User user = 1;
+}
+
+// Request to create new user profile.
+message CreateUserRequest {
+  // Profile id. Usually equals auth account id.
+  string id = 1;
+}
+
+// Generic create status response.
+message CreateUserResponse {
+  bool ok = 1;
+}
+
+// Partial user update request.
+message PatchUserRequest {
+  // Target user id.
+  string user_id = 1;
+  // Optional username update.
+  optional string username = 2;
+  // Optional first name update.
+  optional string first_name = 3;
+  // Optional last name update. Empty string clears value.
+  optional string last_name = 4;
+  // Optional avatars replacement.
+  optional AvatarList avatars = 5;
+  // Optional birth date in epoch milliseconds. Zero clears value.
+  optional int64 birth_date = 6;
+}
+
+// Wrapper for avatar urls to preserve field presence.
+message AvatarList {
+  repeated string values = 1;
+}
+
+// Partial privacy settings update request.
+message PatchPrivacySettingsRequest {
+  // Target user id.
+  string user_id = 1;
+  // Optional phone visibility update.
+  optional PrivacyType phone = 2;
+  // Optional last seen visibility update.
+  optional PrivacyType last_seen_time = 3;
+  // Optional photo visibility update.
+  optional PrivacyType photo = 4;
+  // Optional bio visibility update.
+  optional PrivacyType bio = 5;
+  // Optional call visibility update.
+  optional PrivacyType call = 6;
+  // Optional reply visibility update.
+  optional PrivacyType reply = 7;
+  // Optional invite visibility update.
+  optional PrivacyType invite = 8;
+  // Optional media messages visibility update.
+  optional PrivacyType media_message = 9;
+  // Optional messages visibility update.
+  optional PrivacyType message = 10;
+  // Optional birth date visibility update.
+  optional PrivacyType birth_date = 11;
+}
+
+// Generic patch status response.
+message PatchResponse {
+  bool ok = 1;
+}
+
+// Public user profile view.
+message User {
+  string          id               = 1;
+  optional string username         = 2;
+  string          first_name       = 3;
+  optional string last_name        = 4;
+  repeated string avatars          = 5;
+  optional int64  birth_date       = 6;
+  PrivacySettings privacy_settings = 7;
+  int64           created_at       = 8;
+  int64           updated_at       = 9;
+}
+
+// User privacy settings.
+message PrivacySettings {
+  PrivacyType phone          = 1;
+  PrivacyType last_seen_time = 2;
+  PrivacyType photo          = 3;
+  PrivacyType bio            = 4;
+  PrivacyType call           = 5;
+  PrivacyType reply          = 6;
+  PrivacyType invite         = 7;
+  PrivacyType media_message  = 8;
+  PrivacyType message        = 9;
+  PrivacyType birth_date     = 10;
+}
+
+// Visibility mode for profile fields.
+enum PrivacyType {
+  PRIVACY_TYPE_UNSPECIFIED = 0;
+  ALL                      = 1;
+  CONTACTS                 = 2;
+  NOBODY                   = 3;
 }

@@ -10,9 +10,8 @@ services:
       - 5433:5432
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
-      - photon
+      - orisign
 
   redis:
     container_name: redis
@@ -24,7 +23,7 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - photon
+      - orisign
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -39,7 +38,7 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
-      - photon
+      - orisign
 
 volumes:
   postgres_data:
@@ -47,4 +46,4 @@ volumes:
   rabbitmq_data:
 
 networks:
-  photon:
+  orisign:

@@ -22,10 +22,10 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe(getValidationPipeConfig()));
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Photon API')
+    .setTitle('orisign API')
     .setDescription(
       [
-        'HTTP gateway для сервисов Photon.',
+        'HTTP gateway для сервисов orisign.',
         '',
         'Аутентификация:',
         "- `Authorization: Bearer <accessToken>` для защищенных endpoint'ов.",

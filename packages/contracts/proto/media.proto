@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package media.v1;
+option go_package = "media-service/internal/pb;mediav1";
+
+// gRPC API for private media storage operations.
+service MediaService {
+  // Uploads avatar bytes to S3-compatible storage and returns a signed URL.
+  rpc UploadAvatar(UploadAvatarRequest) returns (UploadAvatarResponse);
+  // Deletes avatar object by storage key.
+  rpc DeleteAvatar(DeleteAvatarRequest) returns (DeleteAvatarResponse);
+  // Returns short-lived signed URL for reading avatar by key.
+  rpc GetAvatarUrl(GetAvatarUrlRequest) returns (GetAvatarUrlResponse);
+}
+
+// Upload avatar request.
+message UploadAvatarRequest {
+  // Auth/account id of the avatar owner.
+  string account_id = 1;
+  // Original client file name.
+  string file_name = 2;
+  // MIME type provided by client.
+  string content_type = 3;
+  // Raw file bytes.
+  bytes data = 4;
+}
+
+// Uploaded avatar object metadata.
+message AvatarObject {
+  // Internal S3 object key.
+  string key = 1;
+  // Presigned GET URL.
+  string url = 2;
+  // URL expiration time in epoch milliseconds.
+  int64 expires_at = 3;
+}
+
+// Upload avatar response.
+message UploadAvatarResponse {
+  bool ok = 1;
+  AvatarObject avatar = 2;
+}
+
+// Delete avatar request.
+message DeleteAvatarRequest {
+  // Internal S3 object key.
+  string key = 1;
+}
+
+// Delete avatar response.
+message DeleteAvatarResponse {
+  bool ok = 1;
+}
+
+// Request signed URL for avatar.
+message GetAvatarUrlRequest {
+  // Internal S3 object key.
+  string key = 1;
+}
+
+// Signed URL response.
+message GetAvatarUrlResponse {
+  AvatarObject avatar = 1;
+}
