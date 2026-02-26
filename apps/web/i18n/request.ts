@@ -5,8 +5,8 @@ export default getRequestConfig(async () => {
   const store = await cookies();
   const locale = store.get("locale")?.value ?? "ru";
 
-  return {
-    locale,
-    messages: (await import(`../messages/${locale}.json`)).default,
-  };
-});
+    return {
+        locale,
+        messages: (await import(`../messages/${locale}.json`)).default
+    }
+})
