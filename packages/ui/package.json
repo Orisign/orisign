@@ -29,7 +29,7 @@
     "@tailwindcss/postcss": "^4.1.14",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "autoprefixer": "^10.4.21",
+    "autoprefixer": "^10.4.27",
     "react-apple-emojis": "^3.0.0",
     "storybook": "^10.2.10",
     "tailwindcss": "^4.2.0",
