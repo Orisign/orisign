@@ -385,7 +385,8 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 
 export const ModelName = {
   Account: 'Account',
-  Session: 'Session'
+  Session: 'Session',
+  PendingContactChange: 'PendingContactChange'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -401,7 +402,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "account" | "session"
+    modelProps: "account" | "session" | "pendingContactChange"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -553,6 +554,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    PendingContactChange: {
+      payload: Prisma.$PendingContactChangePayload<ExtArgs>
+      fields: Prisma.PendingContactChangeFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PendingContactChangeFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingContactChangePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PendingContactChangeFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingContactChangePayload>
+        }
+        findFirst: {
+          args: Prisma.PendingContactChangeFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingContactChangePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PendingContactChangeFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingContactChangePayload>
+        }
+        findMany: {
+          args: Prisma.PendingContactChangeFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingContactChangePayload>[]
+        }
+        create: {
+          args: Prisma.PendingContactChangeCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingContactChangePayload>
+        }
+        createMany: {
+          args: Prisma.PendingContactChangeCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PendingContactChangeCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingContactChangePayload>[]
+        }
+        delete: {
+          args: Prisma.PendingContactChangeDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingContactChangePayload>
+        }
+        update: {
+          args: Prisma.PendingContactChangeUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingContactChangePayload>
+        }
+        deleteMany: {
+          args: Prisma.PendingContactChangeDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PendingContactChangeUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PendingContactChangeUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingContactChangePayload>[]
+        }
+        upsert: {
+          args: Prisma.PendingContactChangeUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PendingContactChangePayload>
+        }
+        aggregate: {
+          args: Prisma.PendingContactChangeAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePendingContactChange>
+        }
+        groupBy: {
+          args: Prisma.PendingContactChangeGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PendingContactChangeGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PendingContactChangeCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PendingContactChangeCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -620,6 +695,20 @@ export const SessionScalarFieldEnum = {
 } as const
 
 export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeof SessionScalarFieldEnum]
+
+
+export const PendingContactChangeScalarFieldEnum = {
+  id: 'id',
+  type: 'type',
+  value: 'value',
+  codeHash: 'codeHash',
+  expiresAt: 'expiresAt',
+  accountId: 'accountId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PendingContactChangeScalarFieldEnum = (typeof PendingContactChangeScalarFieldEnum)[keyof typeof PendingContactChangeScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -811,6 +900,7 @@ export type PrismaClientOptions = ({
 export type GlobalOmitConfig = {
   account?: Prisma.AccountOmit
   session?: Prisma.SessionOmit
+  pendingContactChange?: Prisma.PendingContactChangeOmit
 }
 
 /* Types for Logging */

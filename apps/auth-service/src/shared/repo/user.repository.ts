@@ -25,6 +25,14 @@ export class UserRepository {
 		})
 	}
 
+	public async findByEmail(email: string): Promise<Account | null> {
+		return await this.prismaService.account.findUnique({
+			where: {
+				email
+			}
+		})
+	}
+
 	public async update(
 		id: string,
 		data: AccountUpdateInput

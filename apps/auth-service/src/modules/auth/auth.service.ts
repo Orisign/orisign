@@ -38,6 +38,13 @@ export class AuthService {
 	public async sendOtp(data: SendOtpRequest): Promise<SendOtpResponse> {
 		const { phone, deviceId } = data
 
+		if (!phone || !deviceId) {
+			throw new RpcException({
+				code: RpcStatus.INVALID_ARGUMENT,
+				details: 'Phone and device id are required'
+			})
+		}
+
 		let account: Account | null
 
 		account = await this.userRepo.findByPhone(phone)
@@ -46,19 +53,35 @@ export class AuthService {
 			account = await this.userRepo.create({ phone })
 		}
 
-		const { code } = await this.otpService.send(phone, deviceId)
+		const { code, challengeId } = await this.otpService.send(
+			phone,
+			'phone',
+			deviceId
+		)
 
 		console.log('CODE: ', code)
 
 		return {
-			ok: true
+			ok: true,
+			challengeId
 		}
 	}
 
 	public async verifyOtp(data: VerifyOtpRequest): Promise<VerifyOtpResponse> {
-		const { code, deviceId, phone, userInfo } = data
+		const { challengeId, code, deviceId, phone, userInfo } = data
 
-		await this.otpService.verify(phone, code, deviceId)
+		if (!challengeId || !code || !phone || !deviceId) {
+			throw new RpcException({
+				code: RpcStatus.INVALID_ARGUMENT,
+				details: 'Challenge id, phone, code and device id are required'
+			})
+		}
+
+		await this.otpService.verify(challengeId, code, {
+			identifier: phone,
+			type: 'phone',
+			deviceId
+		})
 
 		const account = await this.userRepo.findByPhone(phone)
 

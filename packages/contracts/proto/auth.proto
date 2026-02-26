@@ -20,14 +20,16 @@ message SendOtpRequest {
 
 message SendOtpResponse {
   bool ok = 1;
+  string challenge_id = 2;
 }
 
 message VerifyOtpRequest {
   string phone     = 1;
   string code      = 2;
   string device_id = 3;
+  string challenge_id = 4;
 
-  UserInfo user_info = 4;
+  UserInfo user_info = 5;
 }
 
 message UserInfo {

@@ -10,4 +10,5 @@
  */
 export type * from './models/Account'
 export type * from './models/Session'
+export type * from './models/PendingContactChange'
 export type * from './commonInputTypes'

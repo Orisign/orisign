@@ -33,6 +33,7 @@ import {
 	ListSessionsResponseDto,
 	OkResponseDto,
 	RevokeSessionRequestDto,
+	SendOtpResponseDto,
 	SendOtpRequest,
 	VerifyOtpRequest
 } from './dto'
@@ -55,8 +56,8 @@ export class AuthController {
 		description: 'Данные для отправки OTP'
 	})
 	@ApiOkResponse({
-		type: OkResponseDto,
-		description: 'OTP-код успешно отправлен'
+		type: SendOtpResponseDto,
+		description: 'OTP-код успешно отправлен, возвращён challengeId для подтверждения'
 	})
 	@ApiBadRequestResponse({
 		description: 'Невалидный номер телефона или deviceId'

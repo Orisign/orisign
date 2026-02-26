@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package account.v1;
+
+service AccountService {
+  rpc GetAccount (GetAccountRequest) returns (GetAccountResponse);
+  rpc InitEmailChange (InitEmailChangeRequest) returns (ChangeResponse);
+  rpc ConfirmEmailChange (ConfirmEmailChangeRequest) returns (ChangeResponse);
+  rpc InitPhoneChange (InitPhoneChangeRequest) returns (ChangeResponse);
+  rpc ConfirmPhoneChange (ConfirmPhoneChangeRequest) returns (ChangeResponse);
+}
+
+message GetAccountRequest {
+  string id = 1;
+}
+
+message GetAccountResponse {
+  string id = 1;
+
+  string phone = 2;
+  string email = 3;
+
+  bool is_phone_verified = 4;
+  bool is_email_verified = 5;
+
+  Role role = 6;
+}
+
+message InitEmailChangeRequest {
+  string email   = 1;
+  string user_id = 2;
+}
+
+message ConfirmEmailChangeRequest {
+  string email   = 1;
+  string code    = 2;
+  string user_id = 3;
+  string challenge_id = 4;
+}
+
+message InitPhoneChangeRequest {
+  string phone   = 1;
+  string user_id = 2;
+}
+
+message ConfirmPhoneChangeRequest {
+  string phone   = 1;
+  string code    = 2;
+  string user_id = 3;
+  string challenge_id = 4;
+}
+
+message ChangeResponse {
+  bool ok = 1;
+  string challenge_id = 2;
+}
+
+enum Role {
+  USER  = 0;
+  ADMIN = 1;
+}

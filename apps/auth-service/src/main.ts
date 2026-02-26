@@ -15,8 +15,8 @@ async function bootstrap() {
 	app.connectMicroservice<MicroserviceOptions>({
 		transport: Transport.GRPC,
 		options: {
-			package: ['auth.v1'],
-			protoPath: [PROTO_PATHS.AUTH],
+			package: ['auth.v1', 'account.v1'],
+			protoPath: [PROTO_PATHS.AUTH, PROTO_PATHS.ACCOUNT],
 			url,
 			loader: {
 				keepCase: false,

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { APP_GUARD, Reflector } from '@nestjs/core'
+import { AccountModule } from 'src/modules/account/account.module'
 import { AuthModule } from 'src/modules/auth/auth.module'
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler"
 import { UsersModule } from 'src/modules/users/users.module'
@@ -16,6 +17,7 @@ import { UsersModule } from 'src/modules/users/users.module'
 				}
 			]
 		}),
+		AccountModule,
 		AuthModule,
 		UsersModule
 	],
