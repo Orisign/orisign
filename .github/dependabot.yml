@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: "bun"
+    directory: "/apps/auth-service"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "bun"
+    directory: "/apps/gateway-service"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "bun"
+    directory: "/apps/users-service"
+    schedule:
+      interval: "weekly"
+
+  # - package-ecosystem: "bun"
+  #   directory: "/apps/web"
+  #   schedule:
+  #     interval: "weekly"
+
+  - package-ecosystem: "bun"
+    directory: "/packages/ui"
+    schedule:
+      interval: "weekly"
