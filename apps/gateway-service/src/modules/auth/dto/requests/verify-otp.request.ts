@@ -28,6 +28,14 @@ export class VerifyOtpRequest {
   public code: string;
 
   @ApiProperty({
+    example: '7701ad6a-95f3-44a6-9303-0d541fcb167f',
+    description: 'Challenge ID, полученный на шаге отправки OTP'
+  })
+  @IsString()
+  @IsNotEmpty()
+  public challengeId: string;
+
+  @ApiProperty({
     example: '59a43f03-4d56-4adc-aee2-20d9c5dcbf69',
     description: 'Уникальный идентификатор устройства клиента',
   })

@@ -17,12 +17,14 @@ export interface SendOtpRequest {
 
 export interface SendOtpResponse {
   ok: boolean;
+  challengeId: string;
 }
 
 export interface VerifyOtpRequest {
   phone: string;
   code: string;
   deviceId: string;
+  challengeId: string;
   userInfo: UserInfo | undefined;
 }
 

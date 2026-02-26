@@ -52,7 +52,8 @@ export const AnyNull = runtime.AnyNull
 
 export const ModelName = {
   Account: 'Account',
-  Session: 'Session'
+  Session: 'Session',
+  PendingContactChange: 'PendingContactChange'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -99,6 +100,20 @@ export const SessionScalarFieldEnum = {
 } as const
 
 export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeof SessionScalarFieldEnum]
+
+
+export const PendingContactChangeScalarFieldEnum = {
+  id: 'id',
+  type: 'type',
+  value: 'value',
+  codeHash: 'codeHash',
+  expiresAt: 'expiresAt',
+  accountId: 'accountId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PendingContactChangeScalarFieldEnum = (typeof PendingContactChangeScalarFieldEnum)[keyof typeof PendingContactChangeScalarFieldEnum]
 
 
 export const SortOrder = {

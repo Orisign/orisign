@@ -4,8 +4,9 @@
   "types": "./dist/index.d.ts",
   "private": true,
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "generate": "protoc -I ./proto ./proto/*.proto --ts_proto_out=./gen/ts --ts_proto_opt=nestJs=true,package=omit "
+    "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.gen.json",
+    "build:gen": "tsc -p tsconfig.gen.json",
+    "generate": "protoc -I ./proto ./proto/*.proto --ts_proto_out=./gen/ts --ts_proto_opt=nestJs=true,package=omit && bun run build:gen"
   },
   "devDependencies": {
     "@types/bun": "latest",

@@ -207,6 +207,7 @@ export type AccountWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"Account"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Account"> | Date | string
   sessions?: Prisma.SessionListRelationFilter
+  pendingContactChanges?: Prisma.PendingContactChangeListRelationFilter
 }
 
 export type AccountOrderByWithRelationInput = {
@@ -219,6 +220,7 @@ export type AccountOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   sessions?: Prisma.SessionOrderByRelationAggregateInput
+  pendingContactChanges?: Prisma.PendingContactChangeOrderByRelationAggregateInput
 }
 
 export type AccountWhereUniqueInput = Prisma.AtLeast<{
@@ -234,6 +236,7 @@ export type AccountWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"Account"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Account"> | Date | string
   sessions?: Prisma.SessionListRelationFilter
+  pendingContactChanges?: Prisma.PendingContactChangeListRelationFilter
 }, "id" | "phone" | "email">
 
 export type AccountOrderByWithAggregationInput = {
@@ -274,6 +277,7 @@ export type AccountCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutAccountInput
+  pendingContactChanges?: Prisma.PendingContactChangeCreateNestedManyWithoutAccountInput
 }
 
 export type AccountUncheckedCreateInput = {
@@ -286,6 +290,7 @@ export type AccountUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutAccountInput
+  pendingContactChanges?: Prisma.PendingContactChangeUncheckedCreateNestedManyWithoutAccountInput
 }
 
 export type AccountUpdateInput = {
@@ -298,6 +303,7 @@ export type AccountUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutAccountNestedInput
+  pendingContactChanges?: Prisma.PendingContactChangeUpdateManyWithoutAccountNestedInput
 }
 
 export type AccountUncheckedUpdateInput = {
@@ -310,6 +316,7 @@ export type AccountUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutAccountNestedInput
+  pendingContactChanges?: Prisma.PendingContactChangeUncheckedUpdateManyWithoutAccountNestedInput
 }
 
 export type AccountCreateManyInput = {
@@ -417,6 +424,20 @@ export type AccountUpdateOneRequiredWithoutSessionsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.AccountUpdateToOneWithWhereWithoutSessionsInput, Prisma.AccountUpdateWithoutSessionsInput>, Prisma.AccountUncheckedUpdateWithoutSessionsInput>
 }
 
+export type AccountCreateNestedOneWithoutPendingContactChangesInput = {
+  create?: Prisma.XOR<Prisma.AccountCreateWithoutPendingContactChangesInput, Prisma.AccountUncheckedCreateWithoutPendingContactChangesInput>
+  connectOrCreate?: Prisma.AccountCreateOrConnectWithoutPendingContactChangesInput
+  connect?: Prisma.AccountWhereUniqueInput
+}
+
+export type AccountUpdateOneRequiredWithoutPendingContactChangesNestedInput = {
+  create?: Prisma.XOR<Prisma.AccountCreateWithoutPendingContactChangesInput, Prisma.AccountUncheckedCreateWithoutPendingContactChangesInput>
+  connectOrCreate?: Prisma.AccountCreateOrConnectWithoutPendingContactChangesInput
+  upsert?: Prisma.AccountUpsertWithoutPendingContactChangesInput
+  connect?: Prisma.AccountWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.AccountUpdateToOneWithWhereWithoutPendingContactChangesInput, Prisma.AccountUpdateWithoutPendingContactChangesInput>, Prisma.AccountUncheckedUpdateWithoutPendingContactChangesInput>
+}
+
 export type AccountCreateWithoutSessionsInput = {
   id?: string
   phone: string
@@ -426,6 +447,7 @@ export type AccountCreateWithoutSessionsInput = {
   role?: $Enums.Role
   createdAt?: Date | string
   updatedAt?: Date | string
+  pendingContactChanges?: Prisma.PendingContactChangeCreateNestedManyWithoutAccountInput
 }
 
 export type AccountUncheckedCreateWithoutSessionsInput = {
@@ -437,6 +459,7 @@ export type AccountUncheckedCreateWithoutSessionsInput = {
   role?: $Enums.Role
   createdAt?: Date | string
   updatedAt?: Date | string
+  pendingContactChanges?: Prisma.PendingContactChangeUncheckedCreateNestedManyWithoutAccountInput
 }
 
 export type AccountCreateOrConnectWithoutSessionsInput = {
@@ -464,6 +487,7 @@ export type AccountUpdateWithoutSessionsInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  pendingContactChanges?: Prisma.PendingContactChangeUpdateManyWithoutAccountNestedInput
 }
 
 export type AccountUncheckedUpdateWithoutSessionsInput = {
@@ -475,6 +499,71 @@ export type AccountUncheckedUpdateWithoutSessionsInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  pendingContactChanges?: Prisma.PendingContactChangeUncheckedUpdateManyWithoutAccountNestedInput
+}
+
+export type AccountCreateWithoutPendingContactChangesInput = {
+  id?: string
+  phone: string
+  email?: string | null
+  isPhoneVerified?: boolean
+  isEmailVerified?: boolean
+  role?: $Enums.Role
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.SessionCreateNestedManyWithoutAccountInput
+}
+
+export type AccountUncheckedCreateWithoutPendingContactChangesInput = {
+  id?: string
+  phone: string
+  email?: string | null
+  isPhoneVerified?: boolean
+  isEmailVerified?: boolean
+  role?: $Enums.Role
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutAccountInput
+}
+
+export type AccountCreateOrConnectWithoutPendingContactChangesInput = {
+  where: Prisma.AccountWhereUniqueInput
+  create: Prisma.XOR<Prisma.AccountCreateWithoutPendingContactChangesInput, Prisma.AccountUncheckedCreateWithoutPendingContactChangesInput>
+}
+
+export type AccountUpsertWithoutPendingContactChangesInput = {
+  update: Prisma.XOR<Prisma.AccountUpdateWithoutPendingContactChangesInput, Prisma.AccountUncheckedUpdateWithoutPendingContactChangesInput>
+  create: Prisma.XOR<Prisma.AccountCreateWithoutPendingContactChangesInput, Prisma.AccountUncheckedCreateWithoutPendingContactChangesInput>
+  where?: Prisma.AccountWhereInput
+}
+
+export type AccountUpdateToOneWithWhereWithoutPendingContactChangesInput = {
+  where?: Prisma.AccountWhereInput
+  data: Prisma.XOR<Prisma.AccountUpdateWithoutPendingContactChangesInput, Prisma.AccountUncheckedUpdateWithoutPendingContactChangesInput>
+}
+
+export type AccountUpdateWithoutPendingContactChangesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isPhoneVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isEmailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.SessionUpdateManyWithoutAccountNestedInput
+}
+
+export type AccountUncheckedUpdateWithoutPendingContactChangesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isPhoneVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isEmailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.SessionUncheckedUpdateManyWithoutAccountNestedInput
 }
 
 
@@ -484,10 +573,12 @@ export type AccountUncheckedUpdateWithoutSessionsInput = {
 
 export type AccountCountOutputType = {
   sessions: number
+  pendingContactChanges: number
 }
 
 export type AccountCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sessions?: boolean | AccountCountOutputTypeCountSessionsArgs
+  pendingContactChanges?: boolean | AccountCountOutputTypeCountPendingContactChangesArgs
 }
 
 /**
@@ -507,6 +598,13 @@ export type AccountCountOutputTypeCountSessionsArgs<ExtArgs extends runtime.Type
   where?: Prisma.SessionWhereInput
 }
 
+/**
+ * AccountCountOutputType without action
+ */
+export type AccountCountOutputTypeCountPendingContactChangesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PendingContactChangeWhereInput
+}
+
 
 export type AccountSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -518,6 +616,7 @@ export type AccountSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   createdAt?: boolean
   updatedAt?: boolean
   sessions?: boolean | Prisma.Account$sessionsArgs<ExtArgs>
+  pendingContactChanges?: boolean | Prisma.Account$pendingContactChangesArgs<ExtArgs>
   _count?: boolean | Prisma.AccountCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["account"]>
 
@@ -557,6 +656,7 @@ export type AccountSelectScalar = {
 export type AccountOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "phone" | "email" | "isPhoneVerified" | "isEmailVerified" | "role" | "createdAt" | "updatedAt", ExtArgs["result"]["account"]>
 export type AccountInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sessions?: boolean | Prisma.Account$sessionsArgs<ExtArgs>
+  pendingContactChanges?: boolean | Prisma.Account$pendingContactChangesArgs<ExtArgs>
   _count?: boolean | Prisma.AccountCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type AccountIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -566,6 +666,7 @@ export type $AccountPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
   name: "Account"
   objects: {
     sessions: Prisma.$SessionPayload<ExtArgs>[]
+    pendingContactChanges: Prisma.$PendingContactChangePayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -971,6 +1072,7 @@ readonly fields: AccountFieldRefs;
 export interface Prisma__AccountClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   sessions<T extends Prisma.Account$sessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Account$sessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  pendingContactChanges<T extends Prisma.Account$pendingContactChangesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Account$pendingContactChangesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PendingContactChangePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1417,6 +1519,30 @@ export type Account$sessionsArgs<ExtArgs extends runtime.Types.Extensions.Intern
   take?: number
   skip?: number
   distinct?: Prisma.SessionScalarFieldEnum | Prisma.SessionScalarFieldEnum[]
+}
+
+/**
+ * Account.pendingContactChanges
+ */
+export type Account$pendingContactChangesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PendingContactChange
+   */
+  select?: Prisma.PendingContactChangeSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PendingContactChange
+   */
+  omit?: Prisma.PendingContactChangeOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PendingContactChangeInclude<ExtArgs> | null
+  where?: Prisma.PendingContactChangeWhereInput
+  orderBy?: Prisma.PendingContactChangeOrderByWithRelationInput | Prisma.PendingContactChangeOrderByWithRelationInput[]
+  cursor?: Prisma.PendingContactChangeWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PendingContactChangeScalarFieldEnum | Prisma.PendingContactChangeScalarFieldEnum[]
 }
 
 /**

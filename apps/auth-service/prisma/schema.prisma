@@ -19,6 +19,7 @@ model Account {
   role Role @default(USER)
 
   sessions Session[]
+  pendingContactChanges PendingContactChange[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -29,7 +30,7 @@ model Account {
 model Session {
   id String @id @default(cuid())
 
-  account   Account @relation(fields: [accountId], references: [id])
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
   accountId String  @map("account_id")
 
   refreshTokenHash String @map("refresh_token_hash")
@@ -47,6 +48,24 @@ model Session {
   @@index([accountId])
   @@unique([accountId, deviceId])
   @@map("sessions")
+}
+
+model PendingContactChange {
+  id String @id @default(cuid())
+
+  type String
+  value String
+  codeHash String @map("code_hash")
+  expiresAt DateTime @map("expires_at")
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId String @map("account_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt
+
+  @@unique([accountId, type])
+  @@map("pending_contact_changes")
 }
 
 enum Role {

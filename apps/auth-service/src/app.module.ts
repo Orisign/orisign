@@ -6,6 +6,8 @@ import { RedisModule } from './infra/redis/redis.module'
 import { AuthModule } from './modules/auth/auth.module'
 import { OtpModule } from './modules/otp/otp.module'
 import { TokenModule } from './modules/token/token.module'
+import { AccountModule } from './modules/account/account.module';
+import { MessagingModule } from './infra/messaging/messaging.module';
 
 @Module({
 	imports: [
@@ -16,7 +18,9 @@ import { TokenModule } from './modules/token/token.module'
 		RedisModule,
 		AuthModule,
 		OtpModule,
-		TokenModule
+		TokenModule,
+		AccountModule,
+		MessagingModule
 	]
 })
 export class AppModule {}
