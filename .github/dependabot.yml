@@ -15,10 +15,10 @@ updates:
     schedule:
       interval: "weekly"
 
-  # - package-ecosystem: "bun"
-  #   directory: "/apps/web"
-  #   schedule:
-  #     interval: "weekly"
+  - package-ecosystem: "bun"
+    directory: "/apps/web"
+    schedule:
+      interval: "weekly"
 
   - package-ecosystem: "bun"
     directory: "/packages/ui"

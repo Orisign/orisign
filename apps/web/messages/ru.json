@@ -1,0 +1,15 @@
+{
+  "auth": {
+    "title": "Войти в Orisign",
+    "description": "Проверьте код страны и введите свой номер телефона",
+    "countryInput": {
+      "label": "Страна"
+    },
+    "phoneInput": {
+      "label": "Номер телефона"
+    },
+    "submitButton": "Далее",
+    "qrButton": "Вход по QR-коду",
+    "successMessage": "Мы отправили проверочный код на ваш номер телефона."
+  }
+}
