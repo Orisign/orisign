@@ -17,6 +17,8 @@
   "dependencies": {
     "amqp-connection-manager": "^5.0.0",
     "amqplib": "^0.10.9",
-    "auth-service": "workspace:*"
+    "auth-service": "workspace:*",
+    "next-intl": "^4.8.3",
+    "web": "./apps/web"
   }
 }
