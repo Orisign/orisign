@@ -12,7 +12,7 @@ import { useTranslations } from "next-intl";
 import { Button, Input } from "@repo/ui";
 import { Player } from "@lottiefiles/react-lottie-player";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+
 
 export const OnboardingForm = () => {
   const t = useTranslations("profile");
@@ -39,8 +39,6 @@ export const OnboardingForm = () => {
       username: "",
     },
   });
-
-  const { isValid } = form.formState;
 
   function onSubmit(data: TypeEditProfileSchema) {
     editProfile({
@@ -74,7 +72,9 @@ export const OnboardingForm = () => {
               placeholder={t("form.firstName.placeholder")}
               autoComplete="off"
             />
-            {fieldState.error && <FieldError errors={[fieldState.error]} />}
+            {fieldState.error && (
+              <FieldError className="w-full text-left" errors={[fieldState.error]} />
+            )}
           </Field>
         )}
       />
@@ -89,7 +89,9 @@ export const OnboardingForm = () => {
               placeholder={t("form.lastName.placeholder")}
               autoComplete="off"
             />
-            {fieldState.error && <FieldError errors={[fieldState.error]} />}
+            {fieldState.error && (
+              <FieldError className="w-full text-left" errors={[fieldState.error]} />
+            )}
           </Field>
         )}
       />
@@ -104,7 +106,9 @@ export const OnboardingForm = () => {
               placeholder={t("form.username.placeholder")}
               autoComplete="off"
             />
-            {fieldState.error && <FieldError errors={[fieldState.error]} />}
+            {fieldState.error && (
+              <FieldError className="w-full text-left" errors={[fieldState.error]} />
+            )}
           </Field>
         )}
       />
@@ -112,7 +116,7 @@ export const OnboardingForm = () => {
       <Button
         type="submit"
         className="mt-2 h-12 w-full"
-        disabled={isLoading || !isValid}
+        disabled={isLoading}
       >
         {t("form.submitButton")}
       </Button>
