@@ -80,7 +80,7 @@ export function AuthForm() {
               <Controller
                 name={"phone"}
                 control={form.control}
-                render={({ field: { onChange, ...field } }) => (
+                render={({ field: { onChange, ...field }, fieldState }) => (
                   <Field>
                     <FieldLabel>{t("phoneInput.label")}</FieldLabel>
                     <NumberInput
@@ -89,6 +89,9 @@ export function AuthForm() {
                         onChange(payload.international)
                       }
                     />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
                   </Field>
                 )}
               />
