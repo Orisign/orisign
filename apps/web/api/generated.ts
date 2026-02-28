@@ -13,13 +13,21 @@
 - Для `POST /auth/otp/send`: 1 запрос / 30 секунд.
  * OpenAPI spec version: 1.0.0
  */
-import axios from 'axios';
+import {
+  useMutation,
+  useQuery
+} from '@tanstack/react-query';
 import type {
-  AxiosInstance,
-  AxiosRequestConfig,
-  AxiosResponse
-} from 'axios';
+  MutationFunction,
+  QueryFunction,
+  QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
+  UseQueryOptions,
+  UseQueryResult
+} from '@tanstack/react-query';
 
+import { customFetch } from '../lib/fetcher';
 export type AccountResponseDtoRole = typeof AccountResponseDtoRole[keyof typeof AccountResponseDtoRole];
 
 
@@ -237,269 +245,1382 @@ export type UsersControllerAddAvatarBody = {
   file: Blob;
 };
 
-export const getOrisignAPI = (axiosInstance: AxiosInstance = axios) => {
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+
+
 /**
  * Возвращает данные аккаунта текущего авторизованного пользователя
  * @summary Текущий аккаунт
  */
-const accountControllerMe = (
-     options?: AxiosRequestConfig
- ): Promise<AxiosResponse<AccountResponseDto>> => {
-    return axiosInstance.get(
-      `/account/me`,options
-    );
+export const getAccountControllerMeUrl = () => {
+
+
+  
+
+  return `http://localhost:4000/account/me`
+}
+
+export const accountControllerMe = async ( options?: RequestInit): Promise<AccountResponseDto> => {
+  
+  return customFetch<AccountResponseDto>(getAccountControllerMeUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
   }
+);}
+  
+
+
+
+
+export const getAccountControllerMeQueryKey = () => {
+    return [
+    `http://localhost:4000/account/me`
+    ] as const;
+    }
+
+    
+export const getAccountControllerMeQueryOptions = <TData = Awaited<ReturnType<typeof accountControllerMe>>, TError = unknown>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof accountControllerMe>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAccountControllerMeQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof accountControllerMe>>> = ({ signal }) => accountControllerMe({ signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof accountControllerMe>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type AccountControllerMeQueryResult = NonNullable<Awaited<ReturnType<typeof accountControllerMe>>>
+export type AccountControllerMeQueryError = unknown
+
+
+/**
+ * @summary Текущий аккаунт
+ */
+
+export function useAccountControllerMe<TData = Awaited<ReturnType<typeof accountControllerMe>>, TError = unknown>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof accountControllerMe>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+  
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getAccountControllerMeQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
 
 /**
  * Отправляет код подтверждения на новый email
  * @summary Инициация смены email
  */
-const accountControllerInitEmail = (
-    initEmailChangeRequestDto: InitEmailChangeRequestDto, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<ChangeResponseDto>> => {
-    return axiosInstance.post(
-      `/account/email/init`,
-      initEmailChangeRequestDto,options
-    );
-  }
+export const getAccountControllerInitEmailUrl = () => {
 
+
+  
+
+  return `http://localhost:4000/account/email/init`
+}
+
+export const accountControllerInitEmail = async (initEmailChangeRequestDto: InitEmailChangeRequestDto, options?: RequestInit): Promise<ChangeResponseDto> => {
+  
+  return customFetch<ChangeResponseDto>(getAccountControllerInitEmailUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      initEmailChangeRequestDto,)
+  }
+);}
+  
+
+
+
+export const getAccountControllerInitEmailMutationOptions = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof accountControllerInitEmail>>, TError,{data: InitEmailChangeRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof accountControllerInitEmail>>, TError,{data: InitEmailChangeRequestDto}, TContext> => {
+
+const mutationKey = ['accountControllerInitEmail'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof accountControllerInitEmail>>, {data: InitEmailChangeRequestDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  accountControllerInitEmail(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AccountControllerInitEmailMutationResult = NonNullable<Awaited<ReturnType<typeof accountControllerInitEmail>>>
+    export type AccountControllerInitEmailMutationBody = InitEmailChangeRequestDto
+    export type AccountControllerInitEmailMutationError = void
+
+    /**
+ * @summary Инициация смены email
+ */
+export const useAccountControllerInitEmail = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof accountControllerInitEmail>>, TError,{data: InitEmailChangeRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof accountControllerInitEmail>>,
+        TError,
+        {data: InitEmailChangeRequestDto},
+        TContext
+      > => {
+      return useMutation(getAccountControllerInitEmailMutationOptions(options));
+    }
+    
 /**
  * Подтверждает email по коду
  * @summary Подтверждение смены email
  */
-const accountControllerConfirmEmail = (
-    confirmEmailChangeRequestDto: ConfirmEmailChangeRequestDto, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<ChangeResponseDto>> => {
-    return axiosInstance.post(
-      `/account/email/confirm`,
-      confirmEmailChangeRequestDto,options
-    );
-  }
+export const getAccountControllerConfirmEmailUrl = () => {
 
+
+  
+
+  return `http://localhost:4000/account/email/confirm`
+}
+
+export const accountControllerConfirmEmail = async (confirmEmailChangeRequestDto: ConfirmEmailChangeRequestDto, options?: RequestInit): Promise<ChangeResponseDto> => {
+  
+  return customFetch<ChangeResponseDto>(getAccountControllerConfirmEmailUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      confirmEmailChangeRequestDto,)
+  }
+);}
+  
+
+
+
+export const getAccountControllerConfirmEmailMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof accountControllerConfirmEmail>>, TError,{data: ConfirmEmailChangeRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof accountControllerConfirmEmail>>, TError,{data: ConfirmEmailChangeRequestDto}, TContext> => {
+
+const mutationKey = ['accountControllerConfirmEmail'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof accountControllerConfirmEmail>>, {data: ConfirmEmailChangeRequestDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  accountControllerConfirmEmail(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AccountControllerConfirmEmailMutationResult = NonNullable<Awaited<ReturnType<typeof accountControllerConfirmEmail>>>
+    export type AccountControllerConfirmEmailMutationBody = ConfirmEmailChangeRequestDto
+    export type AccountControllerConfirmEmailMutationError = unknown
+
+    /**
+ * @summary Подтверждение смены email
+ */
+export const useAccountControllerConfirmEmail = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof accountControllerConfirmEmail>>, TError,{data: ConfirmEmailChangeRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof accountControllerConfirmEmail>>,
+        TError,
+        {data: ConfirmEmailChangeRequestDto},
+        TContext
+      > => {
+      return useMutation(getAccountControllerConfirmEmailMutationOptions(options));
+    }
+    
 /**
  * Отправляет код подтверждения на новый номер телефона
  * @summary Инициация смены телефона
  */
-const accountControllerInitPhone = (
-    initPhoneChangeRequestDto: InitPhoneChangeRequestDto, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<ChangeResponseDto>> => {
-    return axiosInstance.post(
-      `/account/phone/init`,
-      initPhoneChangeRequestDto,options
-    );
-  }
+export const getAccountControllerInitPhoneUrl = () => {
 
+
+  
+
+  return `http://localhost:4000/account/phone/init`
+}
+
+export const accountControllerInitPhone = async (initPhoneChangeRequestDto: InitPhoneChangeRequestDto, options?: RequestInit): Promise<ChangeResponseDto> => {
+  
+  return customFetch<ChangeResponseDto>(getAccountControllerInitPhoneUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      initPhoneChangeRequestDto,)
+  }
+);}
+  
+
+
+
+export const getAccountControllerInitPhoneMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof accountControllerInitPhone>>, TError,{data: InitPhoneChangeRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof accountControllerInitPhone>>, TError,{data: InitPhoneChangeRequestDto}, TContext> => {
+
+const mutationKey = ['accountControllerInitPhone'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof accountControllerInitPhone>>, {data: InitPhoneChangeRequestDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  accountControllerInitPhone(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AccountControllerInitPhoneMutationResult = NonNullable<Awaited<ReturnType<typeof accountControllerInitPhone>>>
+    export type AccountControllerInitPhoneMutationBody = InitPhoneChangeRequestDto
+    export type AccountControllerInitPhoneMutationError = unknown
+
+    /**
+ * @summary Инициация смены телефона
+ */
+export const useAccountControllerInitPhone = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof accountControllerInitPhone>>, TError,{data: InitPhoneChangeRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof accountControllerInitPhone>>,
+        TError,
+        {data: InitPhoneChangeRequestDto},
+        TContext
+      > => {
+      return useMutation(getAccountControllerInitPhoneMutationOptions(options));
+    }
+    
 /**
  * Подтверждает номер телефона по коду
  * @summary Подтверждение смены телефона
  */
-const accountControllerConfirmPhone = (
-    confirmPhoneChangeRequestDto: ConfirmPhoneChangeRequestDto, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<ChangeResponseDto>> => {
-    return axiosInstance.post(
-      `/account/phone/confirm`,
-      confirmPhoneChangeRequestDto,options
-    );
-  }
+export const getAccountControllerConfirmPhoneUrl = () => {
 
+
+  
+
+  return `http://localhost:4000/account/phone/confirm`
+}
+
+export const accountControllerConfirmPhone = async (confirmPhoneChangeRequestDto: ConfirmPhoneChangeRequestDto, options?: RequestInit): Promise<ChangeResponseDto> => {
+  
+  return customFetch<ChangeResponseDto>(getAccountControllerConfirmPhoneUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      confirmPhoneChangeRequestDto,)
+  }
+);}
+  
+
+
+
+export const getAccountControllerConfirmPhoneMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof accountControllerConfirmPhone>>, TError,{data: ConfirmPhoneChangeRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof accountControllerConfirmPhone>>, TError,{data: ConfirmPhoneChangeRequestDto}, TContext> => {
+
+const mutationKey = ['accountControllerConfirmPhone'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof accountControllerConfirmPhone>>, {data: ConfirmPhoneChangeRequestDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  accountControllerConfirmPhone(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AccountControllerConfirmPhoneMutationResult = NonNullable<Awaited<ReturnType<typeof accountControllerConfirmPhone>>>
+    export type AccountControllerConfirmPhoneMutationBody = ConfirmPhoneChangeRequestDto
+    export type AccountControllerConfirmPhoneMutationError = unknown
+
+    /**
+ * @summary Подтверждение смены телефона
+ */
+export const useAccountControllerConfirmPhone = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof accountControllerConfirmPhone>>, TError,{data: ConfirmPhoneChangeRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof accountControllerConfirmPhone>>,
+        TError,
+        {data: ConfirmPhoneChangeRequestDto},
+        TContext
+      > => {
+      return useMutation(getAccountControllerConfirmPhoneMutationOptions(options));
+    }
+    
 /**
  * Отправляет одноразовый 6-значный код на указанный номер телефона для входа.
  * @summary Отправка OTP-кода
  */
-const authControllerSendOtp = (
-    sendOtpRequest: SendOtpRequest, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<SendOtpResponseDto>> => {
-    return axiosInstance.post(
-      `/auth/otp/send`,
-      sendOtpRequest,options
-    );
-  }
+export const getAuthControllerSendOtpUrl = () => {
 
+
+  
+
+  return `http://localhost:4000/auth/otp/send`
+}
+
+export const authControllerSendOtp = async (sendOtpRequest: SendOtpRequest, options?: RequestInit): Promise<SendOtpResponseDto> => {
+  
+  return customFetch<SendOtpResponseDto>(getAuthControllerSendOtpUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      sendOtpRequest,)
+  }
+);}
+  
+
+
+
+export const getAuthControllerSendOtpMutationOptions = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authControllerSendOtp>>, TError,{data: SendOtpRequest}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authControllerSendOtp>>, TError,{data: SendOtpRequest}, TContext> => {
+
+const mutationKey = ['authControllerSendOtp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authControllerSendOtp>>, {data: SendOtpRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  authControllerSendOtp(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthControllerSendOtpMutationResult = NonNullable<Awaited<ReturnType<typeof authControllerSendOtp>>>
+    export type AuthControllerSendOtpMutationBody = SendOtpRequest
+    export type AuthControllerSendOtpMutationError = void
+
+    /**
+ * @summary Отправка OTP-кода
+ */
+export const useAuthControllerSendOtp = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authControllerSendOtp>>, TError,{data: SendOtpRequest}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof authControllerSendOtp>>,
+        TError,
+        {data: SendOtpRequest},
+        TContext
+      > => {
+      return useMutation(getAuthControllerSendOtpMutationOptions(options));
+    }
+    
 /**
  * Проверяет OTP-код, создает сессию и возвращает access token. Refresh token сохраняется в HttpOnly cookie.
  * @summary Подтверждение OTP-кода
  */
-const authControllerVerify = (
-    verifyOtpRequest: VerifyOtpRequest, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<AccessTokenResponseDto>> => {
-    return axiosInstance.post(
-      `/auth/otp/verify`,
-      verifyOtpRequest,options
-    );
-  }
+export const getAuthControllerVerifyUrl = () => {
 
+
+  
+
+  return `http://localhost:4000/auth/otp/verify`
+}
+
+export const authControllerVerify = async (verifyOtpRequest: VerifyOtpRequest, options?: RequestInit): Promise<AccessTokenResponseDto> => {
+  
+  return customFetch<AccessTokenResponseDto>(getAuthControllerVerifyUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      verifyOtpRequest,)
+  }
+);}
+  
+
+
+
+export const getAuthControllerVerifyMutationOptions = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authControllerVerify>>, TError,{data: VerifyOtpRequest}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authControllerVerify>>, TError,{data: VerifyOtpRequest}, TContext> => {
+
+const mutationKey = ['authControllerVerify'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authControllerVerify>>, {data: VerifyOtpRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  authControllerVerify(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthControllerVerifyMutationResult = NonNullable<Awaited<ReturnType<typeof authControllerVerify>>>
+    export type AuthControllerVerifyMutationBody = VerifyOtpRequest
+    export type AuthControllerVerifyMutationError = void
+
+    /**
+ * @summary Подтверждение OTP-кода
+ */
+export const useAuthControllerVerify = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authControllerVerify>>, TError,{data: VerifyOtpRequest}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof authControllerVerify>>,
+        TError,
+        {data: VerifyOtpRequest},
+        TContext
+      > => {
+      return useMutation(getAuthControllerVerifyMutationOptions(options));
+    }
+    
 /**
  * Возвращает список активных сессий текущего пользователя. Поле `current=true` у текущего устройства.
  * @summary Получение активных сессий пользователя
  */
-const authControllerList = (
-    listSessionRequest: ListSessionRequest, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<ListSessionsResponseDto>> => {
-    return axiosInstance.post(
-      `/auth/list`,
-      listSessionRequest,options
-    );
-  }
+export const getAuthControllerListUrl = () => {
 
+
+  
+
+  return `http://localhost:4000/auth/list`
+}
+
+export const authControllerList = async (listSessionRequest: ListSessionRequest, options?: RequestInit): Promise<ListSessionsResponseDto> => {
+  
+  return customFetch<ListSessionsResponseDto>(getAuthControllerListUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      listSessionRequest,)
+  }
+);}
+  
+
+
+
+export const getAuthControllerListMutationOptions = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authControllerList>>, TError,{data: ListSessionRequest}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authControllerList>>, TError,{data: ListSessionRequest}, TContext> => {
+
+const mutationKey = ['authControllerList'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authControllerList>>, {data: ListSessionRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  authControllerList(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthControllerListMutationResult = NonNullable<Awaited<ReturnType<typeof authControllerList>>>
+    export type AuthControllerListMutationBody = ListSessionRequest
+    export type AuthControllerListMutationError = void
+
+    /**
+ * @summary Получение активных сессий пользователя
+ */
+export const useAuthControllerList = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authControllerList>>, TError,{data: ListSessionRequest}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof authControllerList>>,
+        TError,
+        {data: ListSessionRequest},
+        TContext
+      > => {
+      return useMutation(getAuthControllerListMutationOptions(options));
+    }
+    
 /**
  * Выпускает новый access token по refresh token из cookie и одновременно ротирует refresh token.
  * @summary Обновление access token
  */
-const authControllerRefresh = (
-     options?: AxiosRequestConfig
- ): Promise<AxiosResponse<AccessTokenResponseDto>> => {
-    return axiosInstance.post(
-      `/auth/refresh`,undefined,options
-    );
-  }
+export const getAuthControllerRefreshUrl = () => {
 
+
+  
+
+  return `http://localhost:4000/auth/refresh`
+}
+
+export const authControllerRefresh = async ( options?: RequestInit): Promise<AccessTokenResponseDto> => {
+  
+  return customFetch<AccessTokenResponseDto>(getAuthControllerRefreshUrl(),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+);}
+  
+
+
+
+export const getAuthControllerRefreshMutationOptions = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authControllerRefresh>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authControllerRefresh>>, TError,void, TContext> => {
+
+const mutationKey = ['authControllerRefresh'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authControllerRefresh>>, void> = () => {
+          
+
+          return  authControllerRefresh(requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthControllerRefreshMutationResult = NonNullable<Awaited<ReturnType<typeof authControllerRefresh>>>
+    
+    export type AuthControllerRefreshMutationError = void
+
+    /**
+ * @summary Обновление access token
+ */
+export const useAuthControllerRefresh = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authControllerRefresh>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof authControllerRefresh>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getAuthControllerRefreshMutationOptions(options));
+    }
+    
 /**
  * Завершает текущую сессию клиента: очищает refresh token из cookie.
  * @summary Выход из сессии
  */
-const authControllerLogout = (
-     options?: AxiosRequestConfig
- ): Promise<AxiosResponse<OkResponseDto>> => {
-    return axiosInstance.post(
-      `/auth/logout`,undefined,options
-    );
-  }
+export const getAuthControllerLogoutUrl = () => {
 
+
+  
+
+  return `http://localhost:4000/auth/logout`
+}
+
+export const authControllerLogout = async ( options?: RequestInit): Promise<OkResponseDto> => {
+  
+  return customFetch<OkResponseDto>(getAuthControllerLogoutUrl(),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+);}
+  
+
+
+
+export const getAuthControllerLogoutMutationOptions = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authControllerLogout>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authControllerLogout>>, TError,void, TContext> => {
+
+const mutationKey = ['authControllerLogout'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authControllerLogout>>, void> = () => {
+          
+
+          return  authControllerLogout(requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthControllerLogoutMutationResult = NonNullable<Awaited<ReturnType<typeof authControllerLogout>>>
+    
+    export type AuthControllerLogoutMutationError = void
+
+    /**
+ * @summary Выход из сессии
+ */
+export const useAuthControllerLogout = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authControllerLogout>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof authControllerLogout>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getAuthControllerLogoutMutationOptions(options));
+    }
+    
 /**
  * Завершает выбранную сессию по её `id`.
  * @summary Завершение конкретной сессии пользователя
  */
-const authControllerRevokeSession = (
-    revokeSessionRequestDto: RevokeSessionRequestDto, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<OkResponseDto>> => {
-    return axiosInstance.post(
-      `/auth/revoke`,
-      revokeSessionRequestDto,options
-    );
-  }
+export const getAuthControllerRevokeSessionUrl = () => {
 
+
+  
+
+  return `http://localhost:4000/auth/revoke`
+}
+
+export const authControllerRevokeSession = async (revokeSessionRequestDto: RevokeSessionRequestDto, options?: RequestInit): Promise<OkResponseDto> => {
+  
+  return customFetch<OkResponseDto>(getAuthControllerRevokeSessionUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      revokeSessionRequestDto,)
+  }
+);}
+  
+
+
+
+export const getAuthControllerRevokeSessionMutationOptions = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authControllerRevokeSession>>, TError,{data: RevokeSessionRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authControllerRevokeSession>>, TError,{data: RevokeSessionRequestDto}, TContext> => {
+
+const mutationKey = ['authControllerRevokeSession'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authControllerRevokeSession>>, {data: RevokeSessionRequestDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  authControllerRevokeSession(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthControllerRevokeSessionMutationResult = NonNullable<Awaited<ReturnType<typeof authControllerRevokeSession>>>
+    export type AuthControllerRevokeSessionMutationBody = RevokeSessionRequestDto
+    export type AuthControllerRevokeSessionMutationError = void
+
+    /**
+ * @summary Завершение конкретной сессии пользователя
+ */
+export const useAuthControllerRevokeSession = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authControllerRevokeSession>>, TError,{data: RevokeSessionRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof authControllerRevokeSession>>,
+        TError,
+        {data: RevokeSessionRequestDto},
+        TContext
+      > => {
+      return useMutation(getAuthControllerRevokeSessionMutationOptions(options));
+    }
+    
 /**
  * Возвращает профиль текущего авторизованного пользователя
  * @summary Текущий пользователь
  */
-const usersControllerMe = (
-     options?: AxiosRequestConfig
- ): Promise<AxiosResponse<void>> => {
-    return axiosInstance.get(
-      `/users/me`,options
-    );
+export const getUsersControllerMeUrl = () => {
+
+
+  
+
+  return `http://localhost:4000/users/me`
+}
+
+export const usersControllerMe = async ( options?: RequestInit): Promise<void> => {
+  
+  return customFetch<void>(getUsersControllerMeUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
   }
+);}
+  
+
+
+
+
+export const getUsersControllerMeQueryKey = () => {
+    return [
+    `http://localhost:4000/users/me`
+    ] as const;
+    }
+
+    
+export const getUsersControllerMeQueryOptions = <TData = Awaited<ReturnType<typeof usersControllerMe>>, TError = unknown>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof usersControllerMe>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getUsersControllerMeQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof usersControllerMe>>> = ({ signal }) => usersControllerMe({ signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof usersControllerMe>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type UsersControllerMeQueryResult = NonNullable<Awaited<ReturnType<typeof usersControllerMe>>>
+export type UsersControllerMeQueryError = unknown
+
+
+/**
+ * @summary Текущий пользователь
+ */
+
+export function useUsersControllerMe<TData = Awaited<ReturnType<typeof usersControllerMe>>, TError = unknown>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof usersControllerMe>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+  
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getUsersControllerMeQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
 
 /**
  * Получает пользователя по id или username
  * @summary Получить пользователя
  */
-const usersControllerGet = (
-    getUserRequestDto: GetUserRequestDto, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<void>> => {
-    return axiosInstance.post(
-      `/users/get`,
-      getUserRequestDto,options
-    );
-  }
+export const getUsersControllerGetUrl = () => {
 
+
+  
+
+  return `http://localhost:4000/users/get`
+}
+
+export const usersControllerGet = async (getUserRequestDto: GetUserRequestDto, options?: RequestInit): Promise<void> => {
+  
+  return customFetch<void>(getUsersControllerGetUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      getUserRequestDto,)
+  }
+);}
+  
+
+
+
+export const getUsersControllerGetMutationOptions = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersControllerGet>>, TError,{data: GetUserRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof usersControllerGet>>, TError,{data: GetUserRequestDto}, TContext> => {
+
+const mutationKey = ['usersControllerGet'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof usersControllerGet>>, {data: GetUserRequestDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  usersControllerGet(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UsersControllerGetMutationResult = NonNullable<Awaited<ReturnType<typeof usersControllerGet>>>
+    export type UsersControllerGetMutationBody = GetUserRequestDto
+    export type UsersControllerGetMutationError = void
+
+    /**
+ * @summary Получить пользователя
+ */
+export const useUsersControllerGet = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersControllerGet>>, TError,{data: GetUserRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof usersControllerGet>>,
+        TError,
+        {data: GetUserRequestDto},
+        TContext
+      > => {
+      return useMutation(getUsersControllerGetMutationOptions(options));
+    }
+    
 /**
  * Создаёт пользователя в users-service по id
  * @summary Создать пользователя
  */
-const usersControllerCreate = (
-    createUserRequestDto: CreateUserRequestDto, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<void>> => {
-    return axiosInstance.post(
-      `/users/create`,
-      createUserRequestDto,options
-    );
-  }
+export const getUsersControllerCreateUrl = () => {
 
+
+  
+
+  return `http://localhost:4000/users/create`
+}
+
+export const usersControllerCreate = async (createUserRequestDto: CreateUserRequestDto, options?: RequestInit): Promise<void> => {
+  
+  return customFetch<void>(getUsersControllerCreateUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      createUserRequestDto,)
+  }
+);}
+  
+
+
+
+export const getUsersControllerCreateMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersControllerCreate>>, TError,{data: CreateUserRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof usersControllerCreate>>, TError,{data: CreateUserRequestDto}, TContext> => {
+
+const mutationKey = ['usersControllerCreate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof usersControllerCreate>>, {data: CreateUserRequestDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  usersControllerCreate(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UsersControllerCreateMutationResult = NonNullable<Awaited<ReturnType<typeof usersControllerCreate>>>
+    export type UsersControllerCreateMutationBody = CreateUserRequestDto
+    export type UsersControllerCreateMutationError = unknown
+
+    /**
+ * @summary Создать пользователя
+ */
+export const useUsersControllerCreate = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersControllerCreate>>, TError,{data: CreateUserRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof usersControllerCreate>>,
+        TError,
+        {data: CreateUserRequestDto},
+        TContext
+      > => {
+      return useMutation(getUsersControllerCreateMutationOptions(options));
+    }
+    
 /**
  * Частично обновляет основные поля профиля пользователя
  * @summary Обновить профиль
  */
-const usersControllerPatch = (
-    patchUserRequestDto: PatchUserRequestDto, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<void>> => {
-    return axiosInstance.patch(
-      `/users`,
-      patchUserRequestDto,options
-    );
-  }
+export const getUsersControllerPatchUrl = () => {
 
+
+  
+
+  return `http://localhost:4000/users`
+}
+
+export const usersControllerPatch = async (patchUserRequestDto: PatchUserRequestDto, options?: RequestInit): Promise<void> => {
+  
+  return customFetch<void>(getUsersControllerPatchUrl(),
+  {      
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      patchUserRequestDto,)
+  }
+);}
+  
+
+
+
+export const getUsersControllerPatchMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersControllerPatch>>, TError,{data: PatchUserRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof usersControllerPatch>>, TError,{data: PatchUserRequestDto}, TContext> => {
+
+const mutationKey = ['usersControllerPatch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof usersControllerPatch>>, {data: PatchUserRequestDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  usersControllerPatch(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UsersControllerPatchMutationResult = NonNullable<Awaited<ReturnType<typeof usersControllerPatch>>>
+    export type UsersControllerPatchMutationBody = PatchUserRequestDto
+    export type UsersControllerPatchMutationError = unknown
+
+    /**
+ * @summary Обновить профиль
+ */
+export const useUsersControllerPatch = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersControllerPatch>>, TError,{data: PatchUserRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof usersControllerPatch>>,
+        TError,
+        {data: PatchUserRequestDto},
+        TContext
+      > => {
+      return useMutation(getUsersControllerPatchMutationOptions(options));
+    }
+    
 /**
  * Частично обновляет настройки приватности текущего пользователя
  * @summary Обновить приватность
  */
-const usersControllerPatchPrivacy = (
-    patchPrivacyRequestDto: PatchPrivacyRequestDto, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<void>> => {
-    return axiosInstance.patch(
-      `/users/privacy`,
-      patchPrivacyRequestDto,options
-    );
-  }
+export const getUsersControllerPatchPrivacyUrl = () => {
 
+
+  
+
+  return `http://localhost:4000/users/privacy`
+}
+
+export const usersControllerPatchPrivacy = async (patchPrivacyRequestDto: PatchPrivacyRequestDto, options?: RequestInit): Promise<void> => {
+  
+  return customFetch<void>(getUsersControllerPatchPrivacyUrl(),
+  {      
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      patchPrivacyRequestDto,)
+  }
+);}
+  
+
+
+
+export const getUsersControllerPatchPrivacyMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersControllerPatchPrivacy>>, TError,{data: PatchPrivacyRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof usersControllerPatchPrivacy>>, TError,{data: PatchPrivacyRequestDto}, TContext> => {
+
+const mutationKey = ['usersControllerPatchPrivacy'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof usersControllerPatchPrivacy>>, {data: PatchPrivacyRequestDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  usersControllerPatchPrivacy(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UsersControllerPatchPrivacyMutationResult = NonNullable<Awaited<ReturnType<typeof usersControllerPatchPrivacy>>>
+    export type UsersControllerPatchPrivacyMutationBody = PatchPrivacyRequestDto
+    export type UsersControllerPatchPrivacyMutationError = unknown
+
+    /**
+ * @summary Обновить приватность
+ */
+export const useUsersControllerPatchPrivacy = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersControllerPatchPrivacy>>, TError,{data: PatchPrivacyRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof usersControllerPatchPrivacy>>,
+        TError,
+        {data: PatchPrivacyRequestDto},
+        TContext
+      > => {
+      return useMutation(getUsersControllerPatchPrivacyMutationOptions(options));
+    }
+    
 /**
  * Загружает новый аватар в media-service и добавляет его key в профиль
  * @summary Добавить аватар
  */
-const usersControllerAddAvatar = (
-    usersControllerAddAvatarBody: UsersControllerAddAvatarBody, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<void>> => {const formData = new FormData();
+export const getUsersControllerAddAvatarUrl = () => {
+
+
+  
+
+  return `http://localhost:4000/users/avatar`
+}
+
+export const usersControllerAddAvatar = async (usersControllerAddAvatarBody: UsersControllerAddAvatarBody, options?: RequestInit): Promise<void> => {
+    const formData = new FormData();
 formData.append(`file`, usersControllerAddAvatarBody.file);
 
-    return axiosInstance.post(
-      `/users/avatar`,
-      formData,options
-    );
+  return customFetch<void>(getUsersControllerAddAvatarUrl(),
+  {      
+    ...options,
+    method: 'POST'
+    ,
+    body: 
+      formData,
   }
+);}
+  
 
+
+
+export const getUsersControllerAddAvatarMutationOptions = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersControllerAddAvatar>>, TError,{data: UsersControllerAddAvatarBody}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof usersControllerAddAvatar>>, TError,{data: UsersControllerAddAvatarBody}, TContext> => {
+
+const mutationKey = ['usersControllerAddAvatar'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof usersControllerAddAvatar>>, {data: UsersControllerAddAvatarBody}> = (props) => {
+          const {data} = props ?? {};
+
+          return  usersControllerAddAvatar(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UsersControllerAddAvatarMutationResult = NonNullable<Awaited<ReturnType<typeof usersControllerAddAvatar>>>
+    export type UsersControllerAddAvatarMutationBody = UsersControllerAddAvatarBody
+    export type UsersControllerAddAvatarMutationError = void
+
+    /**
+ * @summary Добавить аватар
+ */
+export const useUsersControllerAddAvatar = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersControllerAddAvatar>>, TError,{data: UsersControllerAddAvatarBody}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof usersControllerAddAvatar>>,
+        TError,
+        {data: UsersControllerAddAvatarBody},
+        TContext
+      > => {
+      return useMutation(getUsersControllerAddAvatarMutationOptions(options));
+    }
+    
 /**
  * Удаляет аватар из media-service и убирает его key из профиля
  * @summary Удалить аватар
  */
-const usersControllerDeleteAvatar = (
-    deleteAvatarRequestDto: DeleteAvatarRequestDto, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<void>> => {
-    return axiosInstance.delete(
-      `/users/avatar`,{data:
-      deleteAvatarRequestDto, ...options}
-    );
-  }
+export const getUsersControllerDeleteAvatarUrl = () => {
 
+
+  
+
+  return `http://localhost:4000/users/avatar`
+}
+
+export const usersControllerDeleteAvatar = async (deleteAvatarRequestDto: DeleteAvatarRequestDto, options?: RequestInit): Promise<void> => {
+  
+  return customFetch<void>(getUsersControllerDeleteAvatarUrl(),
+  {      
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      deleteAvatarRequestDto,)
+  }
+);}
+  
+
+
+
+export const getUsersControllerDeleteAvatarMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersControllerDeleteAvatar>>, TError,{data: DeleteAvatarRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof usersControllerDeleteAvatar>>, TError,{data: DeleteAvatarRequestDto}, TContext> => {
+
+const mutationKey = ['usersControllerDeleteAvatar'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof usersControllerDeleteAvatar>>, {data: DeleteAvatarRequestDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  usersControllerDeleteAvatar(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UsersControllerDeleteAvatarMutationResult = NonNullable<Awaited<ReturnType<typeof usersControllerDeleteAvatar>>>
+    export type UsersControllerDeleteAvatarMutationBody = DeleteAvatarRequestDto
+    export type UsersControllerDeleteAvatarMutationError = unknown
+
+    /**
+ * @summary Удалить аватар
+ */
+export const useUsersControllerDeleteAvatar = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersControllerDeleteAvatar>>, TError,{data: DeleteAvatarRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof usersControllerDeleteAvatar>>,
+        TError,
+        {data: DeleteAvatarRequestDto},
+        TContext
+      > => {
+      return useMutation(getUsersControllerDeleteAvatarMutationOptions(options));
+    }
+    
 /**
  * Возвращает короткоживущий signed URL для приватного аватара
  * @summary Получить URL аватара
  */
-const usersControllerGetAvatarUrl = (
-    deleteAvatarRequestDto: DeleteAvatarRequestDto, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<void>> => {
-    return axiosInstance.post(
-      `/users/avatar/url`,
-      deleteAvatarRequestDto,options
-    );
-  }
+export const getUsersControllerGetAvatarUrlUrl = () => {
 
-return {accountControllerMe,accountControllerInitEmail,accountControllerConfirmEmail,accountControllerInitPhone,accountControllerConfirmPhone,authControllerSendOtp,authControllerVerify,authControllerList,authControllerRefresh,authControllerLogout,authControllerRevokeSession,usersControllerMe,usersControllerGet,usersControllerCreate,usersControllerPatch,usersControllerPatchPrivacy,usersControllerAddAvatar,usersControllerDeleteAvatar,usersControllerGetAvatarUrl}};
-export type AccountControllerMeResult = AxiosResponse<AccountResponseDto>
-export type AccountControllerInitEmailResult = AxiosResponse<ChangeResponseDto>
-export type AccountControllerConfirmEmailResult = AxiosResponse<ChangeResponseDto>
-export type AccountControllerInitPhoneResult = AxiosResponse<ChangeResponseDto>
-export type AccountControllerConfirmPhoneResult = AxiosResponse<ChangeResponseDto>
-export type AuthControllerSendOtpResult = AxiosResponse<SendOtpResponseDto>
-export type AuthControllerVerifyResult = AxiosResponse<AccessTokenResponseDto>
-export type AuthControllerListResult = AxiosResponse<ListSessionsResponseDto>
-export type AuthControllerRefreshResult = AxiosResponse<AccessTokenResponseDto>
-export type AuthControllerLogoutResult = AxiosResponse<OkResponseDto>
-export type AuthControllerRevokeSessionResult = AxiosResponse<OkResponseDto>
-export type UsersControllerMeResult = AxiosResponse<void>
-export type UsersControllerGetResult = AxiosResponse<void>
-export type UsersControllerCreateResult = AxiosResponse<void>
-export type UsersControllerPatchResult = AxiosResponse<void>
-export type UsersControllerPatchPrivacyResult = AxiosResponse<void>
-export type UsersControllerAddAvatarResult = AxiosResponse<void>
-export type UsersControllerDeleteAvatarResult = AxiosResponse<void>
-export type UsersControllerGetAvatarUrlResult = AxiosResponse<void>
+
+  
+
+  return `http://localhost:4000/users/avatar/url`
+}
+
+export const usersControllerGetAvatarUrl = async (deleteAvatarRequestDto: DeleteAvatarRequestDto, options?: RequestInit): Promise<void> => {
+  
+  return customFetch<void>(getUsersControllerGetAvatarUrlUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      deleteAvatarRequestDto,)
+  }
+);}
+  
+
+
+
+export const getUsersControllerGetAvatarUrlMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersControllerGetAvatarUrl>>, TError,{data: DeleteAvatarRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof usersControllerGetAvatarUrl>>, TError,{data: DeleteAvatarRequestDto}, TContext> => {
+
+const mutationKey = ['usersControllerGetAvatarUrl'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof usersControllerGetAvatarUrl>>, {data: DeleteAvatarRequestDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  usersControllerGetAvatarUrl(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UsersControllerGetAvatarUrlMutationResult = NonNullable<Awaited<ReturnType<typeof usersControllerGetAvatarUrl>>>
+    export type UsersControllerGetAvatarUrlMutationBody = DeleteAvatarRequestDto
+    export type UsersControllerGetAvatarUrlMutationError = unknown
+
+    /**
+ * @summary Получить URL аватара
+ */
+export const useUsersControllerGetAvatarUrl = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usersControllerGetAvatarUrl>>, TError,{data: DeleteAvatarRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof usersControllerGetAvatarUrl>>,
+        TError,
+        {data: DeleteAvatarRequestDto},
+        TContext
+      > => {
+      return useMutation(getUsersControllerGetAvatarUrlMutationOptions(options));
+    }

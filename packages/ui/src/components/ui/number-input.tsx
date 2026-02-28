@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { cn } from "@repo/ui/lib/utils";
+import { cn } from "../../lib/utils";
 
 import { InputGroup, InputGroupAddon, InputGroupInput } from "./input-group";
 import {
@@ -12,7 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./select";
-import { Emoji } from "react-apple-emojis";
+import { Emoji, EmojiProvider } from "react-apple-emojis";
+import emojiData from "react-apple-emojis/src/data.json";
 type CountryCode = "RU" | "BY" | "KZ" | "KG" | "UZ";
 
 type CountryConfig = {
@@ -167,11 +168,17 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
     const [internalValue, setInternalValue] = React.useState(() =>
       onlyDigits(defaultValue ?? ""),
     );
+    const countryConfig = getCountryConfig(currentCountry);
     const nationalDigits = isValueControlled
-      ? onlyDigits(value)
+      ? (() => {
+          const digits = onlyDigits(value);
+          const dialDigits = onlyDigits(countryConfig.dialCode);
+          return digits.startsWith(dialDigits)
+            ? digits.slice(dialDigits.length)
+            : digits;
+        })()
       : internalValue;
 
-    const countryConfig = getCountryConfig(currentCountry);
     const maskedValue = formatByMask(nationalDigits, countryConfig.mask);
     const displayValue = `${countryConfig.dialCode} ${maskedValue}`.trimEnd();
 
@@ -271,63 +278,65 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
     };
 
     return (
-      <InputGroup
-        className={cn(
-          "h-11 rounded-xl border-2 border-border bg-secondary/80 px-3 text-foreground shadow-none transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background",
-          groupClassName,
-        )}
-      >
-        <InputGroupAddon
-          align="inline-start"
-          className="mr-2 shrink-0 border-r border-border pr-2"
+      <EmojiProvider data={emojiData}>
+        <InputGroup
+          className={cn(
+            "h-11 rounded-xl border-2 border-border bg-secondary/80 px-3 text-foreground shadow-none transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background",
+            groupClassName,
+          )}
         >
-          <Select
-            value={currentCountry}
-            onValueChange={(nextValue) =>
-              handleCountryChange(nextValue as CountryCode)
-            }
-            disabled={disabled}
+          <InputGroupAddon
+            align="inline-start"
+            className="mr-2 shrink-0 border-r border-border pr-2"
           >
-            <SelectTrigger className="h-8 min-w-[128px] rounded-lg bg-transparent px-1 text-sm whitespace-nowrap">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="center">
-              {COUNTRY_CONFIGS.map((item) => (
-                <SelectItem
-                  key={item.code}
-                  value={item.code}
-                  className="whitespace-nowrap"
-                >
-                  <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                    <span className="inline-flex size-5 items-center justify-center leading-none">
-                      {item.flag}
+            <Select
+              value={currentCountry}
+              onValueChange={(nextValue) =>
+                handleCountryChange(nextValue as CountryCode)
+              }
+              disabled={disabled}
+            >
+              <SelectTrigger className="h-8 min-w-[128px] rounded-lg bg-transparent px-1 text-sm whitespace-nowrap">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="center">
+                {COUNTRY_CONFIGS.map((item) => (
+                  <SelectItem
+                    key={item.code}
+                    value={item.code}
+                    className="whitespace-nowrap"
+                  >
+                    <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                      <span className="inline-flex size-5 items-center justify-center leading-none">
+                        {item.flag}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {item.dialCode}
+                      </span>
+                      <span>{item.label}</span>
                     </span>
-                    <span className="text-muted-foreground">
-                      {item.dialCode}
-                    </span>
-                    <span>{item.label}</span>
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </InputGroupAddon>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </InputGroupAddon>
 
-        <InputGroupInput
-          ref={ref}
-          inputMode="tel"
-          autoComplete="tel-national"
-          disabled={disabled}
-          value={displayValue}
-          onChange={handleInputChange}
-          placeholder={
-            placeholder ??
-            `${countryConfig.dialCode} ${maskToPlaceholder(countryConfig.mask)}`
-          }
-          className={cn("text-[15px]", className)}
-          {...props}
-        />
-      </InputGroup>
+          <InputGroupInput
+            ref={ref}
+            inputMode="tel"
+            autoComplete="tel-national"
+            disabled={disabled}
+            value={displayValue}
+            onChange={handleInputChange}
+            placeholder={
+              placeholder ??
+              `${countryConfig.dialCode} ${maskToPlaceholder(countryConfig.mask)}`
+            }
+            className={cn("text-[15px]", className)}
+            {...props}
+          />
+        </InputGroup>
+      </EmojiProvider>
     );
   },
 );

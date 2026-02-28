@@ -1,6 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { EmojiProvider } from "react-apple-emojis";
-import emojiData from "react-apple-emojis/src/data.json";
 
 import { NumberInput } from "./number-input";
 
@@ -19,30 +17,24 @@ export const Default: Story = {
     defaultCountry: "RU",
   },
   render: (args) => (
-    <EmojiProvider data={emojiData}>
-      <div className="w-[360px]">
-        <NumberInput {...args} />
-      </div>
-    </EmojiProvider>
+    <div className="w-[360px]">
+      <NumberInput {...args} />
+    </div>
   ),
 };
 
 export const WithInitialValue: Story = {
   render: () => (
-    <EmojiProvider data={emojiData}>
-      <div className="w-[360px]">
-        <NumberInput defaultCountry="BY" defaultValue="297654321" />
-      </div>
-    </EmojiProvider>
+    <div className="w-[360px]">
+      <NumberInput defaultCountry="BY" defaultValue="297654321" />
+    </div>
   ),
 };
 
 export const Disabled: Story = {
   render: () => (
-    <EmojiProvider data={emojiData}>
-      <div className="w-[360px]">
-        <NumberInput disabled defaultCountry="KZ" defaultValue="7001234567" />
-      </div>
-    </EmojiProvider>
+    <div className="w-[360px]">
+      <NumberInput disabled defaultCountry="KZ" defaultValue="7001234567" />
+    </div>
   ),
 };

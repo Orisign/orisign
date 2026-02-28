@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, Matches } from 'class-validator';
 
 export class GetUserRequestDto {
   @ApiPropertyOptional({
@@ -16,5 +16,8 @@ export class GetUserRequestDto {
   })
   @IsOptional()
   @IsString()
+  @Matches(/^[A-Za-z0-9_]+$/, {
+    message: 'Username может содержать только английские буквы, цифры и _',
+  })
   public username?: string;
 }

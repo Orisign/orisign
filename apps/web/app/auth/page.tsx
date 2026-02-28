@@ -1,11 +1,9 @@
-import { useTranslations } from "next-intl";
+import { AuthForm } from "@/components/forms/auth-form";
 
 export default function AuthPage() {
-  const t = useTranslations("auth");
   return (
-    <div className="flex flex-col items-center justify-center space-y-4 min-h-screen">
-      <h1 className="text-2xl font-bold">{t("title")}</h1>
-      <p className="text-muted-foreground">{t("description")}</p>
+    <div className="flex min-h-dvh w-full items-center justify-center overflow-y-auto px-4 py-8">
+      <AuthForm />
     </div>
   );
 }
