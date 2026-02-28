@@ -11,5 +11,24 @@
     "submitButton": "Далее",
     "qrButton": "Вход по QR-коду",
     "successMessage": "Мы отправили проверочный код на ваш номер телефона."
+  },
+  "profile": {
+    "title": "Добро пожаловать!",
+    "description": "Укажите информацию для вашего профиля",
+    "form": {
+      "firstName": {
+        "label": "Имя",
+        "placeholder": "Иван"
+      },
+      "lastName": {
+        "label": "Фамилия",
+        "placeholder": "Иванов"
+      },
+      "username": {
+        "label": "Имя пользователя",
+        "placeholder": "Придумайте уникальный тег"
+      },
+      "submitButton": "Сохранить"
+    }
   }
 }

@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
   IsDateString,
+  Matches,
   IsOptional,
   IsString,
   MinLength,
@@ -15,6 +16,9 @@ export class PatchUserRequestDto {
   @IsOptional()
   @IsString()
   @MinLength(3)
+  @Matches(/^[A-Za-z0-9_]+$/, {
+    message: 'Username может содержать только английские буквы, цифры и _',
+  })
   public username?: string;
 
   @ApiPropertyOptional({
