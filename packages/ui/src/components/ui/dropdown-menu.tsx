@@ -48,7 +48,7 @@ const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      "z-50 min-w-32 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground origin-[--radix-dropdown-menu-content-transform-origin] [will-change:transform,opacity,filter] data-[state=open]:animate-[dropdown-sub-in_240ms_cubic-bezier(.22,.8,.2,1)] data-[state=closed]:animate-[dropdown-sub-out_180ms_cubic-bezier(.4,0,.2,1)]",
+      "z-50 min-w-32 overflow-hidden rounded-md  bg-popover p-1 text-popover-foreground origin-[--radix-dropdown-menu-content-transform-origin] [will-change:transform,opacity,filter] data-[state=open]:animate-[dropdown-sub-in_240ms_cubic-bezier(.22,.8,.2,1)] data-[state=closed]:animate-[dropdown-sub-out_180ms_cubic-bezier(.4,0,.2,1)]",
       className,
     )}
     {...props}
@@ -66,7 +66,7 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-32 overflow-y-auto overflow-x-hidden rounded-md border bg-popover px-1.5 py-1 text-popover-foreground origin-[--radix-dropdown-menu-content-transform-origin] [will-change:transform,opacity,filter] data-[state=open]:animate-[dropdown-in_280ms_cubic-bezier(.22,.8,.2,1)] data-[state=closed]:animate-[dropdown-out_200ms_cubic-bezier(.4,0,.2,1)]",
+        "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-32 overflow-y-auto overflow-x-hidden rounded-md bg-popover px-1.5 py-1 text-popover-foreground origin-[--radix-dropdown-menu-content-transform-origin] [will-change:transform,opacity,filter] data-[state=open]:animate-[dropdown-in_280ms_cubic-bezier(.22,.8,.2,1)] data-[state=closed]:animate-[dropdown-out_200ms_cubic-bezier(.4,0,.2,1)]",
         className,
       )}
       {...props}

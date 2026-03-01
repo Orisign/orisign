@@ -1,6 +1,6 @@
 "use client";
 
-import { authSchema, TypeAuthSchema } from "@/schemas/auth.schema";
+import { createAuthSchema, TypeAuthSchema } from "@/schemas/auth.schema";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuthControllerSendOtp, useUsersControllerAddAvatar } from "@/api/generated";
@@ -9,15 +9,17 @@ import { Field, FieldError, FieldLabel } from "../ui/field";
 import { Button, Checkbox, NumberInput, Ripple } from "@repo/ui";
 import { useAuth } from "@/hooks/use-auth";
 import { VerificationForm } from "./verification-form";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
 export function AuthForm() {
   const t = useTranslations("auth");
+  const tv = useTranslations("validation.auth");
   const { mutate, isPending, isSuccess, data } = useAuthControllerSendOtp();
   const { deviceId, ensureDeviceId } = useAuth();
   const [requestPhone, setRequestPhone] = useState<string>("");
   const [requestDeviceId, setRequestDeviceId] = useState<string>("");
+  const authSchema = useMemo(() => createAuthSchema(tv), [tv]);
 
   const form = useForm<TypeAuthSchema>({
     resolver: zodResolver(authSchema),
@@ -112,11 +114,11 @@ export function AuthForm() {
                             }
                           />
                           <span className="text-sm font-medium select-none">
-                            Принимаю{" "}
+                            {t("privacy.acceptPrefix")}{" "}
                             <span className="text-blue-500">
-                              политику конфиденциальности
+                              {t("privacy.policyLink")}
                             </span>{" "}
-                            <strong>Orisign</strong>
+                            <strong>{t("privacy.brand")}</strong>
                           </span>
                         </label>
                       </Ripple>
