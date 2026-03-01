@@ -19,6 +19,7 @@ import type {
 import { createHash } from 'node:crypto'
 
 import { UsersClientService } from '@/infra/grpc/users-client.service'
+import { MessagingService } from '@/infra/messaging/messaging.service'
 import { SessionRepository } from '@/shared/repo/session.repository'
 import { UserRepository } from '@/shared/repo/user.repository'
 
@@ -32,7 +33,8 @@ export class AuthService {
 		private readonly sessionRepo: SessionRepository,
 		private readonly usersClient: UsersClientService,
 		private readonly otpService: OtpService,
-		private readonly tokenService: TokenService
+		private readonly tokenService: TokenService,
+		private readonly messagingService: MessagingService
 	) {}
 
 	public async sendOtp(data: SendOtpRequest): Promise<SendOtpResponse> {
@@ -58,6 +60,12 @@ export class AuthService {
 			'phone',
 			deviceId
 		)
+
+		this.messagingService.otpRequested({
+			identifier: phone,
+			type: 'phone',
+			code
+		})
 
 		console.log('CODE: ', code)
 

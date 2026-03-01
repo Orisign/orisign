@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package messages.v1;
+
+service MessagesService {
+  rpc SendMessage (SendMessageRequest) returns (SendMessageResponse);
+  rpc ListMessages (ListMessagesRequest) returns (ListMessagesResponse);
+  rpc EditMessage (EditMessageRequest) returns (MutationResponse);
+  rpc DeleteMessage (DeleteMessageRequest) returns (MutationResponse);
+  rpc MarkRead (MarkReadRequest) returns (MutationResponse);
+}
+
+enum MessageKind {
+  MESSAGE_KIND_UNSPECIFIED = 0;
+  TEXT = 1;
+  MEDIA = 2;
+  SYSTEM = 3;
+}
+
+message SendMessageRequest {
+  string conversation_id = 1;
+  string author_id = 2;
+  MessageKind kind = 3;
+  string text = 4;
+  string reply_to_id = 5;
+  repeated string media_keys = 6;
+}
+
+message SendMessageResponse {
+  bool ok = 1;
+  Message message = 2;
+}
+
+message ListMessagesRequest {
+  string conversation_id = 1;
+  string requester_id = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ListMessagesResponse {
+  repeated Message messages = 1;
+}
+
+message EditMessageRequest {
+  string message_id = 1;
+  string actor_id = 2;
+  string text = 3;
+}
+
+message DeleteMessageRequest {
+  string message_id = 1;
+  string actor_id = 2;
+}
+
+message MarkReadRequest {
+  string conversation_id = 1;
+  string user_id = 2;
+  string last_read_message_id = 3;
+}
+
+message MutationResponse {
+  bool ok = 1;
+}
+
+message Message {
+  string id = 1;
+  string conversation_id = 2;
+  string author_id = 3;
+  MessageKind kind = 4;
+  string text = 5;
+  string reply_to_id = 6;
+  repeated string media_keys = 7;
+  int64 created_at = 8;
+  int64 edited_at = 9;
+  int64 deleted_at = 10;
+}
