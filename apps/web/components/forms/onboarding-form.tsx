@@ -2,7 +2,7 @@
 
 import { useUsersControllerMe, useUsersControllerPatch } from "@/api/generated";
 import {
-  editProfileSchema,
+  createEditProfileSchema,
   TypeEditProfileSchema,
 } from "@/schemas/edit-profile.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,11 +12,14 @@ import { useTranslations } from "next-intl";
 import { Button, Input } from "@repo/ui";
 import { Player } from "@lottiefiles/react-lottie-player";
 import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 
 
 export const OnboardingForm = () => {
   const t = useTranslations("profile");
+  const tv = useTranslations("validation.profile");
   const router = useRouter();
+  const editProfileSchema = useMemo(() => createEditProfileSchema(tv), [tv]);
 
   const { mutate: editProfile, isPending: isLoading } = useUsersControllerPatch(
     {

@@ -10,7 +10,12 @@
     },
     "submitButton": "Далее",
     "qrButton": "Вход по QR-коду",
-    "successMessage": "Мы отправили проверочный код на ваш номер телефона."
+    "successMessage": "Мы отправили проверочный код на ваш номер телефона.",
+    "privacy": {
+      "acceptPrefix": "Принимаю",
+      "policyLink": "политику конфиденциальности",
+      "brand": "Orisign"
+    }
   },
   "profile": {
     "title": "Добро пожаловать!",
@@ -29,6 +34,42 @@
         "placeholder": "Придумайте уникальный тег"
       },
       "submitButton": "Сохранить"
+    }
+  },
+  "appShell": {
+    "searchPlaceholder": "Поиск",
+    "resizeSidebarAriaLabel": "Resize sidebar"
+  },
+  "userDropdown": {
+    "addAccount": "Добавить аккаунт",
+    "favorites": "Избранное",
+    "myStories": "Мои истории",
+    "contacts": "Контакты",
+    "wallet": "Кошелёк",
+    "settings": "Настройки",
+    "more": "Ещё",
+    "toggleTheme": "Сменить тему",
+    "orisignFeatures": "Возможности Orisign",
+    "reportBug": "Сообщить об ошибке",
+    "installApp": "Установить приложение"
+  },
+  "conversationDropdown": {
+    "createChannel": "Создать канал",
+    "createGroup": "Создать группу",
+    "createDirect": "Начать личный чат"
+  },
+  "validation": {
+    "auth": {
+      "phoneInvalid": "Введите номер телефона полностью",
+      "privacyRequired": "Нужно принять политику конфиденциальности"
+    },
+    "profile": {
+      "usernameRequired": "Введите username",
+      "usernameTooShort": "Слишком короткий username. Минимум 5 символов",
+      "usernameTooLong": "Слишком длинный username. Максимум 15 символов",
+      "usernameInvalidChars": "Username может содержать только латинские буквы, цифры и символы",
+      "firstNameRequired": "Введите имя",
+      "lastNameRequired": "Введите фамилию"
     }
   }
 }
