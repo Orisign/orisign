@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Conversation {
+  id        String               @id @default(cuid())
+  type      ConversationType
+  title     String?
+  about     String?
+  ownerId   String               @map("owner_id")
+  isPublic  Boolean              @default(false) @map("is_public")
+  username  String?              @unique
+  members   ConversationMember[]
+  createdAt DateTime             @default(now()) @map("created_at")
+  updatedAt DateTime             @updatedAt @map("updated_at")
+  deletedAt DateTime?            @map("deleted_at")
+
+  @@index([ownerId])
+  @@index([type])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  id             String       @id @default(cuid())
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String       @map("user_id")
+  role           MemberRole
+  state          MemberState
+  joinedAt       DateTime     @default(now()) @map("joined_at")
+  leftAt         DateTime?    @map("left_at")
+
+  @@unique([conversationId, userId])
+  @@index([userId, state])
+  @@index([conversationId, role])
+  @@map("conversation_members")
+}
+
+enum ConversationType {
+  DM
+  GROUP
+  CHANNEL
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MODERATOR
+  MEMBER
+  SUBSCRIBER
+}
+
+enum MemberState {
+  ACTIVE
+  LEFT
+  KICKED
+  BANNED
+  INVITED
+}

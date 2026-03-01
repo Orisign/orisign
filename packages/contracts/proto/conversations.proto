@@ -1,0 +1,140 @@
+syntax = "proto3";
+
+package conversations.v1;
+
+service ConversationsService {
+  rpc CreateConversation (CreateConversationRequest) returns (CreateConversationResponse);
+  rpc GetConversation (GetConversationRequest) returns (GetConversationResponse);
+  rpc ListMyConversations (ListMyConversationsRequest) returns (ListMyConversationsResponse);
+
+  rpc AddMembers (AddMembersRequest) returns (MutationResponse);
+  rpc RemoveMember (RemoveMemberRequest) returns (MutationResponse);
+  rpc UpdateMemberRole (UpdateMemberRoleRequest) returns (MutationResponse);
+
+  rpc JoinConversation (JoinConversationRequest) returns (MutationResponse);
+  rpc LeaveConversation (LeaveConversationRequest) returns (MutationResponse);
+
+  rpc CanRead (PermissionRequest) returns (PermissionResponse);
+  rpc CanPost (PermissionRequest) returns (PermissionResponse);
+}
+
+enum ConversationType {
+  CONVERSATION_TYPE_UNSPECIFIED = 0;
+  DM = 1;
+  GROUP = 2;
+  CHANNEL = 3;
+}
+
+enum MemberRole {
+  MEMBER_ROLE_UNSPECIFIED = 0;
+  OWNER = 1;
+  ADMIN = 2;
+  MODERATOR = 3;
+  MEMBER = 4;
+  SUBSCRIBER = 5;
+}
+
+enum MemberState {
+  MEMBER_STATE_UNSPECIFIED = 0;
+  ACTIVE = 1;
+  LEFT = 2;
+  KICKED = 3;
+  BANNED = 4;
+  INVITED = 5;
+}
+
+message CreateConversationRequest {
+  ConversationType type = 1;
+  string creator_id = 2;
+  string title = 3;
+  string about = 4;
+  bool is_public = 5;
+  string username = 6;
+  repeated string member_ids = 7;
+}
+
+message CreateConversationResponse {
+  bool ok = 1;
+  Conversation conversation = 2;
+}
+
+message GetConversationRequest {
+  string conversation_id = 1;
+  string requester_id = 2;
+}
+
+message GetConversationResponse {
+  Conversation conversation = 1;
+}
+
+message ListMyConversationsRequest {
+  string requester_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message ListMyConversationsResponse {
+  repeated Conversation conversations = 1;
+}
+
+message AddMembersRequest {
+  string conversation_id = 1;
+  string actor_id = 2;
+  repeated string member_ids = 3;
+}
+
+message RemoveMemberRequest {
+  string conversation_id = 1;
+  string actor_id = 2;
+  string target_user_id = 3;
+}
+
+message UpdateMemberRoleRequest {
+  string conversation_id = 1;
+  string actor_id = 2;
+  string target_user_id = 3;
+  MemberRole role = 4;
+}
+
+message JoinConversationRequest {
+  string conversation_id = 1;
+  string user_id = 2;
+}
+
+message LeaveConversationRequest {
+  string conversation_id = 1;
+  string user_id = 2;
+}
+
+message MutationResponse {
+  bool ok = 1;
+}
+
+message PermissionRequest {
+  string conversation_id = 1;
+  string user_id = 2;
+}
+
+message PermissionResponse {
+  bool allowed = 1;
+}
+
+message Conversation {
+  string id = 1;
+  ConversationType type = 2;
+  string title = 3;
+  string about = 4;
+  string owner_id = 5;
+  bool is_public = 6;
+  string username = 7;
+  repeated ConversationMember members = 8;
+  int64 created_at = 9;
+  int64 updated_at = 10;
+}
+
+message ConversationMember {
+  string user_id = 1;
+  MemberRole role = 2;
+  MemberState state = 3;
+  int64 joined_at = 4;
+}

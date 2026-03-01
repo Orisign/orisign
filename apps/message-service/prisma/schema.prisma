@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  conversationId String      @map("conversation_id")
+  authorId       String      @map("author_id")
+  kind           MessageKind
+  text           String?
+  replyToId      String?     @map("reply_to_id")
+  mediaKeys      String[]    @map("media_keys")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  editedAt       DateTime?   @map("edited_at")
+  deletedAt      DateTime?   @map("deleted_at")
+
+  @@index([conversationId, createdAt(sort: Desc)])
+  @@index([authorId, createdAt(sort: Desc)])
+  @@map("messages")
+}
+
+model MessageRead {
+  id                String   @id @default(cuid())
+  conversationId    String   @map("conversation_id")
+  userId            String   @map("user_id")
+  lastReadMessageId String?  @map("last_read_message_id")
+  lastReadAt        DateTime @default(now()) @map("last_read_at")
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("message_reads")
+}
+
+enum MessageKind {
+  TEXT
+  MEDIA
+  SYSTEM
+}
