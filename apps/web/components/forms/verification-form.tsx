@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuthControllerVerify, useUsersControllerMe } from "@/api/generated";
+import { useAuthControllerVerify, usersControllerMe } from "@/api/generated";
 import {
   verificationSchema,
   type TypeVerificationSchema,
@@ -9,18 +9,25 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@repo/ui";
 import { Controller, useForm } from "react-hook-form";
 import { Field, FieldError } from "../ui/field";
-import { Player } from "@lottiefiles/react-lottie-player";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { setCookie } from "@/lib/cookies";
 import { motion } from "motion/react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 
 interface VerificationFormProps {
   challengeId: string;
   phone: string;
   deviceId: string;
 }
+
+const OTP_LENGTH = 6;
+const SHAKE_ANIMATION = [0, -10, 10, -9, 9, -8, 8, -6, 6, -4, 4, -2, 2, 0];
+const Player = dynamic(
+  () => import("@lottiefiles/react-lottie-player").then((mod) => mod.Player),
+  { ssr: false },
+);
 
 export function VerificationForm({
   challengeId,
@@ -62,7 +69,19 @@ export function VerificationForm({
       },
       onSuccess: async (response) => {
         setCookie("accessToken", response.accessToken);
-        router.push("/onboarding");
+
+        try {
+          const profile = await usersControllerMe({
+            credentials: "include",
+          });
+          const user = profile.user;
+          const hasProfile =
+            !!user?.firstName?.trim() || !!user?.username?.trim();
+
+          router.push(hasProfile ? "/" : "/onboarding");
+        } catch {
+          router.push("/onboarding");
+        }
       },
     },
   });
@@ -93,7 +112,7 @@ export function VerificationForm({
   }, []);
 
   useEffect(() => {
-    const isComplete = code.length === 6;
+    const isComplete = code.length === OTP_LENGTH;
     if (!isComplete) {
       lastSubmittedCodeRef.current = null;
       return;
@@ -126,7 +145,7 @@ export function VerificationForm({
         render={({ field }) => (
           <Field className="items-center">
             <InputOTP
-              maxLength={6}
+              maxLength={OTP_LENGTH}
               value={field.value}
               onChange={field.onChange}
               containerClassName="w-full justify-center"
@@ -135,61 +154,22 @@ export function VerificationForm({
               <motion.div
                 key={shakeCount}
                 animate={
-                  hasOtpError
-                    ? { x: [0, -10, 10, -9, 9, -8, 8, -6, 6, -4, 4, -2, 2, 0] }
-                    : { x: 0 }
+                  hasOtpError ? { x: SHAKE_ANIMATION } : { x: 0 }
                 }
                 transition={{ duration: 1.2, ease: "easeInOut" }}
               >
                 <InputOTPGroup className="justify-center">
-                  <InputOTPSlot
-                    index={0}
-                    className={
-                      hasOtpError
-                        ? "bg-destructive/15 text-destructive ring-destructive"
-                        : undefined
-                    }
-                  />
-                  <InputOTPSlot
-                    index={1}
-                    className={
-                      hasOtpError
-                        ? "bg-destructive/15 text-destructive ring-destructive"
-                        : undefined
-                    }
-                  />
-                  <InputOTPSlot
-                    index={2}
-                    className={
-                      hasOtpError
-                        ? "bg-destructive/15 text-destructive ring-destructive"
-                        : undefined
-                    }
-                  />
-                  <InputOTPSlot
-                    index={3}
-                    className={
-                      hasOtpError
-                        ? "bg-destructive/15 text-destructive ring-destructive"
-                        : undefined
-                    }
-                  />
-                  <InputOTPSlot
-                    index={4}
-                    className={
-                      hasOtpError
-                        ? "bg-destructive/15 text-destructive ring-destructive"
-                        : undefined
-                    }
-                  />
-                  <InputOTPSlot
-                    index={5}
-                    className={
-                      hasOtpError
-                        ? "bg-destructive/15 text-destructive ring-destructive"
-                        : undefined
-                    }
-                  />
+                  {Array.from({ length: OTP_LENGTH }, (_, index) => (
+                    <InputOTPSlot
+                      key={index}
+                      index={index}
+                      className={
+                        hasOtpError
+                          ? "bg-destructive/15 text-destructive ring-destructive"
+                          : undefined
+                      }
+                    />
+                  ))}
                 </InputOTPGroup>
               </motion.div>
             </InputOTP>

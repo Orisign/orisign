@@ -29,7 +29,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       return (
         <div
           className={cn(
-            "group flex h-11 w-full items-center gap-2 rounded-xl border-2 border-border bg-secondary/80 px-3 text-foreground transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background",
+            "group flex h-11 w-full items-center gap-2 rounded-xl border-2 border-border bg-secondary/80 px-3 text-foreground transition-all duration-200 focus-within:border-primary/40",
             wrapperClassName,
           )}
         >
@@ -48,7 +48,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       <input
         type={type}
         className={cn(
-          "h-11 w-full rounded-xl border-2 border-border/60 bg-secondary/80 px-4 text-[15px] text-foreground placeholder:text-muted-foreground transition-all duration-200 focus-visible:border-primary/40 focus-visible:bg-background focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+          "h-11 w-full rounded-xl border-2 border-border/60 bg-secondary/80 px-4 text-[15px] text-foreground placeholder:text-muted-foreground transition-all duration-200 focus-visible:border-primary/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
           className,
         )}
         ref={ref}

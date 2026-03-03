@@ -10,15 +10,21 @@ import { Controller, useForm } from "react-hook-form";
 import { Field, FieldError, FieldLabel } from "../ui/field";
 import { useTranslations } from "next-intl";
 import { Button, Input } from "@repo/ui";
-import { Player } from "@lottiefiles/react-lottie-player";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import dynamic from "next/dynamic";
+
+const Player = dynamic(
+  () => import("@lottiefiles/react-lottie-player").then((mod) => mod.Player),
+  { ssr: false },
+);
 
 
 export const OnboardingForm = () => {
   const t = useTranslations("profile");
   const tv = useTranslations("validation.profile");
   const router = useRouter();
+  const { data: meData, isSuccess: isMeLoaded } = useUsersControllerMe();
   const editProfileSchema = useMemo(() => createEditProfileSchema(tv), [tv]);
 
   const { mutate: editProfile, isPending: isLoading } = useUsersControllerPatch(
@@ -48,6 +54,16 @@ export const OnboardingForm = () => {
       data,
     });
   }
+
+  useEffect(() => {
+    if (!isMeLoaded) return;
+
+    const user = meData?.user;
+    const hasProfile = !!user?.firstName?.trim() || !!user?.username?.trim();
+    if (hasProfile) {
+      router.replace("/");
+    }
+  }, [isMeLoaded, meData, router]);
 
   return (
     <form

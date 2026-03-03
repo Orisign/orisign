@@ -67,6 +67,8 @@ export interface PatchUserRequest {
     | undefined;
   /** Optional birth date in epoch milliseconds. Zero clears value. */
   birthDate?: number | undefined;
+  /** Optional bio update. Empty string clears value. */
+  bio?: string | undefined;
 }
 
 /** Wrapper for avatar urls to preserve field presence. */
@@ -134,6 +136,7 @@ export interface User {
   privacySettings: PrivacySettings | undefined;
   createdAt: number;
   updatedAt: number;
+  bio?: string | undefined;
 }
 
 /** User privacy settings. */

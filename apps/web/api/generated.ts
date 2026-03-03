@@ -250,6 +250,147 @@ export interface MarkReadRequestDto {
   lastReadMessageId?: string;
 }
 
+export type PrivacySettingsResponseDtoPhone = typeof PrivacySettingsResponseDtoPhone[keyof typeof PrivacySettingsResponseDtoPhone];
+
+
+export const PrivacySettingsResponseDtoPhone = {
+  NUMBER_0: 0,
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+  NUMBER_3: 3,
+  NUMBER_MINUS_1: -1,
+} as const;
+
+export type PrivacySettingsResponseDtoLastSeenTime = typeof PrivacySettingsResponseDtoLastSeenTime[keyof typeof PrivacySettingsResponseDtoLastSeenTime];
+
+
+export const PrivacySettingsResponseDtoLastSeenTime = {
+  NUMBER_0: 0,
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+  NUMBER_3: 3,
+  NUMBER_MINUS_1: -1,
+} as const;
+
+export type PrivacySettingsResponseDtoPhoto = typeof PrivacySettingsResponseDtoPhoto[keyof typeof PrivacySettingsResponseDtoPhoto];
+
+
+export const PrivacySettingsResponseDtoPhoto = {
+  NUMBER_0: 0,
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+  NUMBER_3: 3,
+  NUMBER_MINUS_1: -1,
+} as const;
+
+export type PrivacySettingsResponseDtoBio = typeof PrivacySettingsResponseDtoBio[keyof typeof PrivacySettingsResponseDtoBio];
+
+
+export const PrivacySettingsResponseDtoBio = {
+  NUMBER_0: 0,
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+  NUMBER_3: 3,
+  NUMBER_MINUS_1: -1,
+} as const;
+
+export type PrivacySettingsResponseDtoCall = typeof PrivacySettingsResponseDtoCall[keyof typeof PrivacySettingsResponseDtoCall];
+
+
+export const PrivacySettingsResponseDtoCall = {
+  NUMBER_0: 0,
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+  NUMBER_3: 3,
+  NUMBER_MINUS_1: -1,
+} as const;
+
+export type PrivacySettingsResponseDtoReply = typeof PrivacySettingsResponseDtoReply[keyof typeof PrivacySettingsResponseDtoReply];
+
+
+export const PrivacySettingsResponseDtoReply = {
+  NUMBER_0: 0,
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+  NUMBER_3: 3,
+  NUMBER_MINUS_1: -1,
+} as const;
+
+export type PrivacySettingsResponseDtoInvite = typeof PrivacySettingsResponseDtoInvite[keyof typeof PrivacySettingsResponseDtoInvite];
+
+
+export const PrivacySettingsResponseDtoInvite = {
+  NUMBER_0: 0,
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+  NUMBER_3: 3,
+  NUMBER_MINUS_1: -1,
+} as const;
+
+export type PrivacySettingsResponseDtoMediaMessage = typeof PrivacySettingsResponseDtoMediaMessage[keyof typeof PrivacySettingsResponseDtoMediaMessage];
+
+
+export const PrivacySettingsResponseDtoMediaMessage = {
+  NUMBER_0: 0,
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+  NUMBER_3: 3,
+  NUMBER_MINUS_1: -1,
+} as const;
+
+export type PrivacySettingsResponseDtoMessage = typeof PrivacySettingsResponseDtoMessage[keyof typeof PrivacySettingsResponseDtoMessage];
+
+
+export const PrivacySettingsResponseDtoMessage = {
+  NUMBER_0: 0,
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+  NUMBER_3: 3,
+  NUMBER_MINUS_1: -1,
+} as const;
+
+export type PrivacySettingsResponseDtoBirthDate = typeof PrivacySettingsResponseDtoBirthDate[keyof typeof PrivacySettingsResponseDtoBirthDate];
+
+
+export const PrivacySettingsResponseDtoBirthDate = {
+  NUMBER_0: 0,
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+  NUMBER_3: 3,
+  NUMBER_MINUS_1: -1,
+} as const;
+
+export interface PrivacySettingsResponseDto {
+  phone: PrivacySettingsResponseDtoPhone;
+  lastSeenTime: PrivacySettingsResponseDtoLastSeenTime;
+  photo: PrivacySettingsResponseDtoPhoto;
+  bio: PrivacySettingsResponseDtoBio;
+  call: PrivacySettingsResponseDtoCall;
+  reply: PrivacySettingsResponseDtoReply;
+  invite: PrivacySettingsResponseDtoInvite;
+  mediaMessage: PrivacySettingsResponseDtoMediaMessage;
+  message: PrivacySettingsResponseDtoMessage;
+  birthDate: PrivacySettingsResponseDtoBirthDate;
+}
+
+export interface UserResponseDto {
+  id: string;
+  username?: string;
+  firstName: string;
+  lastName?: string;
+  bio?: string;
+  avatars: string[];
+  /** Дата рождения в epoch milliseconds */
+  birthDate?: number;
+  privacySettings: PrivacySettingsResponseDto;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface GetUserResponseDto {
+  user: UserResponseDto | null;
+}
+
 export interface GetUserRequestDto {
   /** ID пользователя */
   id?: string;
@@ -269,6 +410,8 @@ export interface PatchUserRequestDto {
   firstName?: string;
   /** Фамилия */
   lastName?: string;
+  /** О себе */
+  bio?: string;
   /** Ссылки на аватары пользователя */
   avatars?: string[];
   /** Дата рождения в ISO-формате */
@@ -2086,9 +2229,9 @@ export const getUsersControllerMeUrl = () => {
   return `http://localhost:4000/users/me`
 }
 
-export const usersControllerMe = async ( options?: RequestInit): Promise<void> => {
+export const usersControllerMe = async ( options?: RequestInit): Promise<GetUserResponseDto> => {
   
-  return customFetch<void>(getUsersControllerMeUrl(),
+  return customFetch<GetUserResponseDto>(getUsersControllerMeUrl(),
   {      
     ...options,
     method: 'GET'
@@ -2162,9 +2305,9 @@ export const getUsersControllerGetUrl = () => {
   return `http://localhost:4000/users/get`
 }
 
-export const usersControllerGet = async (getUserRequestDto: GetUserRequestDto, options?: RequestInit): Promise<void> => {
+export const usersControllerGet = async (getUserRequestDto: GetUserRequestDto, options?: RequestInit): Promise<GetUserResponseDto> => {
   
-  return customFetch<void>(getUsersControllerGetUrl(),
+  return customFetch<GetUserResponseDto>(getUsersControllerGetUrl(),
   {      
     ...options,
     method: 'POST',

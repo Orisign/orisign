@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
-import { getCookie } from '@/lib/cookies'
+import { deleteCookie, getCookie } from '@/lib/cookies'
 
 import {
 	type AccountResponseDto,
@@ -62,6 +62,13 @@ export function useAuth() {
 
 	const accessToken = getCookie('accessToken')
 
+	const logout = () => {
+		deleteCookie('accessToken')
+		setAuthenticated(false)
+		setUser(null)
+		window.location.assign('/auth')
+	}
+
 	const meQuery = useAccountControllerMe({
 		query: {
 			queryKey: getAccountControllerMeQueryKey(),
@@ -109,6 +116,7 @@ export function useAuth() {
 		deviceId,
 		user,
 		ensureDeviceId,
+		logout,
 		isLoading: meQuery.isLoading,
 		refetchMe: meQuery.refetch
 	}

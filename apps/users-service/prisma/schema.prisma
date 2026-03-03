@@ -12,6 +12,7 @@ model User {
   username        String?          @unique
   firstName       String           @map("first_name")
   lastName        String?          @map("last_name")
+  bio             String?          @map("bio")
   avatars         String[]
   birthDate       DateTime?        @map("birth_date")
   privacySettings PrivacySettings?

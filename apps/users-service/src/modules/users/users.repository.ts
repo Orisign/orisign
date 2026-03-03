@@ -99,6 +99,9 @@ export class UsersRepository {
     if (data.birthDate !== undefined) {
       updateData.birthDate = this.parseBirthDate(data.birthDate);
     }
+    if (data.bio !== undefined) {
+      updateData.bio = data.bio || null;
+    }
 
     if (Object.keys(updateData).length === 0) {
       return;
@@ -228,6 +231,7 @@ export class UsersRepository {
       lastName: entity.lastName ?? undefined,
       avatars: entity.avatars ?? [],
       birthDate: entity.birthDate ? entity.birthDate.getTime() : undefined,
+      bio: entity.bio ?? undefined,
       privacySettings: this.normalizePrivacySettings(entity.privacySettings),
       createdAt: entity.createdAt.getTime(),
       updatedAt: entity.updatedAt.getTime(),
