@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { Toaster } from "@repo/ui";
 
 function AuthBootstrap() {
   useAuth();
@@ -21,8 +22,10 @@ export function Providers({ children }: { children: ReactNode }) {
         enableSystem
         disableTransitionOnChange
       >
-        <AuthBootstrap />
-        {children}
+        <Toaster>
+          <AuthBootstrap />
+          {children}
+        </Toaster>
       </ThemeProvider>
     </QueryClientProvider>
   );

@@ -3,7 +3,7 @@
 import { createAuthSchema, TypeAuthSchema } from "@/schemas/auth.schema";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAuthControllerSendOtp, useUsersControllerAddAvatar } from "@/api/generated";
+import { useAuthControllerSendOtp } from "@/api/generated";
 import { useTranslations } from "next-intl";
 import { Field, FieldError, FieldLabel } from "../ui/field";
 import { Button, Checkbox, NumberInput, Ripple } from "@repo/ui";
@@ -72,7 +72,7 @@ export function AuthForm() {
             transition={{ duration: 0.28, ease: "easeInOut" }}
             className="flex w-full flex-col items-center justify-center space-y-5"
           >
-            <img src={"/logo.png"} alt="Logo" className="size-50" />
+            <img src={"/logo.png"} alt={t("logoAlt")} className="size-50" />
             <h1 className="text-2xl font-bold">{t("title")}</h1>
             <p className="text-muted-foreground">{t("description")}</p>
             <form

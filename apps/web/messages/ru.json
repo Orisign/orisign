@@ -1,7 +1,14 @@
 {
+  "app": {
+    "metadata": {
+      "title": "Orisign",
+      "description": "Веб-клиент Orisign"
+    }
+  },
   "auth": {
     "title": "Войти в Orisign",
     "description": "Проверьте код страны и введите свой номер телефона",
+    "logoAlt": "Логотип Orisign",
     "countryInput": {
       "label": "Страна"
     },
@@ -38,7 +45,7 @@
   },
   "appShell": {
     "searchPlaceholder": "Поиск",
-    "resizeSidebarAriaLabel": "Resize sidebar"
+    "resizeSidebarAriaLabel": "Изменить ширину боковой панели"
   },
   "userDropdown": {
     "addAccount": "Добавить аккаунт",
@@ -58,18 +65,83 @@
     "createGroup": "Создать группу",
     "createDirect": "Начать личный чат"
   },
+  "settingsSidebar": {
+    "title": "Настройки",
+    "actions": {
+      "backAriaLabel": "Назад",
+      "editProfileAriaLabel": "Редактировать профиль",
+      "moreAriaLabel": "Дополнительные действия"
+    },
+    "profile": {
+      "phone": "Телефон",
+      "username": "Имя пользователя",
+      "bio": "О себе",
+      "birthDate": "День рождения",
+      "notSet": "Не установлен"
+    },
+    "sections": {
+      "notificationsAndSound": "Уведомления и звук",
+      "dataAndStorage": "Данные и память",
+      "privacyAndSecurity": "Конфиденциальность",
+      "generalSettings": "Общие настройки",
+      "chatFolders": "Папки с чатами",
+      "stickersAndEmoji": "Стикеры и эмодзи"
+    }
+  },
+  "editProfileSidebar": {
+    "title": "Изменить профиль",
+    "fields": {
+      "firstName": {
+        "label": "Имя",
+        "placeholder": "Введите имя"
+      },
+      "lastName": {
+        "label": "Фамилия",
+        "placeholder": "Введите фамилию"
+      },
+      "bio": {
+        "label": "О себе (необязательно)",
+        "placeholder": "Добавьте описание",
+        "hint": "Любые подробности, например: возраст, род занятий или город."
+      },
+      "username": {
+        "title": "Имя пользователя",
+        "label": "Имя пользователя (необязательно)",
+        "placeholder": "Введите имя пользователя",
+        "hintBrand": "Вы можете выбрать публичное имя пользователя в Orisign. В этом случае другие люди смогут найти Вас по такому имени и связаться, не зная Вашего телефона.",
+        "hintRules": "Вы можете использовать символы a-z, 0-9 и подчёркивания. Минимальная длина — 5 символов."
+      }
+    },
+    "actions": {
+      "save": "Сохранить",
+      "backAriaLabel": "Назад"
+    }
+  },
+  "shared": {
+    "copyableProfileValue": {
+      "copied": "{field} скопировано"
+    },
+    "avatarUploadButton": {
+      "ariaLabel": "Загрузка аватара"
+    },
+    "avatarCarousel": {
+      "previousAriaLabel": "Предыдущий аватар",
+      "nextAriaLabel": "Следующий аватар"
+    }
+  },
   "validation": {
     "auth": {
       "phoneInvalid": "Введите номер телефона полностью",
       "privacyRequired": "Нужно принять политику конфиденциальности"
     },
     "profile": {
-      "usernameRequired": "Введите username",
-      "usernameTooShort": "Слишком короткий username. Минимум 5 символов",
-      "usernameTooLong": "Слишком длинный username. Максимум 15 символов",
-      "usernameInvalidChars": "Username может содержать только латинские буквы, цифры и символы",
+      "usernameRequired": "Введите имя пользователя",
+      "usernameTooShort": "Слишком короткое имя пользователя. Минимум 5 символов",
+      "usernameTooLong": "Слишком длинное имя пользователя. Максимум 15 символов",
+      "usernameInvalidChars": "Имя пользователя может содержать только латинские буквы, цифры и символы",
       "firstNameRequired": "Введите имя",
-      "lastNameRequired": "Введите фамилию"
+      "lastNameRequired": "Введите фамилию",
+      "bioTooLong": "Слишком длинное описание. Максимум 200 символов"
     }
   }
 }

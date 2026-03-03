@@ -21,12 +21,14 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { lastValueFrom } from 'rxjs';
+import { SkipThrottle } from '@nestjs/throttler';
 import { CurrentUser, Protected } from 'src/shared/decorators';
 import { FileValidationPipe } from 'src/shared/pipes';
 
 import {
   CreateUserRequestDto,
   DeleteAvatarRequestDto,
+  GetUserResponseDto,
   GetUserRequestDto,
   PatchPrivacyRequestDto,
   PatchUserRequestDto,
@@ -47,7 +49,11 @@ export class UsersController {
     summary: 'Текущий пользователь',
     description: 'Возвращает профиль текущего авторизованного пользователя',
   })
-  @ApiOkResponse({ description: 'Профиль пользователя' })
+  @ApiOkResponse({
+    description: 'Профиль пользователя',
+    type: GetUserResponseDto,
+  })
+  @SkipThrottle()
   @Protected()
   @Get('me')
   @HttpCode(HttpStatus.OK)
@@ -60,7 +66,10 @@ export class UsersController {
     description: 'Получает пользователя по id или username',
   })
   @ApiBody({ type: GetUserRequestDto })
-  @ApiOkResponse({ description: 'Профиль пользователя' })
+  @ApiOkResponse({
+    description: 'Профиль пользователя',
+    type: GetUserResponseDto,
+  })
   @ApiBadRequestResponse({
     description: 'Нужно передать хотя бы один идентификатор',
   })
@@ -102,6 +111,7 @@ export class UsersController {
         username: dto.username,
         firstName: dto.firstName,
         lastName: dto.lastName,
+        bio: dto.bio,
         avatars: dto.avatars ? { values: dto.avatars } : undefined,
         birthDate: dto.birthDate ? new Date(dto.birthDate).getTime() : undefined,
       }),
@@ -233,6 +243,7 @@ export class UsersController {
   })
   @ApiBody({ type: DeleteAvatarRequestDto })
   @ApiOkResponse({ description: 'Signed URL получен' })
+  @SkipThrottle()
   @Protected()
   @Post('avatar/url')
   public async getAvatarUrl(@Body() dto: DeleteAvatarRequestDto) {

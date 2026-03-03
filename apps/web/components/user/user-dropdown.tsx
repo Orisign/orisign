@@ -1,3 +1,4 @@
+import { useSidebar } from "@/hooks/use-sidebar";
 import {
   Button,
   DropdownMenu,
@@ -29,6 +30,7 @@ import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 
 export const UserDropdown = () => {
+  const { push } = useSidebar();
   const t = useTranslations("userDropdown");
   const { theme, setTheme } = useTheme();
 
@@ -70,7 +72,7 @@ export const UserDropdown = () => {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => push({ screen: "settings" })}>
             <Settings />
             {t("settings")}
           </DropdownMenuItem>
@@ -80,7 +82,7 @@ export const UserDropdown = () => {
               {t("more")}
             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
-              <DropdownMenuSubContent >
+              <DropdownMenuSubContent>
                 <DropdownMenuItem
                   onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                 >

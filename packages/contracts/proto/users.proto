@@ -54,6 +54,8 @@ message PatchUserRequest {
   optional AvatarList avatars = 5;
   // Optional birth date in epoch milliseconds. Zero clears value.
   optional int64 birth_date = 6;
+  // Optional bio update. Empty string clears value.
+  optional string bio = 7;
 }
 
 // Wrapper for avatar urls to preserve field presence.
@@ -103,6 +105,7 @@ message User {
   PrivacySettings privacy_settings = 7;
   int64           created_at       = 8;
   int64           updated_at       = 9;
+  optional string bio              = 10;
 }
 
 // User privacy settings.

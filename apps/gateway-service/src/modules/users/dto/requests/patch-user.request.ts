@@ -38,6 +38,14 @@ export class PatchUserRequestDto {
   public lastName?: string;
 
   @ApiPropertyOptional({
+    example: 'Backend engineer from Novosibirsk',
+    description: 'О себе',
+  })
+  @IsOptional()
+  @IsString()
+  public bio?: string;
+
+  @ApiPropertyOptional({
     type: [String],
     example: ['https://cdn.example.com/avatar.jpg'],
     description: 'Ссылки на аватары пользователя',
