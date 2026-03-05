@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@lumina-cinema/core": "^1.0.3",
-    "@nestjs/cli": "^11.0.10",
+    "@nestjs/cli": "^11.0.16",
     "@nestjs/schematics": "^11.0.9",
     "@nestjs/testing": "^11.1.14",
     "@types/cookie-parser": "^1.4.10",
