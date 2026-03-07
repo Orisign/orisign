@@ -1,10 +1,12 @@
 export * from "./lib/utils";
+export * from "./lib/i18n";
 
 export * from "./components/ui/button";
 export * from "./components/ui/card";
 export * from "./components/ui/checkbox";
 export * from "./components/ui/dialog";
 export * from "./components/ui/dropdown-menu";
+export * from "./components/ui/emoji-picker";
 export * from "./components/ui/field";
 export * from "./components/ui/input";
 export * from "./components/ui/input-group";
@@ -13,6 +15,7 @@ export * from "./components/ui/label";
 export * from "./components/ui/number-input";
 export * from "./components/ui/radio-group";
 export * from "./components/ui/ripple";
+export * from "./components/ui/scroll-area";
 export * from "./components/ui/select";
 export * from "./components/ui/separator";
 export * from "./components/ui/skeleton";

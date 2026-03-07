@@ -38,11 +38,9 @@ export class ConversationsService {
       });
     }
 
-    if (
-      ![ConversationType.DM, ConversationType.GROUP, ConversationType.CHANNEL].includes(
-        data.type,
-      )
-    ) {
+    const conversationType = this.normalizeConversationType(data.type);
+
+    if (!conversationType) {
       throw new RpcException({
         code: RpcStatus.INVALID_ARGUMENT,
         details: 'Conversation type is required',
@@ -50,7 +48,7 @@ export class ConversationsService {
     }
 
     const conversation = await this.repository.createConversation({
-      type: data.type,
+      type: conversationType,
       creatorId: data.creatorId,
       title: data.title,
       about: data.about,
@@ -286,5 +284,30 @@ export class ConversationsService {
     const conversation = await this.repository.getConversationById(conversationId);
 
     return conversation?.members.find((member) => member.userId === userId) ?? null;
+  }
+
+  private normalizeConversationType(value: unknown): ConversationType | null {
+    const allowed = [ConversationType.DM, ConversationType.GROUP, ConversationType.CHANNEL];
+
+    if (typeof value === 'number') {
+      return allowed.includes(value as ConversationType) ? (value as ConversationType) : null;
+    }
+
+    if (typeof value === 'string') {
+      const enumValue = (ConversationType as unknown as Record<string, unknown>)[value];
+
+      if (typeof enumValue === 'number') {
+        return allowed.includes(enumValue as ConversationType)
+          ? (enumValue as ConversationType)
+          : null;
+      }
+
+      const parsed = Number(value);
+      if (Number.isInteger(parsed) && allowed.includes(parsed as ConversationType)) {
+        return parsed as ConversationType;
+      }
+    }
+
+    return null;
   }
 }

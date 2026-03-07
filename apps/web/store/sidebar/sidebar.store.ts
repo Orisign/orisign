@@ -13,6 +13,7 @@ export const sidebarStore = create<SidebarStore>()(
         current: DEFAULT_ROUTE,
         stack: [],
         isOpen: true,
+        lastAction: "reset",
       },
       setSidebarWidth: (val: number) => set({ sidebarWidth: val }),
       setCurrent: (route: SidebarRoute) =>
@@ -20,6 +21,7 @@ export const sidebarStore = create<SidebarStore>()(
           navigation: {
             ...state.navigation,
             current: route,
+            lastAction: "set-current",
           },
         })),
       push: (route: SidebarRoute) =>
@@ -28,6 +30,7 @@ export const sidebarStore = create<SidebarStore>()(
             ...state.navigation,
             stack: [...state.navigation.stack, state.navigation.current],
             current: route,
+            lastAction: "push",
           },
         })),
       pop: () =>
@@ -44,6 +47,7 @@ export const sidebarStore = create<SidebarStore>()(
               ...state.navigation,
               stack: nextStack,
               current: previousRoute,
+              lastAction: "pop",
             },
           };
         }),
@@ -53,6 +57,7 @@ export const sidebarStore = create<SidebarStore>()(
             ...state.navigation,
             current: route,
             stack: [],
+            lastAction: "reset",
           },
         })),
       setOpen: (isOpen: boolean) =>

@@ -7,6 +7,11 @@ import {
   createEditProfileSidebarSchema,
   TypeEditProfileSidebarSchema,
 } from "@/schemas/edit-profile-sidebar.schema";
+import {
+  SidebarPage,
+  SidebarPageHeader,
+  SidebarPageTitle,
+} from "@/components/ui/sidebar-page";
 import { Button, Input } from "@repo/ui";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion } from "motion/react";
@@ -77,8 +82,8 @@ export const EditProfileSidebar = () => {
   }, [latestAvatarKey, storageBaseUrl]);
 
   return (
-    <div className="relative flex w-full flex-col space-y-5 px-5 pb-24">
-      <div className="flex items-center gap-3">
+    <SidebarPage className="gap-5 pb-24">
+      <SidebarPageHeader className="justify-start gap-3">
         <Button
           onClick={pop}
           variant="ghost"
@@ -88,8 +93,8 @@ export const EditProfileSidebar = () => {
         >
           <ArrowLeft strokeWidth={3} className="size-6" />
         </Button>
-        <h1 className="text-xl font-bold">{t("title")}</h1>
-      </div>
+        <SidebarPageTitle>{t("title")}</SidebarPageTitle>
+      </SidebarPageHeader>
 
       <div className="relative mx-auto size-40 overflow-hidden rounded-full bg-accent">
         {latestAvatarUrl ? (
@@ -102,7 +107,7 @@ export const EditProfileSidebar = () => {
         <AvatarUploadButton className="absolute inset-0 flex items-center justify-center" />
       </div>
 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-5">
         <Controller
           name="firstName"
           control={form.control}
@@ -199,6 +204,6 @@ export const EditProfileSidebar = () => {
           </motion.div>
         ) : null}
       </AnimatePresence>
-    </div>
+    </SidebarPage>
   );
 };

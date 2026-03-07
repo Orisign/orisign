@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import {
   ConversationType,
+  MemberState,
   MemberRole,
 } from '@repo/contracts/gen/ts/conversations';
 
@@ -103,4 +104,73 @@ export class UpdateMemberRoleRequestDto {
   @ApiProperty({ enum: MemberRole })
   @IsEnum(MemberRole)
   role: MemberRole;
+}
+
+export class ConversationMemberResponseDto {
+  @ApiProperty()
+  userId: string;
+
+  @ApiProperty({ enum: MemberRole })
+  role: MemberRole;
+
+  @ApiProperty({ enum: MemberState })
+  state: MemberState;
+
+  @ApiProperty()
+  joinedAt: number;
+}
+
+export class ConversationResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty({ enum: ConversationType })
+  type: ConversationType;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiProperty()
+  about: string;
+
+  @ApiProperty()
+  ownerId: string;
+
+  @ApiProperty()
+  isPublic: boolean;
+
+  @ApiProperty()
+  username: string;
+
+  @ApiProperty({ type: [ConversationMemberResponseDto] })
+  members: ConversationMemberResponseDto[];
+
+  @ApiProperty()
+  createdAt: number;
+
+  @ApiProperty()
+  updatedAt: number;
+}
+
+export class CreateConversationResponseDto {
+  @ApiProperty()
+  ok: boolean;
+
+  @ApiProperty({ type: ConversationResponseDto, nullable: true })
+  conversation: ConversationResponseDto | null;
+}
+
+export class GetConversationResponseDto {
+  @ApiProperty({ type: ConversationResponseDto, nullable: true })
+  conversation: ConversationResponseDto | null;
+}
+
+export class ListMyConversationsResponseDto {
+  @ApiProperty({ type: [ConversationResponseDto] })
+  conversations: ConversationResponseDto[];
+}
+
+export class MutationResponseDto {
+  @ApiProperty()
+  ok: boolean;
 }

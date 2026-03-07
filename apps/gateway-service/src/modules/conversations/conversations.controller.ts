@@ -21,8 +21,12 @@ import { ConversationsClientGrpc } from './conversations.grpc';
 import {
   AddMembersRequestDto,
   ConversationByIdRequestDto,
+  CreateConversationResponseDto,
   CreateConversationRequestDto,
+  GetConversationResponseDto,
   ListMyConversationsRequestDto,
+  ListMyConversationsResponseDto,
+  MutationResponseDto,
   RemoveMemberRequestDto,
   UpdateMemberRoleRequestDto,
 } from './dto';
@@ -36,7 +40,10 @@ export class ConversationsController {
 
   @ApiOperation({ summary: 'Создать чат/группу/канал' })
   @ApiBody({ type: CreateConversationRequestDto })
-  @ApiOkResponse({ description: 'Conversation created' })
+  @ApiOkResponse({
+    type: CreateConversationResponseDto,
+    description: 'Conversation created',
+  })
   @Post()
   @HttpCode(HttpStatus.OK)
   public async create(
@@ -58,7 +65,7 @@ export class ConversationsController {
 
   @ApiOperation({ summary: 'Получить беседу по id' })
   @ApiBody({ type: ConversationByIdRequestDto })
-  @ApiOkResponse({ description: 'Conversation info' })
+  @ApiOkResponse({ type: GetConversationResponseDto, description: 'Conversation info' })
   @Post('get')
   @HttpCode(HttpStatus.OK)
   public async get(@CurrentUser() id: string, @Body() dto: ConversationByIdRequestDto) {
@@ -71,7 +78,7 @@ export class ConversationsController {
   }
 
   @ApiOperation({ summary: 'Список моих бесед' })
-  @ApiOkResponse({ description: 'My conversations' })
+  @ApiOkResponse({ type: ListMyConversationsResponseDto, description: 'My conversations' })
   @Get('my')
   @HttpCode(HttpStatus.OK)
   public async my(@CurrentUser() id: string, @Query() dto: ListMyConversationsRequestDto) {
@@ -86,7 +93,7 @@ export class ConversationsController {
 
   @ApiOperation({ summary: 'Добавить участников' })
   @ApiBody({ type: AddMembersRequestDto })
-  @ApiOkResponse({ description: 'Members added' })
+  @ApiOkResponse({ type: MutationResponseDto, description: 'Members added' })
   @Post('members/add')
   @HttpCode(HttpStatus.OK)
   public async addMembers(@CurrentUser() id: string, @Body() dto: AddMembersRequestDto) {
@@ -101,7 +108,7 @@ export class ConversationsController {
 
   @ApiOperation({ summary: 'Удалить участника' })
   @ApiBody({ type: RemoveMemberRequestDto })
-  @ApiOkResponse({ description: 'Member removed' })
+  @ApiOkResponse({ type: MutationResponseDto, description: 'Member removed' })
   @Post('members/remove')
   @HttpCode(HttpStatus.OK)
   public async removeMember(@CurrentUser() id: string, @Body() dto: RemoveMemberRequestDto) {
@@ -116,7 +123,7 @@ export class ConversationsController {
 
   @ApiOperation({ summary: 'Изменить роль участника' })
   @ApiBody({ type: UpdateMemberRoleRequestDto })
-  @ApiOkResponse({ description: 'Member role updated' })
+  @ApiOkResponse({ type: MutationResponseDto, description: 'Member role updated' })
   @Patch('members/role')
   @HttpCode(HttpStatus.OK)
   public async updateRole(@CurrentUser() id: string, @Body() dto: UpdateMemberRoleRequestDto) {
@@ -132,7 +139,7 @@ export class ConversationsController {
 
   @ApiOperation({ summary: 'Вступить в публичную беседу/канал' })
   @ApiBody({ type: ConversationByIdRequestDto })
-  @ApiOkResponse({ description: 'Joined' })
+  @ApiOkResponse({ type: MutationResponseDto, description: 'Joined' })
   @Post('join')
   @HttpCode(HttpStatus.OK)
   public async join(@CurrentUser() id: string, @Body() dto: ConversationByIdRequestDto) {
@@ -146,7 +153,7 @@ export class ConversationsController {
 
   @ApiOperation({ summary: 'Выйти из беседы' })
   @ApiBody({ type: ConversationByIdRequestDto })
-  @ApiOkResponse({ description: 'Left' })
+  @ApiOkResponse({ type: MutationResponseDto, description: 'Left' })
   @Post('leave')
   @HttpCode(HttpStatus.OK)
   public async leave(@CurrentUser() id: string, @Body() dto: ConversationByIdRequestDto) {

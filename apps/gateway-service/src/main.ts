@@ -32,7 +32,7 @@ async function bootstrap() {
         '- `refreshToken` хранится в HttpOnly cookie и используется в `POST /auth/refresh`.',
         '',
         'Ограничения:',
-        '- Глобальный rate limit: 5 запросов / 60 секунд.',
+        '- Глобальный rate limit настраивается через `THROTTLE_LIMIT` и `THROTTLE_TTL_MS`.',
         '- Для `POST /auth/otp/send`: 1 запрос / 30 секунд.'
       ].join('\n')
     )
