@@ -1,0 +1,229 @@
+{
+  "app": {
+    "metadata": {
+      "title": "Orisign",
+      "description": "Orisign web client"
+    }
+  },
+  "home": {
+    "empty": {
+      "title": "Start chatting",
+      "description": "Select a chat or create a new one to start messaging"
+    }
+  },
+  "auth": {
+    "title": "Sign in to Orisign",
+    "description": "Check your country code and enter your phone number",
+    "logoAlt": "Orisign logo",
+    "countryInput": {
+      "label": "Country"
+    },
+    "phoneInput": {
+      "label": "Phone number"
+    },
+    "submitButton": "Next",
+    "qrButton": "Sign in with QR code",
+    "successMessage": "We sent a verification code to your phone number.",
+    "privacy": {
+      "acceptPrefix": "I accept",
+      "policyLink": "the privacy policy",
+      "brand": "Orisign"
+    }
+  },
+  "profile": {
+    "title": "Welcome!",
+    "description": "Provide your profile information",
+    "form": {
+      "firstName": {
+        "label": "First name",
+        "placeholder": "John"
+      },
+      "lastName": {
+        "label": "Last name",
+        "placeholder": "Doe"
+      },
+      "username": {
+        "label": "Username",
+        "placeholder": "Create a unique handle"
+      },
+      "submitButton": "Save"
+    }
+  },
+  "appShell": {
+    "searchPlaceholder": "Search",
+    "resizeSidebarAriaLabel": "Resize sidebar"
+  },
+  "chat": {
+    "list": {
+      "empty": "No chats"
+    },
+    "header": {
+      "searchPlaceholder": "Search",
+      "members": "{count, plural, one {# member} other {# members}}"
+    },
+    "dropdown": {
+      "mute": "Mute notifications",
+      "startVideoChat": "Start video chat",
+      "leave": "Leave chat"
+    },
+    "sendMessageForm": {
+      "placeholder": "Message"
+    },
+    "page": {
+      "placeholder": "Messages will appear here."
+    }
+  },
+  "userDropdown": {
+    "addAccount": "Add account",
+    "favorites": "Favorites",
+    "myStories": "My stories",
+    "contacts": "Contacts",
+    "wallet": "Wallet",
+    "settings": "Settings",
+    "more": "More",
+    "toggleTheme": "Toggle theme",
+    "orisignFeatures": "Orisign features",
+    "reportBug": "Report a bug",
+    "installApp": "Install app"
+  },
+  "conversationDropdown": {
+    "createChannel": "Create channel",
+    "createGroup": "Create group",
+    "createDirect": "Start direct chat"
+  },
+  "profileDropdown": {
+    "logout": "Log out"
+  },
+  "settingsSidebar": {
+    "title": "Settings",
+    "actions": {
+      "backAriaLabel": "Back",
+      "editProfileAriaLabel": "Edit profile",
+      "moreAriaLabel": "More actions"
+    },
+    "profile": {
+      "phone": "Phone",
+      "username": "Username",
+      "bio": "Bio",
+      "birthDate": "Birthday",
+      "ageYears": {
+        "one": "year",
+        "few": "years",
+        "many": "years",
+        "other": "years"
+      },
+      "notSet": "Not set"
+    },
+    "sections": {
+      "notificationsAndSound": "Notifications and sound",
+      "dataAndStorage": "Data and storage",
+      "privacyAndSecurity": "Privacy and security",
+      "generalSettings": "General settings",
+      "chatFolders": "Chat folders",
+      "stickersAndEmoji": "Stickers and emoji",
+      "language": "Language"
+    }
+  },
+  "languageSidebar": {
+    "title": "Language",
+    "showTranslateButton": "Show the Translate button",
+    "languages": {
+      "ru": {
+        "international": "Russian",
+        "locale": "Russian"
+      },
+      "en": {
+        "international": "English",
+        "locale": "English"
+      }
+    }
+  },
+  "ui": {
+    "dialog": {
+      "close": "Close"
+    },
+    "emojiPicker": {
+      "openAriaLabel": "Open emoji picker",
+      "searchPlaceholder": "Search emoji",
+      "clearSearchAriaLabel": "Clear search",
+      "empty": "Nothing found",
+      "deleteLastAriaLabel": "Delete one item",
+      "categories": {
+        "frequent": "Frequently used",
+        "smileys": "Smileys and people",
+        "animals": "Animals and nature",
+        "food": "Food and drink",
+        "activity": "Activity",
+        "travel": "Travel",
+        "objects": "Objects",
+        "symbols": "Symbols",
+        "flags": "Flags"
+      }
+    },
+    "numberInput": {
+      "countries": {
+        "RU": "Russia",
+        "BY": "Belarus",
+        "KZ": "Kazakhstan",
+        "KG": "Kyrgyzstan",
+        "UZ": "Uzbekistan"
+      }
+    }
+  },
+  "editProfileSidebar": {
+    "title": "Edit profile",
+    "fields": {
+      "firstName": {
+        "label": "First name",
+        "placeholder": "Enter first name"
+      },
+      "lastName": {
+        "label": "Last name",
+        "placeholder": "Enter last name"
+      },
+      "bio": {
+        "label": "Bio (optional)",
+        "placeholder": "Add description",
+        "hint": "Any details, for example: age, occupation, or city."
+      },
+      "username": {
+        "title": "Username",
+        "label": "Username (optional)",
+        "placeholder": "Enter username",
+        "hintBrand": "You can choose a public username in Orisign. In this case, other people can find you by this name and contact you without knowing your phone number.",
+        "hintRules": "You can use a-z, 0-9 and underscores. Minimum length is 5 characters."
+      }
+    },
+    "actions": {
+      "save": "Save",
+      "backAriaLabel": "Back"
+    }
+  },
+  "shared": {
+    "copyableProfileValue": {
+      "copied": "{field} copied"
+    },
+    "avatarUploadButton": {
+      "ariaLabel": "Upload avatar"
+    },
+    "avatarCarousel": {
+      "previousAriaLabel": "Previous avatar",
+      "nextAriaLabel": "Next avatar"
+    }
+  },
+  "validation": {
+    "auth": {
+      "phoneInvalid": "Enter the full phone number",
+      "privacyRequired": "You need to accept the privacy policy"
+    },
+    "profile": {
+      "usernameRequired": "Enter a username",
+      "usernameTooShort": "Username is too short. Minimum 5 characters",
+      "usernameTooLong": "Username is too long. Maximum 15 characters",
+      "usernameInvalidChars": "Username can only contain Latin letters, numbers, and underscores",
+      "firstNameRequired": "Enter a first name",
+      "lastNameRequired": "Enter a last name",
+      "bioTooLong": "Description is too long. Maximum 200 characters"
+    }
+  }
+}

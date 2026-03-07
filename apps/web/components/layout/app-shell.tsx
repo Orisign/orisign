@@ -9,24 +9,27 @@ import { ScrollArea } from "../ui/scroll-area";
 import { EditProfileSidebar } from "./sidebar/pages/edit-profile-sidebar";
 import { MainSidebar } from "./sidebar/pages/main-sidebar";
 import { SettingsSidebar } from "./sidebar/pages/settings-sidebar";
+import { LanguageSidebar } from "./sidebar/pages/language-sidebar";
 
 const slideVariants = {
   enter: (direction: 1 | -1) => ({
     x: direction === 1 ? "100%" : "-100%",
+    zIndex: 20,
   }),
   center: {
     x: "0%",
+    zIndex: 20,
   },
-  exit: (direction: 1 | -1) => ({
-    x: direction === 1 ? "-100%" : "100%",
-  }),
+  exit: {
+    x: "0%",
+    zIndex: 10,
+  },
 };
 
 export const AppShell: FC<PropsWithChildren> = ({ children }) => {
   const t = useTranslations("appShell");
-  const { sidebarWidth, setSidebarWidth, current, stack } = useSidebar();
+  const { sidebarWidth, setSidebarWidth, current, navigation } = useSidebar();
   const draggingRef = useRef(false);
-  const previousStackLengthRef = useRef(stack.length);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -48,29 +51,27 @@ export const AppShell: FC<PropsWithChildren> = ({ children }) => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, []);
+  }, [setSidebarWidth]);
 
   const gridStyles = useMemo(
     () => ({
-      gridTemplateColumns: `${sidebarWidth}px 6px 1fr`,
+      gridTemplateColumns: `${sidebarWidth}px 0px 1fr`,
     }),
     [sidebarWidth],
   );
 
-  const direction: 1 | -1 = stack.length < previousStackLengthRef.current ? -1 : 1;
-
-  useEffect(() => {
-    previousStackLengthRef.current = stack.length;
-  }, [stack.length]);
+  const direction: 1 | -1 = navigation.lastAction === "pop" ? -1 : 1;
 
   const renderPage = (() => {
     switch (current.screen) {
       case "main":
-        return <MainSidebar />
+        return <MainSidebar />;
       case "settings":
-        return <SettingsSidebar />
+        return <SettingsSidebar />;
       case "edit-profile":
-        return <EditProfileSidebar />
+        return <EditProfileSidebar />;
+      case "language":
+        return <LanguageSidebar />;
       default:
         return null;
     }
@@ -79,7 +80,7 @@ export const AppShell: FC<PropsWithChildren> = ({ children }) => {
   return (
     <div className="min-h-screen">
       <div className="grid h-screen" style={gridStyles}>
-        <aside className="relative border-r bg-accent/60 py-4">
+        <aside className="relative border-r bg-accent/60 pb-4">
           <div className="relative h-full overflow-hidden">
             <AnimatePresence initial={false} custom={direction}>
               <motion.div
@@ -90,13 +91,13 @@ export const AppShell: FC<PropsWithChildren> = ({ children }) => {
                 animate="center"
                 exit="exit"
                 transition={{
-                  duration: 0.2,
-                  ease: [0.25, 0.46, 0.45, 0.94],
+                  duration: 0.34,
+                  ease: [0.22, 0.61, 0.36, 1],
                 }}
                 className="absolute inset-0"
               >
                 <ScrollArea className="h-full w-full">
-                  <div>{renderPage}</div>
+                  <div className="h-full">{renderPage}</div>
                 </ScrollArea>
               </motion.div>
             </AnimatePresence>
@@ -104,7 +105,7 @@ export const AppShell: FC<PropsWithChildren> = ({ children }) => {
         </aside>
 
         <div
-          className="group relative cursor-col-resize bg-transparent"
+          className="group relative -left-[3px] z-30 h-full w-[6px] cursor-col-resize bg-transparent"
           onMouseDown={() => {
             draggingRef.current = true;
             document.body.style.cursor = "col-resize";
@@ -117,7 +118,7 @@ export const AppShell: FC<PropsWithChildren> = ({ children }) => {
 
         <main className="overflow-hidden">
           <ScrollArea className="h-full w-full">
-            <div className="p-6">{children}</div>
+            <div className="h-full p-6">{children}</div>
           </ScrollArea>
         </main>
       </div>

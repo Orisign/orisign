@@ -6,12 +6,14 @@ import {
   FolderOpen,
   Gift,
   Info,
+  Languages,
   Lock,
   Phone,
   Settings,
   SmilePlus,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { IoLanguageSharp } from "react-icons/io5";
 
 export const SETTINGS_HEADER_TRANSFORM_RANGE: number[] = [0, 260];
 export const SETTINGS_COLLAPSED_AVATAR_SIZE = 86;
@@ -30,7 +32,8 @@ type SectionItem = {
     | "privacyAndSecurity"
     | "generalSettings"
     | "chatFolders"
-    | "stickersAndEmoji";
+    | "stickersAndEmoji"
+    | "language";
   icon: LucideIcon;
   route: SidebarRoute;
 };
@@ -65,5 +68,10 @@ export const SETTINGS_SECTION_ITEMS: SectionItem[] = [
     key: "stickersAndEmoji",
     icon: SmilePlus,
     route: { screen: "stickers-and-emoji" },
+  },
+  {
+    key: "language",
+    icon: Languages,
+    route: { screen: "language" },
   },
 ];

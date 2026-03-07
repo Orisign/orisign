@@ -28,10 +28,17 @@ export type SidebarRoute =
   | { screen: "language" }
   | { screen: "stickers-and-emoji" };
 
+export type SidebarNavigationAction =
+  | "set-current"
+  | "push"
+  | "pop"
+  | "reset";
+
 export interface SidebarNavigationState {
   stack: SidebarRoute[];
   current: SidebarRoute;
   isOpen: boolean;
+  lastAction?: SidebarNavigationAction;
 }
 
 export interface SidebarStateStore {
@@ -48,4 +55,5 @@ export interface PersistedSidebarNavigation {
   current: SidebarRoute;
   stack: SidebarRoute[];
   isOpen: boolean;
+  lastAction?: SidebarNavigationAction;
 }

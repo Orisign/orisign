@@ -13,11 +13,11 @@ interface SectionButtonProps {
 }
 
 export function SectionButton({ icon, title, route }: SectionButtonProps) {
-  const { setCurrent } = useSidebar();
+  const { push } = useSidebar();
 
   return (
     <Ripple
-      onClick={() => setCurrent(route)}
+      onClick={() => push(route)}
       className={SECTION_BUTTON_CLASSNAME}
     >
       <div className="flex items-center justify-center gap-5">

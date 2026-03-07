@@ -23,6 +23,7 @@ const Ripple = React.forwardRef<HTMLElement, RippleProps>(
       durationMs = 550,
       className,
       onMouseDown,
+      onPointerDownCapture,
       children,
       ...props
     },
@@ -38,8 +39,14 @@ const Ripple = React.forwardRef<HTMLElement, RippleProps>(
       childOnMouseDown?.(event);
       onMouseDown?.(event);
       if (disabled || event.defaultPrevented) return;
+    };
 
-      const rect = event.currentTarget.getBoundingClientRect();
+    const spawnRipple = (
+      target: HTMLElement,
+      clientX: number,
+      clientY: number,
+    ) => {
+      const rect = target.getBoundingClientRect();
       const size = Math.max(rect.width, rect.height) * 1.8;
       const id = rippleId.current++;
 
@@ -47,8 +54,8 @@ const Ripple = React.forwardRef<HTMLElement, RippleProps>(
         ...prev,
         {
           id,
-          x: event.clientX - rect.left - size / 2,
-          y: event.clientY - rect.top - size / 2,
+          x: clientX - rect.left - size / 2,
+          y: clientY - rect.top - size / 2,
           size,
         },
       ]);
@@ -56,6 +63,20 @@ const Ripple = React.forwardRef<HTMLElement, RippleProps>(
       window.setTimeout(() => {
         setRipples((prev) => prev.filter((ripple) => ripple.id !== id));
       }, durationMs);
+    };
+
+    const handlePointerDownCapture = (
+      event: React.PointerEvent<HTMLElement>,
+      childOnPointerDownCapture?: (
+        event: React.PointerEvent<HTMLElement>,
+      ) => void,
+    ) => {
+      childOnPointerDownCapture?.(event);
+      onPointerDownCapture?.(event);
+      if (disabled) return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+
+      spawnRipple(event.currentTarget, event.clientX, event.clientY);
     };
 
     const rippleLayer = (
@@ -83,10 +104,15 @@ const Ripple = React.forwardRef<HTMLElement, RippleProps>(
         className?: string;
         children?: React.ReactNode;
         onMouseDown?: (event: React.MouseEvent<HTMLElement>) => void;
+        onPointerDownCapture?: (
+          event: React.PointerEvent<HTMLElement>,
+        ) => void;
       };
 
       return React.cloneElement(child, {
         className: cn("relative overflow-hidden", childProps.className, className),
+        onPointerDownCapture: (event: React.PointerEvent<HTMLElement>) =>
+          handlePointerDownCapture(event, childProps.onPointerDownCapture),
         onMouseDown: (event: React.MouseEvent<HTMLElement>) =>
           handleMouseDown(event, childProps.onMouseDown),
         children: (
@@ -102,8 +128,9 @@ const Ripple = React.forwardRef<HTMLElement, RippleProps>(
       <span
         ref={ref}
         className={cn("relative overflow-hidden", className)}
-        onMouseDown={(event) => handleMouseDown(event)}
         {...props}
+        onPointerDownCapture={(event) => handlePointerDownCapture(event)}
+        onMouseDown={(event) => handleMouseDown(event)}
       >
         <span className="relative z-[1]">{children}</span>
         {rippleLayer}

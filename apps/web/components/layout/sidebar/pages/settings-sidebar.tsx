@@ -5,14 +5,21 @@ import { AvatarCarousel } from "@/components/shared/avatar-carousel";
 import { AvatarUploadButton } from "@/components/shared/avatar-upload-button";
 import { CopyableProfileValue } from "@/components/shared/copyable-profile-value";
 import { SectionButton } from "@/components/shared/section-button";
+import {
+  SidebarPage,
+  SidebarPageContent,
+  SidebarPageHeader,
+  SidebarPageSeparator,
+  SidebarPageTitle,
+} from "@/components/ui/sidebar-page";
 import { useAuth } from "@/hooks/use-auth";
 import { useSidebar } from "@/hooks/use-sidebar";
 import type { BirthDateInput } from "@/lib/birth-date";
-import { formatBirthDateRuWithAge } from "@/lib/birth-date";
+import { formatBirthDateWithAge } from "@/lib/birth-date";
 import { Button } from "@repo/ui";
 import { ArrowLeft, EllipsisVertical, Pencil } from "lucide-react";
 import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import {
   SETTINGS_COLLAPSED_AVATAR_SIZE,
@@ -24,6 +31,7 @@ import { ProfileDropdown } from "@/components/user/profile-dropdown";
 
 export const SettingsSidebar = () => {
   const t = useTranslations("settingsSidebar");
+  const locale = useLocale();
   const { data } = useUsersControllerMe();
   const { data: accountData } = useAccountControllerMe();
   const { user: auth } = useAuth();
@@ -130,8 +138,15 @@ export const SettingsSidebar = () => {
     nameShadowOpacity,
     (v) => `0 2px 12px rgba(0,0,0,${v})`,
   );
-  const birthDateLabel = formatBirthDateRuWithAge(
+  const birthDateLabel = formatBirthDateWithAge(
     user?.birthDate as unknown as BirthDateInput,
+    locale,
+    {
+      one: t("profile.ageYears.one"),
+      few: t("profile.ageYears.few"),
+      many: t("profile.ageYears.many"),
+      other: t("profile.ageYears.other"),
+    },
   );
   const isAvatarExpanded = scrollTop < 36;
   const profileValues = {
@@ -142,8 +157,8 @@ export const SettingsSidebar = () => {
   } as const;
 
   return (
-    <div ref={rootRef} className="flex flex-col space-y-6 w-full">
-      <div className="flex items-center justify-between px-5">
+    <SidebarPage ref={rootRef}>
+      <SidebarPageHeader>
         <div className="flex items-center justify-center gap-3">
           <Button
             onClick={pop}
@@ -154,7 +169,7 @@ export const SettingsSidebar = () => {
           >
             <ArrowLeft strokeWidth={3} className="size-6" />
           </Button>
-          <h1 className="text-xl font-bold">{t("title")}</h1>
+          <SidebarPageTitle>{t("title")}</SidebarPageTitle>
         </div>
 
         <div className="flex items-center justify-center gap-3">
@@ -182,7 +197,7 @@ export const SettingsSidebar = () => {
             </Button>
           </ProfileDropdown>
         </div>
-      </div>
+      </SidebarPageHeader>
 
       <div className="w-full">
         <motion.div
@@ -227,11 +242,11 @@ export const SettingsSidebar = () => {
         </motion.div>
       </div>
 
-      <div className="relative h-6 w-full bg-accent">
+      <SidebarPageSeparator className="relative">
         <AvatarUploadButton className="absolute -top-5 right-3 z-20" />
-      </div>
+      </SidebarPageSeparator>
 
-      <div className="w-full flex flex-col space-y-1.5 px-2">
+      <SidebarPageContent>
         {SETTINGS_PROFILE_ROWS.map(({ key, icon: Icon }) => (
           <CopyableProfileValue
             key={key}
@@ -240,11 +255,11 @@ export const SettingsSidebar = () => {
             description={t(`profile.${key}`)}
           />
         ))}
-      </div>
+      </SidebarPageContent>
 
-      <div className="bg-accent h-6  w-full" />
+      <SidebarPageSeparator />
 
-      <div className="w-full flex flex-col space-y-1.5 px-2">
+      <SidebarPageContent>
         {SETTINGS_SECTION_ITEMS.map(({ key, icon: Icon, route }) => (
           <SectionButton
             key={key}
@@ -253,7 +268,7 @@ export const SettingsSidebar = () => {
             route={route}
           />
         ))}
-      </div>
-    </div>
+      </SidebarPageContent>
+    </SidebarPage>
   );
 };

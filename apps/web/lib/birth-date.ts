@@ -5,6 +5,12 @@ type LongLike = {
 };
 
 export type BirthDateInput = number | string | LongLike | undefined;
+type YearsWords = {
+  one?: string;
+  few?: string;
+  many?: string;
+  other: string;
+};
 
 const toMillis = (value: BirthDateInput) => {
   if (typeof value === "number") return value;
@@ -35,14 +41,16 @@ const toMillis = (value: BirthDateInput) => {
   return undefined;
 };
 
-const getYearsWordRu = (years: number) => {
-  const mod10 = years % 10;
-  const mod100 = years % 100;
-
-  if (mod10 === 1 && mod100 !== 11) return "год";
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "года";
-
-  return "лет";
+const getYearsWord = (
+  years: number,
+  locale: string,
+  words: YearsWords,
+) => {
+  const category = new Intl.PluralRules(locale).select(years);
+  if (category === "one") return words.one ?? words.other;
+  if (category === "few") return words.few ?? words.other;
+  if (category === "many") return words.many ?? words.other;
+  return words.other;
 };
 
 const getAge = (birthDate: Date) => {
@@ -57,7 +65,11 @@ const getAge = (birthDate: Date) => {
   return years;
 };
 
-export const formatBirthDateRuWithAge = (value: BirthDateInput) => {
+export const formatBirthDateWithAge = (
+  value: BirthDateInput,
+  locale: string,
+  words: YearsWords,
+) => {
   const birthDateMs = toMillis(value);
   if (!birthDateMs) return "";
 
@@ -65,11 +77,11 @@ export const formatBirthDateRuWithAge = (value: BirthDateInput) => {
   if (Number.isNaN(birthDate.getTime())) return "";
 
   const age = getAge(birthDate);
-  const dateLabel = new Intl.DateTimeFormat("ru-RU", {
+  const dateLabel = new Intl.DateTimeFormat(locale, {
     day: "numeric",
     month: "long",
     year: "numeric",
   }).format(birthDate);
 
-  return `${dateLabel} (${age} ${getYearsWordRu(age)})`;
+  return `${dateLabel} (${age} ${getYearsWord(age, locale, words)})`;
 };

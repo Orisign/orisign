@@ -66,7 +66,7 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-32 overflow-y-auto overflow-x-hidden rounded-md bg-popover px-1.5 py-1 text-popover-foreground origin-[--radix-dropdown-menu-content-transform-origin] [will-change:transform,opacity,filter] data-[state=open]:animate-[dropdown-in_280ms_cubic-bezier(.22,.8,.2,1)] data-[state=closed]:animate-[dropdown-out_200ms_cubic-bezier(.4,0,.2,1)]",
+        "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-32 overflow-y-auto space-y-1 overflow-x-hidden rounded-md bg-popover px-1.5 py-1 text-popover-foreground origin-[--radix-dropdown-menu-content-transform-origin] [will-change:transform,opacity,filter] data-[state=open]:animate-[dropdown-in_280ms_cubic-bezier(.22,.8,.2,1)] data-[state=closed]:animate-[dropdown-out_200ms_cubic-bezier(.4,0,.2,1)]",
         className,
       )}
       {...props}
@@ -79,8 +79,9 @@ const DropdownMenuItem = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
     inset?: boolean;
+    variant?: "default" | "destructive";
   }
->(({ className, inset, children, ...props }, ref) => (
+>(({ className, inset, variant = "default", children, ...props }, ref) => (
   <motion.div
     whileTap={{ scale: 0.95 }}
     transition={{ type: "spring", stiffness: 500, damping: 30 }}
@@ -88,7 +89,10 @@ const DropdownMenuItem = React.forwardRef<
     <DropdownMenuPrimitive.Item
       ref={ref}
       className={cn(
-        "relative flex cursor-pointer select-none items-center gap-5 rounded-md px-3 py-1.5 text-sm font-semibold outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:stroke-[2.5px] [&_svg]:size-5 [&_svg]:shrink-0",
+        "relative flex cursor-pointer select-none items-center gap-5 rounded-md px-3 py-1.5 text-sm font-semibold outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:stroke-[2.5px] [&_svg]:size-5 [&_svg]:shrink-0",
+        variant === "default" && "focus:bg-accent focus:text-accent-foreground",
+        variant === "destructive" &&
+          "text-destructive [&_svg]:text-destructive focus:bg-destructive/10 focus:text-destructive",
         inset && "pl-8",
         className,
       )}

@@ -5,6 +5,12 @@
       "description": "Веб-клиент Orisign"
     }
   },
+  "home": {
+    "empty": {
+      "title": "Начните общение",
+      "description": "Выберите чат, или создайте новый, чтобы начать переписку"
+    }
+  },
   "auth": {
     "title": "Войти в Orisign",
     "description": "Проверьте код страны и введите свой номер телефона",
@@ -47,6 +53,26 @@
     "searchPlaceholder": "Поиск",
     "resizeSidebarAriaLabel": "Изменить ширину боковой панели"
   },
+  "chat": {
+    "list": {
+      "empty": "Нет бесед"
+    },
+    "header": {
+      "searchPlaceholder": "Поиск",
+      "members": "{count, plural, one {# участник} few {# участника} many {# участников} other {# участника}}"
+    },
+    "dropdown": {
+      "mute": "Выключить уведомления",
+      "startVideoChat": "Начать видео-чат",
+      "leave": "Покинуть чат"
+    },
+    "sendMessageForm": {
+      "placeholder": "Сообщение"
+    },
+    "page": {
+      "placeholder": "Здесь будет лента сообщений."
+    }
+  },
   "userDropdown": {
     "addAccount": "Добавить аккаунт",
     "favorites": "Избранное",
@@ -65,6 +91,9 @@
     "createGroup": "Создать группу",
     "createDirect": "Начать личный чат"
   },
+  "profileDropdown": {
+    "logout": "Выйти"
+  },
   "settingsSidebar": {
     "title": "Настройки",
     "actions": {
@@ -77,6 +106,12 @@
       "username": "Имя пользователя",
       "bio": "О себе",
       "birthDate": "День рождения",
+      "ageYears": {
+        "one": "год",
+        "few": "года",
+        "many": "лет",
+        "other": "лет"
+      },
       "notSet": "Не установлен"
     },
     "sections": {
@@ -85,7 +120,54 @@
       "privacyAndSecurity": "Конфиденциальность",
       "generalSettings": "Общие настройки",
       "chatFolders": "Папки с чатами",
-      "stickersAndEmoji": "Стикеры и эмодзи"
+      "stickersAndEmoji": "Стикеры и эмодзи",
+      "language": "Язык"
+    }
+  },
+  "languageSidebar": {
+    "title": "Язык",
+    "showTranslateButton": "Показывать кнопку «Перевести»",
+    "languages": {
+      "ru": {
+        "international": "Russian",
+        "locale": "Русский"
+      },
+      "en": {
+        "international": "English",
+        "locale": "Английский"
+      }
+    }
+  },
+  "ui": {
+    "dialog": {
+      "close": "Закрыть"
+    },
+    "emojiPicker": {
+      "openAriaLabel": "Открыть эмодзи",
+      "searchPlaceholder": "Поиск эмодзи",
+      "clearSearchAriaLabel": "Очистить поиск",
+      "empty": "Ничего не найдено",
+      "deleteLastAriaLabel": "Удалить один элемент",
+      "categories": {
+        "frequent": "Часто используемые",
+        "smileys": "Смайлы и люди",
+        "animals": "Животные и природа",
+        "food": "Еда и напитки",
+        "activity": "Активность",
+        "travel": "Путешествия",
+        "objects": "Предметы",
+        "symbols": "Символы",
+        "flags": "Флаги"
+      }
+    },
+    "numberInput": {
+      "countries": {
+        "RU": "Россия",
+        "BY": "Беларусь",
+        "KZ": "Казахстан",
+        "KG": "Кыргызстан",
+        "UZ": "Узбекистан"
+      }
     }
   },
   "editProfileSidebar": {

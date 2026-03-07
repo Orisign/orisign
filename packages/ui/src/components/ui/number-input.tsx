@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useUITranslations } from "../../lib/i18n";
 import { cn } from "../../lib/utils";
 
 import { InputGroup, InputGroupAddon, InputGroupInput } from "./input-group";
@@ -19,7 +20,6 @@ type CountryCode = "RU" | "BY" | "KZ" | "KG" | "UZ";
 type CountryConfig = {
   code: CountryCode;
   flag: React.ReactNode;
-  label: string;
   dialCode: string;
   mask: string;
   nationalLength: number;
@@ -29,7 +29,6 @@ const COUNTRY_CONFIGS: CountryConfig[] = [
   {
     code: "RU",
     flag: <Emoji name="flag-russia" className="size-5" />,
-    label: "Россия",
     dialCode: "+7",
     mask: "### ###-##-##",
     nationalLength: 10,
@@ -37,7 +36,6 @@ const COUNTRY_CONFIGS: CountryConfig[] = [
   {
     code: "BY",
     flag: <Emoji name="flag-belarus" className="size-5" />,
-    label: "Беларусь",
     dialCode: "+375",
     mask: "## ###-##-##",
     nationalLength: 9,
@@ -45,7 +43,6 @@ const COUNTRY_CONFIGS: CountryConfig[] = [
   {
     code: "KZ",
     flag: <Emoji name="flag-kazakhstan" className="size-5" />,
-    label: "Казахстан",
     dialCode: "+7",
     mask: "### ###-##-##",
     nationalLength: 10,
@@ -53,7 +50,6 @@ const COUNTRY_CONFIGS: CountryConfig[] = [
   {
     code: "KG",
     flag: <Emoji name="flag-kyrgyzstan" className="size-5" />,
-    label: "Кыргызстан",
     dialCode: "+996",
     mask: "### ##-##-##",
     nationalLength: 9,
@@ -61,7 +57,6 @@ const COUNTRY_CONFIGS: CountryConfig[] = [
   {
     code: "UZ",
     flag: <Emoji name="flag-uzbekistan" className="size-5" />,
-    label: "Узбекистан",
     dialCode: "+998",
     mask: "## ###-##-##",
     nationalLength: 9,
@@ -157,6 +152,7 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
     },
     ref,
   ) => {
+    const t = useUITranslations("numberInput");
     const isCountryControlled =
       country !== undefined && typeof onCountryChange === "function";
     const [internalCountry, setInternalCountry] =
@@ -313,7 +309,7 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
                       <span className="text-muted-foreground">
                         {item.dialCode}
                       </span>
-                      <span>{item.label}</span>
+                      <span>{t(`countries.${item.code}`)}</span>
                     </span>
                   </SelectItem>
                 ))}
