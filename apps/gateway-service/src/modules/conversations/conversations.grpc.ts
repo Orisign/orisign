@@ -2,6 +2,7 @@ import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { ClientGrpc } from '@nestjs/microservices';
 import type {
   AddMembersRequest,
+  PermissionRequest,
   ConversationsServiceClient,
   CreateConversationRequest,
   GetConversationRequest,
@@ -55,5 +56,13 @@ export class ConversationsClientGrpc implements OnModuleInit {
 
   public leaveConversation(request: LeaveConversationRequest) {
     return this.conversationsClient.leaveConversation(request);
+  }
+
+  public canRead(request: PermissionRequest) {
+    return this.conversationsClient.canRead(request);
+  }
+
+  public canPost(request: PermissionRequest) {
+    return this.conversationsClient.canPost(request);
   }
 }

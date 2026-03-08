@@ -5,6 +5,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import * as cookieParser from 'cookie-parser';
 import { getCorsConfig, getValidationPipeConfig } from './core/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ChatRealtimeService } from './modules/messages/chat-realtime.service';
 import { GrpcExceptionFilter } from './shared/filters';
 
 async function bootstrap() {
@@ -65,6 +66,9 @@ async function bootstrap() {
 
   const port = config.getOrThrow<number>('HTTP_PORT');
   const host = config.getOrThrow<string>('HTTP_HOST');
+  const chatRealtimeService = app.get(ChatRealtimeService);
+
+  chatRealtimeService.attachServer(app.getHttpServer());
 
   await app.listen(port);
 

@@ -23,7 +23,7 @@ export function ChatHeader({
   const [searching, setSearching] = useState(false);
 
   return (
-    <div className="sticky inset-x-0 top-0 z-30 flex w-full items-center gap-2 bg-muted/60 px-4 py-2">
+    <div className="z-20 shrink-0 flex w-full items-center gap-2 border-b border-border/60 bg-muted/60 px-4 py-2 backdrop-blur-sm">
       <AnimatePresence mode="wait" initial={false}>
         {searching ? (
           <motion.div
@@ -38,7 +38,7 @@ export function ChatHeader({
               leftSlot={<IoSearch className="text-muted-foreground" />}
               rightSlot={
                 <Button
-                  className="rounded-full size-10 [&_svg]:size-6"
+                  className="size-10 rounded-full [&_svg]:size-6"
                   variant={"ghost"}
                   onClick={() => setSearching(false)}
                 >

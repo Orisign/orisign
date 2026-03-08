@@ -31,5 +31,6 @@ import { ConversationsClientGrpc } from './conversations.grpc';
   ],
   controllers: [ConversationsController],
   providers: [ConversationsClientGrpc],
+  exports: [ConversationsClientGrpc],
 })
 export class ConversationsModule {}

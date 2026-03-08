@@ -3,6 +3,8 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { PROTO_PATHS } from '@repo/contracts';
+import { ConversationsModule } from '../conversations/conversations.module';
+import { ChatRealtimeService } from './chat-realtime.service';
 import { MessagesController } from './messages.controller';
 import { MessagesClientGrpc } from './messages.grpc';
 
@@ -26,10 +28,12 @@ import { MessagesClientGrpc } from './messages.grpc';
           },
         }),
         inject: [ConfigService],
-      },
-    ]),
+        },
+      ]),
+    ConversationsModule,
   ],
   controllers: [MessagesController],
-  providers: [MessagesClientGrpc],
+  providers: [MessagesClientGrpc, ChatRealtimeService],
+  exports: [ChatRealtimeService],
 })
 export class MessagesModule {}

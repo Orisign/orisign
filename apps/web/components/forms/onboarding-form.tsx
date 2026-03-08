@@ -1,6 +1,7 @@
 "use client";
 
-import { useUsersControllerMe, useUsersControllerPatch } from "@/api/generated";
+import { useUsersControllerPatch } from "@/api/generated";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   createEditProfileSchema,
   TypeEditProfileSchema,
@@ -24,7 +25,7 @@ export const OnboardingForm = () => {
   const t = useTranslations("profile");
   const tv = useTranslations("validation.profile");
   const router = useRouter();
-  const { data: meData, isSuccess: isMeLoaded } = useUsersControllerMe();
+  const { user, isSuccess: isMeLoaded } = useCurrentUser();
   const editProfileSchema = useMemo(() => createEditProfileSchema(tv), [tv]);
 
   const { mutate: editProfile, isPending: isLoading } = useUsersControllerPatch(
@@ -58,12 +59,11 @@ export const OnboardingForm = () => {
   useEffect(() => {
     if (!isMeLoaded) return;
 
-    const user = meData?.user;
     const hasProfile = !!user?.firstName?.trim() || !!user?.username?.trim();
     if (hasProfile) {
       router.replace("/");
     }
-  }, [isMeLoaded, meData, router]);
+  }, [isMeLoaded, router, user]);
 
   return (
     <form

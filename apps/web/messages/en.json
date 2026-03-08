@@ -55,7 +55,14 @@
   },
   "chat": {
     "list": {
-      "empty": "No chats"
+      "empty": "No chats",
+      "ownPrefix": "You:",
+      "unknownAuthor": "User",
+      "media": {
+        "photo": "Photo",
+        "file": "File",
+        "attachment": "Attachment"
+      }
     },
     "header": {
       "searchPlaceholder": "Search",
@@ -67,7 +74,32 @@
       "leave": "Leave chat"
     },
     "sendMessageForm": {
-      "placeholder": "Message"
+      "placeholder": "Message",
+      "replyFallback": "No text"
+    },
+    "messages": {
+      "empty": "No messages yet",
+      "loadError": "Failed to load messages",
+      "deleted": "Message deleted",
+      "edited": "edited",
+      "replyUnavailable": "Message unavailable",
+      "unknownAuthor": "User",
+      "dayDivider": {
+        "today": "Today",
+        "yesterday": "Yesterday"
+      },
+      "contextMenu": {
+        "reply": "Reply",
+        "copy": "Copy",
+        "readBy": "{count, plural, one {# view} other {# views}}",
+        "delete": "Delete",
+        "copied": "Message copied"
+      },
+      "readDialog": {
+        "title": "{count, plural, one {# view} other {# views}}",
+        "readAt": "{day} at {time}",
+        "empty": "Nobody has read this message yet"
+      }
     },
     "page": {
       "placeholder": "Messages will appear here."

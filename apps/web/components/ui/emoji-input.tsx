@@ -22,6 +22,8 @@ interface EmojiInputProps
   showEmojiPicker?: boolean;
   autoGrow?: boolean;
   maxHeight?: number;
+  onSubmit?: () => void;
+  focusToken?: string | number | null;
 }
 
 const MIN_INPUT_HEIGHT = 44;
@@ -227,6 +229,9 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
       showEmojiPicker = false,
       autoGrow = false,
       maxHeight = 176,
+      onSubmit,
+      focusToken,
+      onKeyDown,
       ...props
     },
     ref,
@@ -310,6 +315,24 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
       window.addEventListener("resize", handleResize);
       return () => window.removeEventListener("resize", handleResize);
     }, [autoGrow, updateInputHeight]);
+
+    React.useEffect(() => {
+      if (focusToken == null) return;
+
+      const editable = editableRef.current;
+      if (!editable || disabled) return;
+
+      requestAnimationFrame(() => {
+        editable.focus();
+        const currentValue = readPlainText(editable).replaceAll("\n", "");
+        const nextOffset = currentValue.length;
+        setCaretOffset(editable, nextOffset);
+        lastSelectionRef.current = {
+          start: nextOffset,
+          end: nextOffset,
+        };
+      });
+    }, [disabled, focusToken]);
 
     const saveSelection = React.useCallback(() => {
       const editable = editableRef.current;
@@ -429,7 +452,7 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
     return (
       <div
         className={cn(
-          "relative w-full rounded-xl border-2 border-border/60 bg-secondary/80 px-4 text-[15px] text-foreground transition-[height,border-color,box-shadow] duration-140 ease-[cubic-bezier(.2,.8,.2,1)] focus-within:border-primary/40",
+          "relative w-full rounded-xl border-2 border-border/60 bg-secondary/80 px-4 text-[15px] text-foreground transition-[height,border-color,box-shadow] duration-140 ease-[cubic-bezier(.2,.8,.2,1)]",
           disabled && "cursor-not-allowed opacity-50",
           className,
         )}
@@ -480,10 +503,7 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
           style={{
             maxHeight: autoGrow ? maxHeight - 4 : undefined,
           }}
-          onBlur={(event) => {
-            saveSelection();
-            onBlur?.(event);
-          }}
+          onBlur={onBlur}
           onFocus={saveSelection}
           onInput={handleInput}
           onKeyUp={saveSelection}
@@ -491,8 +511,15 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
           onSelect={saveSelection}
           onPaste={handlePaste}
           onKeyDown={(event) => {
-            if (event.key === "Enter") {
+            if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
+              onSubmit?.();
+            }
+
+            onKeyDown?.(event);
+
+            if (event.defaultPrevented) {
+              return;
             }
           }}
           onCompositionStart={() => {

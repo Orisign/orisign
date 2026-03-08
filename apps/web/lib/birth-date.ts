@@ -1,10 +1,6 @@
-type LongLike = {
-  low: number;
-  high: number;
-  unsigned?: boolean;
-};
+import { coerceProtobufNumber, type ProtobufLongLike } from "./protobuf";
 
-export type BirthDateInput = number | string | LongLike | undefined;
+export type BirthDateInput = number | string | ProtobufLongLike | undefined;
 type YearsWords = {
   one?: string;
   few?: string;
@@ -13,32 +9,7 @@ type YearsWords = {
 };
 
 const toMillis = (value: BirthDateInput) => {
-  if (typeof value === "number") return value;
-
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
-
-  if (
-    value &&
-    typeof value === "object" &&
-    typeof value.low === "number" &&
-    typeof value.high === "number"
-  ) {
-    const low = BigInt(value.low >>> 0);
-    const high = BigInt(value.high >>> 0);
-    let result = (high << 32n) | low;
-
-    if (!value.unsigned && (value.high & 0x80000000) !== 0) {
-      result -= 1n << 64n;
-    }
-
-    const num = Number(result);
-    return Number.isFinite(num) ? num : undefined;
-  }
-
-  return undefined;
+  return coerceProtobufNumber(value);
 };
 
 const getYearsWord = (

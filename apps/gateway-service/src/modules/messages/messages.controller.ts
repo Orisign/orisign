@@ -17,10 +17,13 @@ import { CurrentUser, Protected } from 'src/shared/decorators';
 import {
   DeleteMessageRequestDto,
   EditMessageRequestDto,
+  GetReadStateRequestDto,
+  GetReadStateResponseDto,
   ListMessagesRequestDto,
   MarkReadRequestDto,
   SendMessageRequestDto,
 } from './dto';
+import { ChatRealtimeService } from './chat-realtime.service';
 import { MessagesClientGrpc } from './messages.grpc';
 
 @ApiTags('Messages')
@@ -28,7 +31,10 @@ import { MessagesClientGrpc } from './messages.grpc';
 @Protected()
 @Controller('messages')
 export class MessagesController {
-  public constructor(private readonly messagesClient: MessagesClientGrpc) {}
+  public constructor(
+    private readonly messagesClient: MessagesClientGrpc,
+    private readonly chatRealtimeService: ChatRealtimeService,
+  ) {}
 
   @ApiOperation({ summary: 'Отправить сообщение' })
   @ApiBody({ type: SendMessageRequestDto })
@@ -36,7 +42,7 @@ export class MessagesController {
   @Post('send')
   @HttpCode(HttpStatus.OK)
   public async send(@CurrentUser() id: string, @Body() dto: SendMessageRequestDto) {
-    return await lastValueFrom(
+    const response = await lastValueFrom(
       this.messagesClient.sendMessage({
         conversationId: dto.conversationId,
         authorId: id,
@@ -46,6 +52,12 @@ export class MessagesController {
         mediaKeys: dto.mediaKeys ?? [],
       }),
     );
+
+    if (response?.ok && response.message) {
+      this.chatRealtimeService.emitMessageCreated(response.message);
+    }
+
+    return response;
   }
 
   @ApiOperation({ summary: 'Список сообщений' })
@@ -60,6 +72,23 @@ export class MessagesController {
         requesterId: id,
         limit: dto.limit ?? 30,
         offset: dto.offset ?? 0,
+      }),
+    );
+  }
+
+  @ApiOperation({ summary: 'Read-cursors беседы' })
+  @ApiBody({ type: GetReadStateRequestDto })
+  @ApiOkResponse({ type: GetReadStateResponseDto })
+  @Post('read-state')
+  @HttpCode(HttpStatus.OK)
+  public async readState(
+    @CurrentUser() id: string,
+    @Body() dto: GetReadStateRequestDto,
+  ) {
+    return await lastValueFrom(
+      this.messagesClient.getReadState({
+        conversationId: dto.conversationId,
+        requesterId: id,
       }),
     );
   }
@@ -99,12 +128,23 @@ export class MessagesController {
   @Post('read')
   @HttpCode(HttpStatus.OK)
   public async read(@CurrentUser() id: string, @Body() dto: MarkReadRequestDto) {
-    return await lastValueFrom(
+    const response = await lastValueFrom(
       this.messagesClient.markRead({
         conversationId: dto.conversationId,
         userId: id,
         lastReadMessageId: dto.lastReadMessageId ?? '',
       }),
     );
+
+    if (response?.ok && dto.lastReadMessageId) {
+      this.chatRealtimeService.emitReadCursorUpdated({
+        conversationId: dto.conversationId,
+        userId: id,
+        lastReadMessageId: dto.lastReadMessageId,
+        lastReadAt: Date.now(),
+      });
+    }
+
+    return response;
   }
 }
