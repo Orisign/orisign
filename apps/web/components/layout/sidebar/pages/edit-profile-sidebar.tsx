@@ -1,7 +1,8 @@
 "use client";
 
-import { useUsersControllerMe, useUsersControllerPatch } from "@/api/generated";
+import { useUsersControllerPatch } from "@/api/generated";
 import { AvatarUploadButton } from "@/components/shared/avatar-upload-button";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { useSidebar } from "@/hooks/use-sidebar";
 import {
   createEditProfileSidebarSchema,
@@ -25,7 +26,7 @@ export const EditProfileSidebar = () => {
   const t = useTranslations("editProfileSidebar");
   const tv = useTranslations("validation.profile");
   const { pop } = useSidebar();
-  const { data } = useUsersControllerMe();
+  const { user } = useCurrentUser();
   const schema = useMemo(() => createEditProfileSidebarSchema(tv), [tv]);
   const { mutate: patchUser, isPending } = useUsersControllerPatch();
 
@@ -40,7 +41,6 @@ export const EditProfileSidebar = () => {
   });
 
   useEffect(() => {
-    const user = data?.user;
     if (!user) return;
 
     form.reset({
@@ -49,7 +49,7 @@ export const EditProfileSidebar = () => {
       bio: user.bio ?? "",
       username: user.username ?? "",
     });
-  }, [data?.user, form]);
+  }, [form, user]);
 
   const onSubmit = (values: TypeEditProfileSidebarSchema) => {
     patchUser({
@@ -62,7 +62,7 @@ export const EditProfileSidebar = () => {
     });
     form.reset(values);
   };
-  const latestAvatarKey = data?.user?.avatars?.at(-1);
+  const latestAvatarKey = user?.avatars?.at(-1);
   const storageBaseUrl = process.env.NEXT_PUBLIC_STORAGE_URL ?? "";
   const latestAvatarUrl = useMemo(() => {
     if (!latestAvatarKey) return "";
@@ -195,7 +195,7 @@ export const EditProfileSidebar = () => {
             <Button
               type="button"
               onClick={form.handleSubmit(onSubmit)}
-              className="size-14 rounded-full shadow-lg"
+              className="size-14 rounded-full"
               disabled={isPending}
               aria-label={t("actions.save")}
             >

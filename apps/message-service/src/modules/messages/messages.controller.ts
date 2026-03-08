@@ -1,6 +1,8 @@
 import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import type {
+  GetReadStateRequest,
+  GetReadStateResponse,
   DeleteMessageRequest,
   EditMessageRequest,
   ListMessagesRequest,
@@ -24,6 +26,11 @@ export class MessagesController {
   @GrpcMethod('MessagesService', 'ListMessages')
   public async listMessages(data: ListMessagesRequest): Promise<ListMessagesResponse> {
     return await this.messagesService.listMessages(data);
+  }
+
+  @GrpcMethod('MessagesService', 'GetReadState')
+  public async getReadState(data: GetReadStateRequest): Promise<GetReadStateResponse> {
+    return await this.messagesService.getReadState(data);
   }
 
   @GrpcMethod('MessagesService', 'EditMessage')

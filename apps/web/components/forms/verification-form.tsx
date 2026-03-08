@@ -1,6 +1,7 @@
 "use client";
 
-import { useAuthControllerVerify, usersControllerMe } from "@/api/generated";
+import { useAuthControllerVerify } from "@/api/generated";
+import { fetchCurrentUser } from "@/hooks/use-current-user";
 import {
   verificationSchema,
   type TypeVerificationSchema,
@@ -71,10 +72,9 @@ export function VerificationForm({
         setCookie("accessToken", response.accessToken);
 
         try {
-          const profile = await usersControllerMe({
+          const user = await fetchCurrentUser({
             credentials: "include",
           });
-          const user = profile.user;
           const hasProfile =
             !!user?.firstName?.trim() || !!user?.username?.trim();
 

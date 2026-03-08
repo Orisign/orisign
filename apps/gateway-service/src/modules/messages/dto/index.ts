@@ -82,3 +82,25 @@ export class MarkReadRequestDto {
   @IsString()
   lastReadMessageId?: string;
 }
+
+export class GetReadStateRequestDto {
+  @ApiProperty()
+  @IsString()
+  conversationId: string;
+}
+
+export class ReadCursorResponseDto {
+  @ApiProperty()
+  userId: string;
+
+  @ApiProperty()
+  lastReadMessageId: string;
+
+  @ApiProperty()
+  lastReadAt: number;
+}
+
+export class GetReadStateResponseDto {
+  @ApiProperty({ type: [ReadCursorResponseDto] })
+  cursors: ReadCursorResponseDto[];
+}

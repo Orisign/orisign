@@ -1,11 +1,13 @@
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { ClientGrpc } from '@nestjs/microservices';
 import type {
+  GetReadStateRequest,
   DeleteMessageRequest,
   EditMessageRequest,
   ListMessagesRequest,
   MarkReadRequest,
   MessagesServiceClient,
+  GetReadStateResponse,
   SendMessageRequest,
 } from '@repo/contracts/gen/ts/messages';
 
@@ -25,6 +27,12 @@ export class MessagesClientGrpc implements OnModuleInit {
 
   public listMessages(request: ListMessagesRequest) {
     return this.messagesClient.listMessages(request);
+  }
+
+  public getReadState(request: GetReadStateRequest) {
+    return this.messagesClient.getReadState(request) as ReturnType<
+      MessagesServiceClient['getReadState']
+    >;
   }
 
   public editMessage(request: EditMessageRequest) {

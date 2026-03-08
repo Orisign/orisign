@@ -5,6 +5,7 @@ package messages.v1;
 service MessagesService {
   rpc SendMessage (SendMessageRequest) returns (SendMessageResponse);
   rpc ListMessages (ListMessagesRequest) returns (ListMessagesResponse);
+  rpc GetReadState (GetReadStateRequest) returns (GetReadStateResponse);
   rpc EditMessage (EditMessageRequest) returns (MutationResponse);
   rpc DeleteMessage (DeleteMessageRequest) returns (MutationResponse);
   rpc MarkRead (MarkReadRequest) returns (MutationResponse);
@@ -40,6 +41,21 @@ message ListMessagesRequest {
 
 message ListMessagesResponse {
   repeated Message messages = 1;
+}
+
+message GetReadStateRequest {
+  string conversation_id = 1;
+  string requester_id = 2;
+}
+
+message ConversationReadCursor {
+  string user_id = 1;
+  string last_read_message_id = 2;
+  int64 last_read_at = 3;
+}
+
+message GetReadStateResponse {
+  repeated ConversationReadCursor cursors = 1;
 }
 
 message EditMessageRequest {

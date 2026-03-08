@@ -43,6 +43,21 @@ export interface ListMessagesResponse {
   messages: Message[];
 }
 
+export interface GetReadStateRequest {
+  conversationId: string;
+  requesterId: string;
+}
+
+export interface ConversationReadCursor {
+  userId: string;
+  lastReadMessageId: string;
+  lastReadAt: number;
+}
+
+export interface GetReadStateResponse {
+  cursors: ConversationReadCursor[];
+}
+
 export interface EditMessageRequest {
   messageId: string;
   actorId: string;
@@ -84,6 +99,8 @@ export interface MessagesServiceClient {
 
   listMessages(request: ListMessagesRequest): Observable<ListMessagesResponse>;
 
+  getReadState(request: GetReadStateRequest): Observable<GetReadStateResponse>;
+
   editMessage(request: EditMessageRequest): Observable<MutationResponse>;
 
   deleteMessage(request: DeleteMessageRequest): Observable<MutationResponse>;
@@ -100,6 +117,10 @@ export interface MessagesServiceController {
     request: ListMessagesRequest,
   ): Promise<ListMessagesResponse> | Observable<ListMessagesResponse> | ListMessagesResponse;
 
+  getReadState(
+    request: GetReadStateRequest,
+  ): Promise<GetReadStateResponse> | Observable<GetReadStateResponse> | GetReadStateResponse;
+
   editMessage(request: EditMessageRequest): Promise<MutationResponse> | Observable<MutationResponse> | MutationResponse;
 
   deleteMessage(
@@ -111,7 +132,7 @@ export interface MessagesServiceController {
 
 export function MessagesServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["sendMessage", "listMessages", "editMessage", "deleteMessage", "markRead"];
+    const grpcMethods: string[] = ["sendMessage", "listMessages", "getReadState", "editMessage", "deleteMessage", "markRead"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("MessagesService", method)(constructor.prototype[method], method, descriptor);

@@ -3,6 +3,8 @@ import { Injectable } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { RpcStatus } from '@repo/common';
 import type {
+  GetReadStateRequest,
+  GetReadStateResponse,
   DeleteMessageRequest,
   EditMessageRequest,
   ListMessagesRequest,
@@ -30,7 +32,9 @@ export class MessagesService {
       });
     }
 
-    if (![MessageKind.TEXT, MessageKind.MEDIA, MessageKind.SYSTEM].includes(data.kind)) {
+    const messageKind = this.normalizeMessageKind(data.kind);
+
+    if (!messageKind) {
       throw new RpcException({
         code: RpcStatus.INVALID_ARGUMENT,
         details: 'Message kind is required',
@@ -49,10 +53,28 @@ export class MessagesService {
       });
     }
 
+    if (data.replyToId) {
+      const replyTarget = await this.repository.getMessageById(data.replyToId);
+
+      if (!replyTarget) {
+        throw new RpcException({
+          code: RpcStatus.NOT_FOUND,
+          details: 'Reply target message not found',
+        });
+      }
+
+      if (replyTarget.conversationId !== data.conversationId) {
+        throw new RpcException({
+          code: RpcStatus.INVALID_ARGUMENT,
+          details: 'Reply target must belong to the same conversation',
+        });
+      }
+    }
+
     const message = await this.repository.createMessage({
       conversationId: data.conversationId,
       authorId: data.authorId,
-      kind: data.kind,
+      kind: messageKind,
       text: data.text,
       replyToId: data.replyToId,
       mediaKeys: data.mediaKeys,
@@ -91,6 +113,31 @@ export class MessagesService {
     );
 
     return { messages };
+  }
+
+  public async getReadState(data: GetReadStateRequest): Promise<GetReadStateResponse> {
+    if (!data.conversationId || !data.requesterId) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'Conversation id and requester id are required',
+      });
+    }
+
+    const permission = await this.conversationsClient.canRead({
+      conversationId: data.conversationId,
+      userId: data.requesterId,
+    });
+
+    if (!permission.allowed) {
+      throw new RpcException({
+        code: RpcStatus.PERMISSION_DENIED,
+        details: 'No permission to read this conversation',
+      });
+    }
+
+    const cursors = await this.repository.listReadCursors(data.conversationId);
+
+    return { cursors };
   }
 
   public async editMessage(data: EditMessageRequest): Promise<MutationResponse> {
@@ -178,5 +225,28 @@ export class MessagesService {
     });
 
     return { ok: true };
+  }
+
+  private normalizeMessageKind(value: unknown): MessageKind | null {
+    const allowed = [MessageKind.TEXT, MessageKind.MEDIA, MessageKind.SYSTEM];
+
+    if (typeof value === 'number') {
+      return allowed.includes(value as MessageKind) ? (value as MessageKind) : null;
+    }
+
+    if (typeof value === 'string') {
+      const enumValue = (MessageKind as unknown as Record<string, unknown>)[value];
+
+      if (typeof enumValue === 'number') {
+        return allowed.includes(enumValue as MessageKind) ? (enumValue as MessageKind) : null;
+      }
+
+      const parsed = Number(value);
+      if (Number.isInteger(parsed) && allowed.includes(parsed as MessageKind)) {
+        return parsed as MessageKind;
+      }
+    }
+
+    return null;
   }
 }

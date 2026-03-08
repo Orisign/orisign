@@ -529,6 +529,24 @@ export function EmojiPicker({
   const pendingScrollRef = React.useRef<EmojiCategoryId | null>(null);
   const preventCloseRef = React.useRef(false);
 
+  const handleContentMouseDown = React.useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      const interactiveTarget = target.closest(
+        "button, input, label, [role='textbox'], [data-radix-scroll-area-thumb]",
+      );
+
+      if (interactiveTarget) {
+        return;
+      }
+
+      event.preventDefault();
+    },
+    [],
+  );
+
   const filteredByCategory = React.useMemo(() => {
     const initial: Record<MappedEmojiCategoryId, EmojiItem[]> = {
       smileys: [],
@@ -705,7 +723,7 @@ export function EmojiPicker({
             <div className="absolute right-0 top-24 size-24 rounded-full bg-sky-400/12 blur-3xl" />
             <div className="absolute -right-8 bottom-0 size-32 rounded-full bg-amber-300/10 blur-3xl" />
           </div>
-          <div className="relative space-y-2">
+          <div className="relative space-y-2" onMouseDown={handleContentMouseDown}>
             <div className="flex h-10 items-center rounded-xl border border-white/10 bg-black/28 pr-1.5 backdrop-blur-xl">
               <label className="relative min-w-0 flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

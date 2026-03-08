@@ -3,6 +3,7 @@
 import { useSidebar } from "@/hooks/use-sidebar";
 import { SIDEBAR_MAX, SIDEBAR_MIN } from "@/store/sidebar/sidebar.types";
 import { AnimatePresence, motion } from "motion/react";
+import { usePathname } from "next/navigation";
 import { FC, PropsWithChildren, useEffect, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { ScrollArea } from "../ui/scroll-area";
@@ -28,8 +29,10 @@ const slideVariants = {
 
 export const AppShell: FC<PropsWithChildren> = ({ children }) => {
   const t = useTranslations("appShell");
+  const pathname = usePathname();
   const { sidebarWidth, setSidebarWidth, current, navigation } = useSidebar();
   const draggingRef = useRef(false);
+  const isConversationPage = pathname !== "/";
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -117,9 +120,13 @@ export const AppShell: FC<PropsWithChildren> = ({ children }) => {
         ></div>
 
         <main className="overflow-hidden">
-          <ScrollArea className="h-full w-full">
-            <div className="h-full p-6">{children}</div>
-          </ScrollArea>
+          {isConversationPage ? (
+            <div className="h-full min-h-0">{children}</div>
+          ) : (
+            <ScrollArea className="h-full w-full">
+              <div className="h-full p-6">{children}</div>
+            </ScrollArea>
+          )}
         </main>
       </div>
     </div>

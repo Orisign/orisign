@@ -1,6 +1,7 @@
 import { PrismaService } from '@/infra/prisma/prisma.service';
 import { Injectable } from '@nestjs/common';
-import { Message, MessageKind } from '@repo/contracts/gen/ts/messages';
+import type { ConversationReadCursor, Message } from '@repo/contracts/gen/ts/messages';
+import { MessageKind } from '@repo/contracts/gen/ts/messages';
 
 @Injectable()
 export class MessagesRepository {
@@ -36,6 +37,7 @@ export class MessagesRepository {
     const entities = await this.prismaService.message.findMany({
       where: {
         conversationId,
+        deletedAt: null,
       },
       orderBy: {
         createdAt: 'desc',
@@ -47,12 +49,24 @@ export class MessagesRepository {
     return entities.map((entity) => this.toProtoMessage(entity));
   }
 
+  public async listReadCursors(conversationId: string): Promise<ConversationReadCursor[]> {
+    const entities = await this.prismaService.messageRead.findMany({
+      where: { conversationId },
+    });
+
+    return entities.map((entity) => ({
+      userId: entity.userId,
+      lastReadMessageId: entity.lastReadMessageId ?? '',
+      lastReadAt: entity.lastReadAt.getTime(),
+    }));
+  }
+
   public async getMessageById(messageId: string): Promise<Message | null> {
     const entity = await this.prismaService.message.findUnique({
       where: { id: messageId },
     });
 
-    if (!entity) {
+    if (!entity || entity.deletedAt) {
       return null;
     }
 
@@ -70,11 +84,8 @@ export class MessagesRepository {
   }
 
   public async deleteMessage(messageId: string): Promise<void> {
-    await this.prismaService.message.update({
+    await this.prismaService.message.delete({
       where: { id: messageId },
-      data: {
-        deletedAt: new Date(),
-      },
     });
   }
 

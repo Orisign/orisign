@@ -9,6 +9,7 @@ dist/
 out/
 build/
 apps/*/src/**/*.js
+packages/**/**/*.js
 apps/*/src/**/*.js.map
 apps/*/src/**/*.d.ts
 apps/*/src/**/*.d.ts.map

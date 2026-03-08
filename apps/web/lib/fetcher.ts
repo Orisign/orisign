@@ -1,4 +1,5 @@
 import { getCookie } from "./cookies"
+import { parseJsonWithProtobufSupport } from "./protobuf"
 
 export class ApiError<T = unknown> extends Error {
     constructor(
@@ -25,7 +26,7 @@ export async function customFetch<T>(url: string, options: RequestInit = {}): Pr
     })
 
     const text = await res.text()
-    const body = text ? JSON.parse(text) : undefined
+    const body = text ? parseJsonWithProtobufSupport<T>(text) : undefined
 
     if (!res.ok) {
         throw new ApiError(res.status, body)

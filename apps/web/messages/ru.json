@@ -55,7 +55,14 @@
   },
   "chat": {
     "list": {
-      "empty": "Нет бесед"
+      "empty": "Нет бесед",
+      "ownPrefix": "Вы:",
+      "unknownAuthor": "Пользователь",
+      "media": {
+        "photo": "Фото",
+        "file": "Файл",
+        "attachment": "Вложение"
+      }
     },
     "header": {
       "searchPlaceholder": "Поиск",
@@ -67,7 +74,32 @@
       "leave": "Покинуть чат"
     },
     "sendMessageForm": {
-      "placeholder": "Сообщение"
+      "placeholder": "Сообщение",
+      "replyFallback": "Без текста"
+    },
+    "messages": {
+      "empty": "Пока нет сообщений",
+      "loadError": "Не удалось загрузить сообщения",
+      "deleted": "Сообщение удалено",
+      "edited": "изменено",
+      "replyUnavailable": "Сообщение недоступно",
+      "unknownAuthor": "Пользователь",
+      "dayDivider": {
+        "today": "Сегодня",
+        "yesterday": "Вчера"
+      },
+      "contextMenu": {
+        "reply": "Ответить",
+        "copy": "Копировать",
+        "readBy": "{count, plural, one {# просмотр} few {# просмотра} many {# просмотров} other {# просмотра}}",
+        "delete": "Удалить",
+        "copied": "Сообщение скопировано"
+      },
+      "readDialog": {
+        "title": "{count, plural, one {# просмотр} few {# просмотра} many {# просмотров} other {# просмотра}}",
+        "readAt": "{day} в {time}",
+        "empty": "Сообщение еще никто не прочитал"
+      }
     },
     "page": {
       "placeholder": "Здесь будет лента сообщений."

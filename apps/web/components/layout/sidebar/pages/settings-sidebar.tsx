@@ -1,6 +1,6 @@
 "use client";
 
-import { useAccountControllerMe, useUsersControllerMe } from "@/api/generated";
+import { useAccountControllerMe } from "@/api/generated";
 import { AvatarCarousel } from "@/components/shared/avatar-carousel";
 import { AvatarUploadButton } from "@/components/shared/avatar-upload-button";
 import { CopyableProfileValue } from "@/components/shared/copyable-profile-value";
@@ -13,8 +13,8 @@ import {
   SidebarPageTitle,
 } from "@/components/ui/sidebar-page";
 import { useAuth } from "@/hooks/use-auth";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { useSidebar } from "@/hooks/use-sidebar";
-import type { BirthDateInput } from "@/lib/birth-date";
 import { formatBirthDateWithAge } from "@/lib/birth-date";
 import { Button } from "@repo/ui";
 import { ArrowLeft, EllipsisVertical, Pencil } from "lucide-react";
@@ -32,12 +32,11 @@ import { ProfileDropdown } from "@/components/user/profile-dropdown";
 export const SettingsSidebar = () => {
   const t = useTranslations("settingsSidebar");
   const locale = useLocale();
-  const { data } = useUsersControllerMe();
+  const { user } = useCurrentUser();
   const { data: accountData } = useAccountControllerMe();
   const { user: auth } = useAuth();
   const { pop, push } = useSidebar();
 
-  const user = data?.user ?? undefined;
   const avatars = user?.avatars ?? [];
   const hasAvatar = avatars.length > 0;
   const initials = `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`;
@@ -139,7 +138,7 @@ export const SettingsSidebar = () => {
     (v) => `0 2px 12px rgba(0,0,0,${v})`,
   );
   const birthDateLabel = formatBirthDateWithAge(
-    user?.birthDate as unknown as BirthDateInput,
+    user?.birthDate,
     locale,
     {
       one: t("profile.ageYears.one"),
