@@ -7,17 +7,29 @@ import { useState } from "react";
 import { IoClose, IoSearch } from "react-icons/io5";
 import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "next-intl";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 
 interface ChatHeaderProps {
   conversationId: string;
   title: string;
   members: number;
+  subtitle?: string;
+  avatarUrl?: string;
+  avatarFallback?: string;
+  avatarSeed?: string;
+  isDirect?: boolean;
 }
 
 export function ChatHeader({
   title,
   members,
   conversationId,
+  subtitle,
+  avatarUrl,
+  avatarFallback,
+  avatarSeed,
+  isDirect = false,
 }: ChatHeaderProps) {
   const t = useTranslations("chat.header");
   const [searching, setSearching] = useState(false);
@@ -58,11 +70,30 @@ export function ChatHeader({
             transition={{ duration: 0.2, ease: [0.22, 0.61, 0.36, 1] }}
             className="flex w-full items-center gap-2"
           >
-            <div className="min-w-0 flex-1 flex-col justify-center gap-1">
-              <p className="truncate text-base font-semibold">{title}</p>
-              <p className="text-muted-foreground text-sm">
-                {t("members", { count: members })}
-              </p>
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <Avatar
+                size="lg"
+                className={cn(
+                  "shrink-0",
+                  !avatarUrl && avatarSeed
+                    ? `bg-linear-to-br ${avatarSeed} text-white`
+                    : "",
+                )}
+              >
+                {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
+                <AvatarFallback className={!avatarUrl ? "bg-transparent text-white" : ""}>
+                  {avatarFallback || "#"}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="min-w-0 flex-1 flex-col justify-center gap-1">
+                <p className="truncate text-base font-semibold">{title}</p>
+                <p className="truncate text-sm text-muted-foreground">
+                  {isDirect
+                    ? (subtitle || t("directFallback"))
+                    : t("members", { count: members })}
+                </p>
+              </div>
             </div>
             <div className="flex items-center justify-center gap-2">
               <Button

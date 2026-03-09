@@ -23,6 +23,7 @@ interface EmojiInputProps
   autoGrow?: boolean;
   maxHeight?: number;
   onSubmit?: () => void;
+  submitOnEnter?: boolean;
   focusToken?: string | number | null;
 }
 
@@ -230,6 +231,7 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
       autoGrow = false,
       maxHeight = 176,
       onSubmit,
+      submitOnEnter = true,
       focusToken,
       onKeyDown,
       ...props
@@ -511,7 +513,7 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
           onSelect={saveSelection}
           onPaste={handlePaste}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
+            if (submitOnEnter && event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
               onSubmit?.();
             }

@@ -21,7 +21,15 @@ var MessageKind;
 exports.MESSAGES_V1_PACKAGE_NAME = "messages.v1";
 function MessagesServiceControllerMethods() {
     return function (constructor) {
-        const grpcMethods = ["sendMessage", "listMessages", "getReadState", "editMessage", "deleteMessage", "markRead"];
+        const grpcMethods = [
+            "sendMessage",
+            "listMessages",
+            "getReadState",
+            "getUnreadCount",
+            "editMessage",
+            "deleteMessage",
+            "markRead",
+        ];
         for (const method of grpcMethods) {
             const descriptor = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
             (0, microservices_1.GrpcMethod)("MessagesService", method)(constructor.prototype[method], method, descriptor);

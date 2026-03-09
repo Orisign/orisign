@@ -1,6 +1,7 @@
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { ClientGrpc } from '@nestjs/microservices';
 import type {
+  GetUnreadCountRequest,
   GetReadStateRequest,
   DeleteMessageRequest,
   EditMessageRequest,
@@ -33,6 +34,10 @@ export class MessagesClientGrpc implements OnModuleInit {
     return this.messagesClient.getReadState(request) as ReturnType<
       MessagesServiceClient['getReadState']
     >;
+  }
+
+  public getUnreadCount(request: GetUnreadCountRequest) {
+    return this.messagesClient.getUnreadCount(request);
   }
 
   public editMessage(request: EditMessageRequest) {

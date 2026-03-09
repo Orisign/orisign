@@ -1,5 +1,6 @@
 "use client";
 
+import { useSidebar } from "@/hooks/use-sidebar";
 import {
   Button,
   DropdownMenu,
@@ -16,13 +17,14 @@ import { useTranslations } from "next-intl";
 export const CreateConversationDropdown = () => {
   const t = useTranslations("conversationDropdown");
   const [open, setOpen] = useState(false);
+  const { push } = useSidebar();
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button
           size={"icon"}
-          className="absolute bottom-2 right-2 rounded-full size-14"
+          className="absolute bottom-2 right-2 rounded-full size-14 shadow-none"
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -43,15 +45,42 @@ export const CreateConversationDropdown = () => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="top" sideOffset={8}>
         <DropdownMenuGroup>
-          <DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              setOpen(false);
+              push({
+                screen: "create-conversation-details",
+                type: "channel",
+                memberIds: [],
+              });
+            }}
+          >
             <Megaphone />
             {t("createChannel")}
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              setOpen(false);
+              push({
+                screen: "create-conversation-members",
+                type: "group",
+                selectedUserIds: [],
+              });
+            }}
+          >
             <Users />
             {t("createGroup")}
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              setOpen(false);
+              push({
+                screen: "create-conversation-members",
+                type: "direct",
+                selectedUserIds: [],
+              });
+            }}
+          >
             <User />
             {t("createDirect")}
           </DropdownMenuItem>

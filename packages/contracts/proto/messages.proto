@@ -6,6 +6,7 @@ service MessagesService {
   rpc SendMessage (SendMessageRequest) returns (SendMessageResponse);
   rpc ListMessages (ListMessagesRequest) returns (ListMessagesResponse);
   rpc GetReadState (GetReadStateRequest) returns (GetReadStateResponse);
+  rpc GetUnreadCount (GetUnreadCountRequest) returns (GetUnreadCountResponse);
   rpc EditMessage (EditMessageRequest) returns (MutationResponse);
   rpc DeleteMessage (DeleteMessageRequest) returns (MutationResponse);
   rpc MarkRead (MarkReadRequest) returns (MutationResponse);
@@ -56,6 +57,15 @@ message ConversationReadCursor {
 
 message GetReadStateResponse {
   repeated ConversationReadCursor cursors = 1;
+}
+
+message GetUnreadCountRequest {
+  string conversation_id = 1;
+  string requester_id = 2;
+}
+
+message GetUnreadCountResponse {
+  int32 count = 1;
 }
 
 message EditMessageRequest {

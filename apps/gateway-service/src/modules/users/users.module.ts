@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { PROTO_PATHS } from '@repo/contracts';
+import { ConversationsModule } from '../conversations/conversations.module';
 
 import { MediaClientGrpc } from './media.grpc';
 import { UsersController } from './users.controller';
@@ -9,6 +10,7 @@ import { UsersClientGrpc } from './users.grpc';
 
 @Module({
   imports: [
+    ConversationsModule,
     ClientsModule.registerAsync([
       {
         name: 'USERS_PACKAGE',

@@ -46,6 +46,7 @@ export interface CreateConversationRequest {
   isPublic: boolean;
   username: string;
   memberIds: string[];
+  avatarKey: string;
 }
 
 export interface CreateConversationResponse {
@@ -125,6 +126,7 @@ export interface Conversation {
   members: ConversationMember[];
   createdAt: number;
   updatedAt: number;
+  avatarKey: string;
 }
 
 export interface ConversationMember {

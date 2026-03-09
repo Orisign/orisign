@@ -22,6 +22,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { lastValueFrom } from 'rxjs';
 import { SkipThrottle } from '@nestjs/throttler';
+import { ConversationType, MemberState } from '@repo/contracts/gen/ts/conversations';
 import { CurrentUser, Protected } from 'src/shared/decorators';
 import { FileValidationPipe } from 'src/shared/pipes';
 
@@ -30,9 +31,12 @@ import {
   DeleteAvatarRequestDto,
   GetUserResponseDto,
   GetUserRequestDto,
+  ListUsersRequestDto,
+  ListUsersResponseDto,
   PatchPrivacyRequestDto,
   PatchUserRequestDto,
 } from './dto';
+import { ConversationsClientGrpc } from '../conversations/conversations.grpc';
 import { MediaClientGrpc } from './media.grpc';
 import { UsersClientGrpc } from './users.grpc';
 
@@ -42,6 +46,7 @@ export class UsersController {
   public constructor(
     private readonly usersClient: UsersClientGrpc,
     private readonly mediaClient: MediaClientGrpc,
+    private readonly conversationsClient: ConversationsClientGrpc,
   ) {}
 
   @ApiBearerAuth('access-token')
@@ -77,6 +82,77 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   public async get(@Body() dto: GetUserRequestDto) {
     return await lastValueFrom(this.usersClient.getUser(dto));
+  }
+
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Список пользователей',
+    description: 'Возвращает список пользователей с опциональным поиском',
+  })
+  @ApiBody({ type: ListUsersRequestDto })
+  @ApiOkResponse({
+    description: 'Список пользователей',
+    type: ListUsersResponseDto,
+  })
+  @Protected()
+  @Post('list')
+  @HttpCode(HttpStatus.OK)
+  public async list(@CurrentUser() id: string, @Body() dto: ListUsersRequestDto) {
+    const contactIds = await this.getDirectContactIds(id);
+    const excludeIds = [...new Set([id, ...(dto.excludeIds ?? [])])];
+
+    if (contactIds.length === 0) {
+      return { users: [] };
+    }
+
+    return await lastValueFrom(
+      this.usersClient.listUsers({
+        query: dto.query ?? '',
+        limit: dto.limit ?? 30,
+        offset: dto.offset ?? 0,
+        excludeIds,
+        includeIds: contactIds,
+      }),
+    );
+  }
+
+  private async getDirectContactIds(userId: string) {
+    const limit = 200;
+    let offset = 0;
+    const directPeerIds = new Set<string>();
+
+    while (true) {
+      const page = await lastValueFrom(
+        this.conversationsClient.listMyConversations({
+          requesterId: userId,
+          limit,
+          offset,
+        }),
+      );
+
+      const conversations = page.conversations ?? [];
+      for (const conversation of conversations) {
+        if (conversation.type !== ConversationType.DM) {
+          continue;
+        }
+
+        for (const member of conversation.members ?? []) {
+          if (member.userId === userId || member.state !== MemberState.ACTIVE) {
+            continue;
+          }
+
+          directPeerIds.add(member.userId);
+        }
+      }
+
+      if (conversations.length < limit) {
+        break;
+      }
+
+      offset += limit;
+    }
+
+    return [...directPeerIds];
   }
 
   @ApiOperation({

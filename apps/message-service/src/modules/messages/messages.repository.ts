@@ -61,6 +61,32 @@ export class MessagesRepository {
     }));
   }
 
+  public async getReadCursor(conversationId: string, userId: string) {
+    return await this.prismaService.messageRead.findUnique({
+      where: {
+        conversationId_userId: {
+          conversationId,
+          userId,
+        },
+      },
+    });
+  }
+
+  public async countUnreadMessages(params: {
+    conversationId: string;
+    userId: string;
+    lastReadAt?: Date | null;
+  }) {
+    return await this.prismaService.message.count({
+      where: {
+        conversationId: params.conversationId,
+        deletedAt: null,
+        authorId: { not: params.userId },
+        ...(params.lastReadAt ? { createdAt: { gt: params.lastReadAt } } : {}),
+      },
+    });
+  }
+
   public async getMessageById(messageId: string): Promise<Message | null> {
     const entity = await this.prismaService.message.findUnique({
       where: { id: messageId },

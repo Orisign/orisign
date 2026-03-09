@@ -3,6 +3,8 @@ import { Injectable } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { RpcStatus } from '@repo/common';
 import type {
+  GetUnreadCountRequest,
+  GetUnreadCountResponse,
   GetReadStateRequest,
   GetReadStateResponse,
   DeleteMessageRequest,
@@ -138,6 +140,44 @@ export class MessagesService {
     const cursors = await this.repository.listReadCursors(data.conversationId);
 
     return { cursors };
+  }
+
+  public async getUnreadCount(
+    data: GetUnreadCountRequest,
+  ): Promise<GetUnreadCountResponse> {
+    if (!data.conversationId || !data.requesterId) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'Conversation id and requester id are required',
+      });
+    }
+
+    const permission = await this.conversationsClient.canRead({
+      conversationId: data.conversationId,
+      userId: data.requesterId,
+    });
+
+    if (!permission.allowed) {
+      throw new RpcException({
+        code: RpcStatus.PERMISSION_DENIED,
+        details: 'No permission to read this conversation',
+      });
+    }
+
+    const cursor = await this.repository.getReadCursor(
+      data.conversationId,
+      data.requesterId,
+    );
+
+    const count = await this.repository.countUnreadMessages({
+      conversationId: data.conversationId,
+      userId: data.requesterId,
+      lastReadAt: cursor?.lastReadAt ?? null,
+    });
+
+    return {
+      count,
+    };
   }
 
   public async editMessage(data: EditMessageRequest): Promise<MutationResponse> {

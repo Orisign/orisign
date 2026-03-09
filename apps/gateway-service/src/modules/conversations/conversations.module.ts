@@ -5,6 +5,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { PROTO_PATHS } from '@repo/contracts';
 import { ConversationsController } from './conversations.controller';
 import { ConversationsClientGrpc } from './conversations.grpc';
+import { MediaClientGrpc } from './media.grpc';
 
 @Module({
   imports: [
@@ -27,10 +28,22 @@ import { ConversationsClientGrpc } from './conversations.grpc';
         }),
         inject: [ConfigService],
       },
+      {
+        name: 'MEDIA_PACKAGE',
+        useFactory: (configService: ConfigService) => ({
+          transport: Transport.GRPC,
+          options: {
+            package: ['media.v1'],
+            protoPath: [PROTO_PATHS.MEDIA],
+            url: configService.getOrThrow<string>('MEDIA_GRPC_URL'),
+          },
+        }),
+        inject: [ConfigService],
+      },
     ]),
   ],
   controllers: [ConversationsController],
-  providers: [ConversationsClientGrpc],
+  providers: [ConversationsClientGrpc, MediaClientGrpc],
   exports: [ConversationsClientGrpc],
 })
 export class ConversationsModule {}

@@ -46,6 +46,11 @@ export class CreateConversationRequestDto {
   @IsArray()
   @IsString({ each: true })
   memberIds?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  avatarKey?: string;
 }
 
 export class ConversationByIdRequestDto {
@@ -142,6 +147,9 @@ export class ConversationResponseDto {
   @ApiProperty()
   username: string;
 
+  @ApiProperty()
+  avatarKey: string;
+
   @ApiProperty({ type: [ConversationMemberResponseDto] })
   members: ConversationMemberResponseDto[];
 
@@ -173,4 +181,23 @@ export class ListMyConversationsResponseDto {
 export class MutationResponseDto {
   @ApiProperty()
   ok: boolean;
+}
+
+export class ConversationAvatarObjectResponseDto {
+  @ApiProperty()
+  key: string;
+
+  @ApiProperty()
+  url: string;
+
+  @ApiProperty()
+  expiresAt: number;
+}
+
+export class UploadConversationAvatarResponseDto {
+  @ApiProperty()
+  ok: boolean;
+
+  @ApiProperty({ type: ConversationAvatarObjectResponseDto, nullable: true })
+  avatar: ConversationAvatarObjectResponseDto | null;
 }

@@ -22,7 +22,7 @@ var PrivacyType;
 exports.USERS_V1_PACKAGE_NAME = "users.v1";
 function UsersServiceControllerMethods() {
     return function (constructor) {
-        const grpcMethods = ["getUser", "createUser", "patchUser", "patchPrivacySettings"];
+        const grpcMethods = ["getUser", "listUsers", "createUser", "patchUser", "patchPrivacySettings"];
         for (const method of grpcMethods) {
             const descriptor = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
             (0, microservices_1.GrpcMethod)("UsersService", method)(constructor.prototype[method], method, descriptor);

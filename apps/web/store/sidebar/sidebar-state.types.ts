@@ -1,6 +1,7 @@
 export type SidebarScreen =
   | "main"
-  | "select-members"
+  | "create-conversation-members"
+  | "create-conversation-details"
   | "settings"
   | "edit-profile"
   | "general-settings"
@@ -15,7 +16,16 @@ export type SidebarScreen =
 
 export type SidebarRoute =
   | { screen: "main" }
-  | { screen: "select-members"; chatId: string }
+  | {
+      screen: "create-conversation-members";
+      type: "group" | "direct";
+      selectedUserIds: string[];
+    }
+  | {
+      screen: "create-conversation-details";
+      type: "group" | "channel";
+      memberIds: string[];
+    }
   | { screen: "settings" }
   | { screen: "edit-profile"; userId: string }
   | { screen: "general-settings" }

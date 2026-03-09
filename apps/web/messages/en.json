@@ -66,7 +66,8 @@
     },
     "header": {
       "searchPlaceholder": "Search",
-      "members": "{count, plural, one {# member} other {# members}}"
+      "members": "{count, plural, one {# member} other {# members}}",
+      "directFallback": "Direct chat"
     },
     "dropdown": {
       "mute": "Mute notifications",
@@ -122,6 +123,27 @@
     "createChannel": "Create channel",
     "createGroup": "Create group",
     "createDirect": "Start direct chat"
+  },
+  "createConversation": {
+    "members": {
+      "titleGroup": "Add members",
+      "titleDirect": "New chat",
+      "searchPlaceholder": "Add people...",
+      "recently": "recently seen",
+      "empty": "No users found"
+    },
+    "details": {
+      "titleGroup": "Create group",
+      "titleChannel": "Create channel",
+      "recently": "recently seen",
+      "membersCount": "{count, plural, one {# member} other {# members}}",
+      "fields": {
+        "titlePlaceholderGroup": "Group name",
+        "titlePlaceholderChannel": "Channel name",
+        "usernamePlaceholder": "Public link",
+        "aboutPlaceholder": "Description"
+      }
+    }
   },
   "profileDropdown": {
     "logout": "Log out"
@@ -244,6 +266,19 @@
     }
   },
   "validation": {
+    "createConversation": {
+      "group": {
+        "titleRequired": "Enter group name",
+        "titleTooLong": "Group name is too long"
+      },
+      "channel": {
+        "titleRequired": "Enter channel name",
+        "titleTooLong": "Channel name is too long",
+        "usernameTooLong": "Public link is too long",
+        "usernameInvalid": "Public link can only contain Latin letters, numbers, and underscores",
+        "aboutTooLong": "Description is too long"
+      }
+    },
     "auth": {
       "phoneInvalid": "Enter the full phone number",
       "privacyRequired": "You need to accept the privacy policy"

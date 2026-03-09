@@ -6,6 +6,8 @@ import type {
   CreateUserResponse,
   GetUserRequest,
   GetUserResponse,
+  ListUsersRequest,
+  ListUsersResponse,
   PatchPrivacySettingsRequest,
   PatchResponse,
   PatchUserRequest,
@@ -28,6 +30,10 @@ export class UsersService {
     }
 
     return await this.usersRepository.getUser(data);
+  }
+
+  public async listUsers(data: ListUsersRequest): Promise<ListUsersResponse> {
+    return await this.usersRepository.listUsers(data);
   }
 
   public async createUser(data: CreateUserRequest): Promise<CreateUserResponse> {

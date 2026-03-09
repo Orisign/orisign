@@ -89,6 +89,17 @@ export class GetReadStateRequestDto {
   conversationId: string;
 }
 
+export class GetUnreadCountRequestDto {
+  @ApiProperty()
+  @IsString()
+  conversationId: string;
+}
+
+export class GetUnreadCountResponseDto {
+  @ApiProperty()
+  count: number;
+}
+
 export class ReadCursorResponseDto {
   @ApiProperty()
   userId: string;

@@ -34,6 +34,18 @@ export interface GetUserResponse {
   user: User | undefined;
 }
 
+export interface ListUsersRequest {
+  query: string;
+  limit: number;
+  offset: number;
+  excludeIds: string[];
+  includeIds: string[];
+}
+
+export interface ListUsersResponse {
+  users: User[];
+}
+
 /** Request to create new user profile. */
 export interface CreateUserRequest {
   /** Profile id. Usually equals auth account id. */
@@ -66,7 +78,9 @@ export interface PatchUserRequest {
     | AvatarList
     | undefined;
   /** Optional birth date in epoch milliseconds. Zero clears value. */
-  birthDate?: number | undefined;
+  birthDate?:
+    | number
+    | undefined;
   /** Optional bio update. Empty string clears value. */
   bio?: string | undefined;
 }
@@ -162,6 +176,10 @@ export interface UsersServiceClient {
 
   getUser(request: GetUserRequest): Observable<GetUserResponse>;
 
+  /** Returns users list with optional search. */
+
+  listUsers(request: ListUsersRequest): Observable<ListUsersResponse>;
+
   /** Creates a user profile shell for the given id. */
 
   createUser(request: CreateUserRequest): Observable<CreateUserResponse>;
@@ -182,6 +200,10 @@ export interface UsersServiceController {
 
   getUser(request: GetUserRequest): Promise<GetUserResponse> | Observable<GetUserResponse> | GetUserResponse;
 
+  /** Returns users list with optional search. */
+
+  listUsers(request: ListUsersRequest): Promise<ListUsersResponse> | Observable<ListUsersResponse> | ListUsersResponse;
+
   /** Creates a user profile shell for the given id. */
 
   createUser(
@@ -201,7 +223,7 @@ export interface UsersServiceController {
 
 export function UsersServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getUser", "createUser", "patchUser", "patchPrivacySettings"];
+    const grpcMethods: string[] = ["getUser", "listUsers", "createUser", "patchUser", "patchPrivacySettings"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("UsersService", method)(constructor.prototype[method], method, descriptor);

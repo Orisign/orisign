@@ -5,6 +5,7 @@ import type { ConversationResponseDto } from "@/api/generated";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   CHAT_MESSAGE_KIND,
+  getChatUnreadCountQueryKey,
   useChatAuthors,
   useChatReadState,
   useChatMessages,
@@ -17,6 +18,7 @@ import {
   isSameCalendarDay,
 } from "@/lib/chat";
 import { Skeleton } from "@repo/ui";
+import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef } from "react";
@@ -38,6 +40,7 @@ export function ChatMessageList({
 }: ChatMessageListProps) {
   const t = useTranslations("chat.messages");
   const locale = useLocale();
+  const queryClient = useQueryClient();
   const { user: currentUser } = useCurrentUser();
   const currentUserId = currentUser?.id ?? "";
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -71,6 +74,12 @@ export function ChatMessageList({
   );
   const { mutate: markRead } = useMessagesControllerRead({
     mutation: {
+      onSuccess: () => {
+        queryClient.setQueryData<{ count: number }>(
+          getChatUnreadCountQueryKey(conversationId),
+          { count: 0 },
+        );
+      },
       onError: (_error, variables) => {
         if (lastMarkedReadMessageIdRef.current === variables.data.lastReadMessageId) {
           lastMarkedReadMessageIdRef.current = "";
