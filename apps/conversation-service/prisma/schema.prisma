@@ -12,6 +12,7 @@ model Conversation {
   type      ConversationType
   title     String?
   about     String?
+  avatarKey String?              @map("avatar_key")
   ownerId   String               @map("owner_id")
   isPublic  Boolean              @default(false) @map("is_public")
   username  String?              @unique

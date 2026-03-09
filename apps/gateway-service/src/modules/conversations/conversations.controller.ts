@@ -7,16 +7,22 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { lastValueFrom } from 'rxjs';
 import { CurrentUser, Protected } from 'src/shared/decorators';
+import { FileValidationPipe } from 'src/shared/pipes';
 import { ConversationsClientGrpc } from './conversations.grpc';
 import {
   AddMembersRequestDto,
@@ -28,15 +34,20 @@ import {
   ListMyConversationsResponseDto,
   MutationResponseDto,
   RemoveMemberRequestDto,
+  UploadConversationAvatarResponseDto,
   UpdateMemberRoleRequestDto,
 } from './dto';
+import { MediaClientGrpc } from './media.grpc';
 
 @ApiTags('Conversations')
 @ApiBearerAuth('access-token')
 @Protected()
 @Controller('conversations')
 export class ConversationsController {
-  public constructor(private readonly conversationsClient: ConversationsClientGrpc) {}
+  public constructor(
+    private readonly conversationsClient: ConversationsClientGrpc,
+    private readonly mediaClient: MediaClientGrpc,
+  ) {}
 
   @ApiOperation({ summary: 'Создать чат/группу/канал' })
   @ApiBody({ type: CreateConversationRequestDto })
@@ -59,8 +70,50 @@ export class ConversationsController {
         isPublic: dto.isPublic ?? false,
         username: dto.username ?? '',
         memberIds: dto.memberIds ?? [],
+        avatarKey: dto.avatarKey ?? '',
       }),
     );
+  }
+
+  @ApiOperation({ summary: 'Загрузить аватар чата/группы/канала' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiOkResponse({
+    type: UploadConversationAvatarResponseDto,
+    description: 'Conversation avatar uploaded',
+  })
+  @ApiBadRequestResponse({ description: 'Некорректный файл' })
+  @Post('avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  @HttpCode(HttpStatus.OK)
+  public async uploadAvatar(
+    @CurrentUser() id: string,
+    @UploadedFile(FileValidationPipe) file: Express.Multer.File,
+  ) {
+    const uploadResult = await lastValueFrom(
+      this.mediaClient.uploadAvatar({
+        accountId: id,
+        fileName: file.originalname,
+        contentType: file.mimetype,
+        data: file.buffer,
+      }),
+    );
+
+    return {
+      ok: Boolean(uploadResult.ok && uploadResult.avatar),
+      avatar: uploadResult.avatar ?? null,
+    };
   }
 
   @ApiOperation({ summary: 'Получить беседу по id' })

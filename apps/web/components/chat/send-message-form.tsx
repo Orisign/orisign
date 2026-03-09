@@ -31,6 +31,47 @@ import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
 import type { ChatReplyTarget } from "./chat.types";
 
+const MESSAGE_SENT_SOUND_SRC = "/assets/audio/message_sent.mp3";
+const MESSAGE_SENT_SOUND_POOL_SIZE = 4;
+let messageSentSoundPool: HTMLAudioElement[] = [];
+let messageSentSoundIndex = 0;
+let isMessageSentSoundPoolInitialized = false;
+
+function initMessageSentSoundPool() {
+  if (isMessageSentSoundPoolInitialized || typeof window === "undefined") return;
+
+  messageSentSoundPool = Array.from(
+    { length: MESSAGE_SENT_SOUND_POOL_SIZE },
+    () => {
+      const audio = new Audio(MESSAGE_SENT_SOUND_SRC);
+      audio.preload = "auto";
+      audio.playsInline = true;
+      audio.load();
+      return audio;
+    },
+  );
+  isMessageSentSoundPoolInitialized = true;
+}
+
+function playMessageSentSound() {
+  initMessageSentSoundPool();
+
+  if (messageSentSoundPool.length === 0) return;
+
+  const index = messageSentSoundIndex % messageSentSoundPool.length;
+  messageSentSoundIndex += 1;
+
+  const audio = messageSentSoundPool[index];
+  audio.pause();
+  audio.currentTime = 0;
+
+  void audio.play().catch(() => {
+    const fallback = new Audio(MESSAGE_SENT_SOUND_SRC);
+    fallback.preload = "auto";
+    void fallback.play().catch(() => undefined);
+  });
+}
+
 export function SendMessageForm({
   conversationId,
   replyTarget,
@@ -49,6 +90,10 @@ export function SendMessageForm({
     },
   });
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    initMessageSentSoundPool();
+  }, []);
 
   const { mutate: sendMessage } = useMessagesControllerSend({
     mutation: {
@@ -99,6 +144,8 @@ export function SendMessageForm({
     const text = data.text.trim();
 
     if (!conversationId || text.length === 0) return;
+
+    playMessageSentSound();
 
     sendMessage({
       data: {

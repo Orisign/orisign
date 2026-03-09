@@ -17,6 +17,8 @@ import { CurrentUser, Protected } from 'src/shared/decorators';
 import {
   DeleteMessageRequestDto,
   EditMessageRequestDto,
+  GetUnreadCountRequestDto,
+  GetUnreadCountResponseDto,
   GetReadStateRequestDto,
   GetReadStateResponseDto,
   ListMessagesRequestDto,
@@ -87,6 +89,23 @@ export class MessagesController {
   ) {
     return await lastValueFrom(
       this.messagesClient.getReadState({
+        conversationId: dto.conversationId,
+        requesterId: id,
+      }),
+    );
+  }
+
+  @ApiOperation({ summary: 'Счётчик непрочитанных сообщений в беседе' })
+  @ApiBody({ type: GetUnreadCountRequestDto })
+  @ApiOkResponse({ type: GetUnreadCountResponseDto })
+  @Post('unread-count')
+  @HttpCode(HttpStatus.OK)
+  public async unreadCount(
+    @CurrentUser() id: string,
+    @Body() dto: GetUnreadCountRequestDto,
+  ) {
+    return await lastValueFrom(
+      this.messagesClient.getUnreadCount({
         conversationId: dto.conversationId,
         requesterId: id,
       }),

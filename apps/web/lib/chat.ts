@@ -193,6 +193,33 @@ const IMAGE_MEDIA_EXTENSIONS = [
   ".svg",
 ] as const;
 
+export const CHAT_CONVERSATION_TYPE = {
+  DM: 1,
+  GROUP: 2,
+  CHANNEL: 3,
+} as const;
+
+function toConversationType(value: unknown) {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
+export function isDirectConversation(conversation: ConversationResponseDto | null | undefined) {
+  return toConversationType(conversation?.type) === CHAT_CONVERSATION_TYPE.DM;
+}
+
+export function getConversationAvatarUrl(
+  conversation: ConversationResponseDto | null | undefined,
+) {
+  const avatarKey = (conversation as { avatarKey?: string } | null | undefined)?.avatarKey;
+  return resolveStorageFileUrl(avatarKey);
+}
+
 export function isImageMediaKey(value: string | null | undefined) {
   if (!value) return false;
 
@@ -221,7 +248,7 @@ export function formatChatListMessagePreview(
     return "";
   }
 
-  const trimmedText = message.text.trim();
+  const trimmedText = message.text.replace(/\s+/g, " ").trim();
   const firstMediaKey = message.mediaKeys.at(0);
   let basePreview = trimmedText;
 

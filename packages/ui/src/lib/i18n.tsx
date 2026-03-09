@@ -2,7 +2,11 @@
 
 import * as React from "react";
 
-type UIMessageValue = string | Record<string, UIMessageValue>;
+interface UIMessageMap {
+  [key: string]: UIMessageValue;
+}
+
+type UIMessageValue = string | UIMessageMap;
 
 type UII18nContextValue = {
   messages: Record<string, UIMessageValue>;

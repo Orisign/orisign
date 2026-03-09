@@ -66,7 +66,8 @@
     },
     "header": {
       "searchPlaceholder": "Поиск",
-      "members": "{count, plural, one {# участник} few {# участника} many {# участников} other {# участника}}"
+      "members": "{count, plural, one {# участник} few {# участника} many {# участников} other {# участника}}",
+      "directFallback": "Личный чат"
     },
     "dropdown": {
       "mute": "Выключить уведомления",
@@ -122,6 +123,27 @@
     "createChannel": "Создать канал",
     "createGroup": "Создать группу",
     "createDirect": "Начать личный чат"
+  },
+  "createConversation": {
+    "members": {
+      "titleGroup": "Добавить участников",
+      "titleDirect": "Новый чат",
+      "searchPlaceholder": "Добавить людей...",
+      "recently": "был(а) недавно",
+      "empty": "Никого не найдено"
+    },
+    "details": {
+      "titleGroup": "Создать группу",
+      "titleChannel": "Создать канал",
+      "recently": "был(а) недавно",
+      "membersCount": "{count, plural, one {# участник} few {# участника} many {# участников} other {# участника}}",
+      "fields": {
+        "titlePlaceholderGroup": "Название группы",
+        "titlePlaceholderChannel": "Название канала",
+        "usernamePlaceholder": "Публичная ссылка",
+        "aboutPlaceholder": "Описание"
+      }
+    }
   },
   "profileDropdown": {
     "logout": "Выйти"
@@ -244,6 +266,19 @@
     }
   },
   "validation": {
+    "createConversation": {
+      "group": {
+        "titleRequired": "Введите название группы",
+        "titleTooLong": "Название группы слишком длинное"
+      },
+      "channel": {
+        "titleRequired": "Введите название канала",
+        "titleTooLong": "Название канала слишком длинное",
+        "usernameTooLong": "Слишком длинная ссылка",
+        "usernameInvalid": "Ссылка может содержать только латинские буквы, цифры и _",
+        "aboutTooLong": "Описание слишком длинное"
+      }
+    },
     "auth": {
       "phoneInvalid": "Введите номер телефона полностью",
       "privacyRequired": "Нужно принять политику конфиденциальности"

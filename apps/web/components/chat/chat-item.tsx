@@ -1,16 +1,21 @@
 "use client";
 
 import { ConversationResponseDto } from "@/api/generated";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { useChatAuthors, useChatLastMessagePreview } from "@/hooks/use-chat";
+import { useChatAuthors, useChatLastMessagePreview, useChatUnreadCount } from "@/hooks/use-chat";
 import {
   formatChatListMessagePreview,
   formatConversationTime,
   getAvatarGradient,
+  getConversationAvatarUrl,
   getConversationInitial,
   getConversationSubtitle,
   getConversationTitle,
+  getUserAvatarUrl,
   getUserDisplayName,
+  getUserInitial,
+  isDirectConversation,
 } from "@/lib/chat";
 import { cn, Ripple } from "@repo/ui";
 import Link from "next/link";
@@ -27,17 +32,35 @@ export function ChatItem({ conversation }: ChatItemProps) {
   const { user } = useCurrentUser();
   const isActive = pathname === `/${conversation.id}`;
   const { data: lastMessagePreview } = useChatLastMessagePreview(conversation.id);
-  const title = getConversationTitle(conversation);
-  const initial = getConversationInitial(conversation);
-  const fallbackSubtitle = getConversationSubtitle(conversation);
-  const membersCount = conversation.members?.length ?? 0;
+  const isDirect = isDirectConversation(conversation);
+  const peerId = isDirect
+    ? (conversation.members ?? []).find((member) => member.userId !== user?.id)?.userId
+    : undefined;
   const lastMessage = lastMessagePreview?.message ?? null;
-  const { data: lastMessageAuthorMap } = useChatAuthors(
-    lastMessage?.authorId ? [lastMessage.authorId] : [],
-  );
+  const { data: unreadCountData } = useChatUnreadCount(conversation.id);
+  const unreadCount = unreadCountData?.count ?? 0;
+  const unreadLabel = unreadCount > 99 ? "99+" : `${unreadCount}`;
+  const relatedUserIds = [
+    ...(lastMessage?.authorId ? [lastMessage.authorId] : []),
+    ...(peerId ? [peerId] : []),
+  ];
+  const { data: usersMap } = useChatAuthors(relatedUserIds);
   const lastMessageAuthor = lastMessage?.authorId
-    ? (lastMessageAuthorMap?.[lastMessage.authorId] ?? null)
+    ? (usersMap?.[lastMessage.authorId] ?? null)
     : null;
+  const peerUser = peerId ? (usersMap?.[peerId] ?? null) : null;
+  const title = isDirect
+    ? getUserDisplayName(peerUser, t("unknownAuthor"))
+    : getConversationTitle(conversation);
+  const initial = isDirect
+    ? getUserInitial(peerUser, title)
+    : getConversationInitial(conversation);
+  const avatarUrl = isDirect
+    ? getUserAvatarUrl(peerUser)
+    : getConversationAvatarUrl(conversation);
+  const fallbackSubtitle = isDirect
+    ? (peerUser?.username ? `@${peerUser.username}` : getConversationSubtitle(conversation))
+    : getConversationSubtitle(conversation);
   const lastMessagePrefix =
     lastMessage?.authorId === user?.id
       ? t("ownPrefix")
@@ -72,14 +95,22 @@ export function ChatItem({ conversation }: ChatItemProps) {
         )}
       >
         <div className="flex items-center gap-3">
-          <div
+          <Avatar
+            size="lg"
             className={cn(
-              "flex size-12 shrink-0 items-center justify-center rounded-full bg-linear-to-br text-base font-semibold text-white",
-              getAvatarGradient(conversation.id),
+              !avatarUrl
+                ? cn(
+                    "text-white",
+                    `bg-linear-to-br ${getAvatarGradient(peerId ?? conversation.id)}`,
+                  )
+                : "",
             )}
           >
-            {initial}
-          </div>
+            {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
+            <AvatarFallback className={!avatarUrl ? "bg-transparent text-white" : ""}>
+              {initial}
+            </AvatarFallback>
+          </Avatar>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="truncate text-[15px] font-semibold leading-5">
@@ -98,30 +129,29 @@ export function ChatItem({ conversation }: ChatItemProps) {
                 </span>
               ) : null}
             </div>
-            <div className="mt-0.5 flex items-center gap-2">
+            <div className="mt-0.5 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
               <p
+                data-no-twemoji
                 className={cn(
-                  "min-w-0 flex-1 overflow-hidden text-sm",
+                  "min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm",
                   isActive
                     ? "text-primary-foreground/80"
                     : "text-muted-foreground",
-                  lastMessage &&
-                    "truncate text-left [direction:rtl] [text-overflow:ellipsis] [unicode-bidi:plaintext]",
                 )}
                 title={subtitle}
               >
                 {subtitle}
               </p>
-              {membersCount > 1 ? (
+              {unreadCount > 0 && !isActive ? (
                 <span
                   className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
+                    "justify-self-end rounded-full px-2 py-0.5 text-xs font-semibold",
                     isActive
                       ? "bg-primary-foreground/16 text-primary-foreground"
                       : "bg-primary/15 text-primary",
                   )}
                 >
-                  {membersCount}
+                  {unreadLabel}
                 </span>
               ) : null}
             </div>

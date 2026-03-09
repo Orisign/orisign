@@ -51,6 +51,7 @@ message CreateConversationRequest {
   bool is_public = 5;
   string username = 6;
   repeated string member_ids = 7;
+  string avatar_key = 8;
 }
 
 message CreateConversationResponse {
@@ -130,6 +131,7 @@ message Conversation {
   repeated ConversationMember members = 8;
   int64 created_at = 9;
   int64 updated_at = 10;
+  string avatar_key = 11;
 }
 
 message ConversationMember {

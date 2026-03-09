@@ -5,6 +5,8 @@ import type {
   CreateUserResponse,
   GetUserRequest,
   GetUserResponse,
+  ListUsersRequest,
+  ListUsersResponse,
   PatchPrivacySettingsRequest,
   PatchResponse,
   PatchUserRequest,
@@ -18,6 +20,11 @@ export class UsersController {
   @GrpcMethod('UsersService', 'GetUser')
   public async getUser(data: GetUserRequest): Promise<GetUserResponse> {
     return await this.usersService.getUser(data);
+  }
+
+  @GrpcMethod('UsersService', 'ListUsers')
+  public async listUsers(data: ListUsersRequest): Promise<ListUsersResponse> {
+    return await this.usersService.listUsers(data);
   }
 
   @GrpcMethod('UsersService', 'CreateUser')

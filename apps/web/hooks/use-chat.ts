@@ -58,6 +58,10 @@ export interface ChatReadStateQueryData {
   cursors: ChatReadCursorDto[];
 }
 
+export interface ChatUnreadCountQueryData {
+  count: number;
+}
+
 interface UseConversationQueryResult {
   conversation: ConversationResponseDto | null;
 }
@@ -92,6 +96,10 @@ function toFiniteNumber(value: unknown) {
 
 function getMessagesReadStateUrl() {
   return buildApiUrl("/messages/read-state");
+}
+
+function getMessagesUnreadCountUrl() {
+  return buildApiUrl("/messages/unread-count");
 }
 
 function normalizeChatReadCursor(
@@ -311,6 +319,37 @@ export function useChatReadState(conversationId: string) {
     },
     enabled: Boolean(conversationId),
     staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function getChatUnreadCountQueryKey(conversationId: string) {
+  return [CHAT_QUERY_SCOPE, "unread-count", conversationId] as const;
+}
+
+export function useChatUnreadCount(conversationId: string) {
+  return useQuery<ChatUnreadCountQueryData>({
+    queryKey: getChatUnreadCountQueryKey(conversationId),
+    queryFn: async () => {
+      const response = await customFetch<{ count?: unknown }>(
+        getMessagesUnreadCountUrl(),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            conversationId,
+          }),
+        },
+      );
+
+      return {
+        count: Math.max(0, Math.trunc(toFiniteNumber(response.count))),
+      };
+    },
+    enabled: Boolean(conversationId),
+    staleTime: 15_000,
     refetchOnWindowFocus: false,
   });
 }

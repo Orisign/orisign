@@ -99,8 +99,9 @@ const Ripple = React.forwardRef<HTMLElement, RippleProps>(
     if (asChild) {
       const child = React.Children.only(children);
       if (!React.isValidElement(child)) return null;
+      const childElement = child as React.ReactElement<any>;
 
-      const childProps = child.props as {
+      const childProps = childElement.props as {
         className?: string;
         children?: React.ReactNode;
         onMouseDown?: (event: React.MouseEvent<HTMLElement>) => void;
@@ -109,7 +110,7 @@ const Ripple = React.forwardRef<HTMLElement, RippleProps>(
         ) => void;
       };
 
-      return React.cloneElement(child, {
+      return React.cloneElement(childElement, {
         className: cn("relative overflow-hidden", childProps.className, className),
         onPointerDownCapture: (event: React.PointerEvent<HTMLElement>) =>
           handlePointerDownCapture(event, childProps.onPointerDownCapture),

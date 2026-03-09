@@ -5,6 +5,8 @@ import { RpcStatus } from '@repo/common';
 import type {
   GetUserRequest,
   GetUserResponse,
+  ListUsersRequest,
+  ListUsersResponse,
   PatchPrivacySettingsRequest,
   PatchUserRequest,
   PrivacySettings,
@@ -65,6 +67,49 @@ export class UsersRepository {
     }
 
     return this.mapUserEntity(user);
+  }
+
+  public async listUsers(data: ListUsersRequest): Promise<ListUsersResponse> {
+    const query = data.query?.trim();
+    const limit = data.limit > 0 ? Math.min(data.limit, 100) : 30;
+    const offset = data.offset > 0 ? data.offset : 0;
+    const excludeIds = [...new Set((data.excludeIds ?? []).filter(Boolean))];
+    const includeIds = [...new Set((data.includeIds ?? []).filter(Boolean))];
+
+    if ((data.includeIds?.length ?? 0) > 0 && includeIds.length === 0) {
+      return { users: [] };
+    }
+
+    const idFilter: Record<string, string[]> = {};
+    if (includeIds.length > 0) {
+      idFilter.in = includeIds;
+    }
+    if (excludeIds.length > 0) {
+      idFilter.notIn = excludeIds;
+    }
+
+    const users = await this.prismaService.user.findMany({
+      where: {
+        ...(Object.keys(idFilter).length > 0 ? { id: idFilter } : {}),
+        ...(query
+          ? {
+              OR: [
+                { firstName: { contains: query, mode: 'insensitive' } },
+                { lastName: { contains: query, mode: 'insensitive' } },
+                { username: { contains: query, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      } as any,
+      include: { privacySettings: true } as any,
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      take: limit,
+      skip: offset,
+    } as any);
+
+    return {
+      users: users.map((user) => this.mapUserEntity(user)),
+    };
   }
 
   public async create(data: Record<string, unknown>): Promise<void> {

@@ -18,6 +18,7 @@ export class ConversationsRepository {
     creatorId: string;
     title?: string;
     about?: string;
+    avatarKey?: string;
     isPublic?: boolean;
     username?: string;
     memberIds?: string[];
@@ -38,6 +39,7 @@ export class ConversationsRepository {
         ownerId: params.creatorId,
         title: params.title || null,
         about: params.about || null,
+        avatarKey: params.avatarKey || null,
         isPublic: params.isPublic ?? false,
         username: params.username || null,
         members: {
@@ -167,6 +169,7 @@ export class ConversationsRepository {
       ownerId: entity.ownerId,
       isPublic: entity.isPublic,
       username: entity.username ?? '',
+      avatarKey: entity.avatarKey ?? '',
       members: (entity.members ?? []).map((member: any) => ({
         userId: member.userId,
         role: this.toProtoRole(member.role),

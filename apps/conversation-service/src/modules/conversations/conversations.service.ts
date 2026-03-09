@@ -52,6 +52,7 @@ export class ConversationsService {
       creatorId: data.creatorId,
       title: data.title,
       about: data.about,
+      avatarKey: data.avatarKey,
       isPublic: data.isPublic,
       username: data.username,
       memberIds: data.memberIds,

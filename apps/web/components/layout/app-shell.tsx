@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation";
 import { FC, PropsWithChildren, useEffect, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { ScrollArea } from "../ui/scroll-area";
+import { CreateConversationDetailsSidebar } from "./sidebar/pages/create-conversation-details-sidebar";
+import { CreateConversationMembersSidebar } from "./sidebar/pages/create-conversation-members-sidebar";
 import { EditProfileSidebar } from "./sidebar/pages/edit-profile-sidebar";
 import { MainSidebar } from "./sidebar/pages/main-sidebar";
 import { SettingsSidebar } from "./sidebar/pages/settings-sidebar";
@@ -69,6 +71,10 @@ export const AppShell: FC<PropsWithChildren> = ({ children }) => {
     switch (current.screen) {
       case "main":
         return <MainSidebar />;
+      case "create-conversation-members":
+        return <CreateConversationMembersSidebar route={current} />;
+      case "create-conversation-details":
+        return <CreateConversationDetailsSidebar route={current} />;
       case "settings":
         return <SettingsSidebar />;
       case "edit-profile":

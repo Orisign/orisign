@@ -3,6 +3,7 @@ import { ClientGrpc } from '@nestjs/microservices';
 import type {
   CreateUserRequest,
   GetUserRequest,
+  ListUsersRequest,
   PatchPrivacySettingsRequest,
   PatchUserRequest,
   UsersServiceClient,
@@ -23,6 +24,10 @@ export class UsersClientGrpc implements OnModuleInit {
 
   public getUser(request: GetUserRequest) {
     return this.usersClient.getUser(request);
+  }
+
+  public listUsers(request: ListUsersRequest) {
+    return this.usersClient.listUsers(request);
   }
 
   public createUser(request: CreateUserRequest) {

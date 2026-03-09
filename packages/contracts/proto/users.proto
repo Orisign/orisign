@@ -6,6 +6,8 @@ package users.v1;
 service UsersService {
   // Returns a user by id or by username.
   rpc GetUser (GetUserRequest) returns (GetUserResponse);
+  // Returns users list with optional search.
+  rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
   // Creates a user profile shell for the given id.
   rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
   // Partially updates base user profile fields.
@@ -27,6 +29,18 @@ message GetUserRequest {
 // User fetch response.
 message GetUserResponse {
   User user = 1;
+}
+
+message ListUsersRequest {
+  string query = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+  repeated string exclude_ids = 4;
+  repeated string include_ids = 5;
+}
+
+message ListUsersResponse {
+  repeated User users = 1;
 }
 
 // Request to create new user profile.
