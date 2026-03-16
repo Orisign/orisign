@@ -3,13 +3,21 @@ import { Injectable } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { RpcStatus } from '@repo/common';
 import type {
+  ChatFolder,
+  ChatFolderResponse,
+  CreateChatFolderRequest,
+  DeleteChatFolderRequest,
   GetUserRequest,
   GetUserResponse,
+  ListChatFoldersRequest,
+  ListChatFoldersResponse,
   ListUsersRequest,
   ListUsersResponse,
   PatchPrivacySettingsRequest,
   PatchUserRequest,
   PrivacySettings,
+  ReorderChatFoldersRequest,
+  UpdateChatFolderRequest,
   User,
 } from '@repo/contracts/gen/ts/users';
 
@@ -110,6 +118,165 @@ export class UsersRepository {
     return {
       users: users.map((user) => this.mapUserEntity(user)),
     };
+  }
+
+  public async listChatFolders(
+    data: ListChatFoldersRequest,
+  ): Promise<ListChatFoldersResponse> {
+    const userId = data.userId?.trim();
+    if (!userId) {
+      return { folders: [] };
+    }
+
+    const folders = await this.prismaService.chatFolder.findMany({
+      where: { userId },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    return {
+      folders: folders.map((folder) => this.mapChatFolderEntity(folder)),
+    };
+  }
+
+  public async createChatFolder(
+    data: CreateChatFolderRequest,
+  ): Promise<ChatFolderResponse> {
+    const userId = data.userId?.trim();
+    if (!userId) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'User id is required',
+      });
+    }
+
+    const sortOrder =
+      data.sortOrder >= 0
+        ? Math.floor(data.sortOrder)
+        : await this.getNextChatFolderSortOrder(userId);
+
+    const folder = await this.prismaService.chatFolder.create({
+      data: {
+        userId,
+        name: data.name?.trim() || 'New Folder',
+        includedChatIds: this.normalizeStringArray(data.includedChatIds),
+        excludedChatIds: this.normalizeStringArray(data.excludedChatIds),
+        includedTypes: this.normalizeStringArray(data.includedTypes),
+        excludedTypes: this.normalizeStringArray(data.excludedTypes),
+        inviteLink: this.normalizeOptionalString(data.inviteLink),
+        sortOrder,
+      },
+    });
+
+    return {
+      folder: this.mapChatFolderEntity(folder),
+    };
+  }
+
+  public async updateChatFolder(
+    data: UpdateChatFolderRequest,
+  ): Promise<ChatFolderResponse> {
+    const userId = data.userId?.trim();
+    const folderId = data.folderId?.trim();
+
+    if (!userId || !folderId) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'User id and folder id are required',
+      });
+    }
+
+    const existing = await this.prismaService.chatFolder.findFirst({
+      where: { id: folderId, userId },
+    });
+
+    if (!existing) {
+      throw new RpcException({
+        code: RpcStatus.NOT_FOUND,
+        details: 'Chat folder not found',
+      });
+    }
+
+    const sortOrder = data.sortOrder >= 0 ? Math.floor(data.sortOrder) : existing.sortOrder;
+
+    const folder = await this.prismaService.chatFolder.update({
+      where: { id: folderId },
+      data: {
+        name: data.name?.trim() || existing.name,
+        includedChatIds: this.normalizeStringArray(data.includedChatIds),
+        excludedChatIds: this.normalizeStringArray(data.excludedChatIds),
+        includedTypes: this.normalizeStringArray(data.includedTypes),
+        excludedTypes: this.normalizeStringArray(data.excludedTypes),
+        inviteLink: this.normalizeOptionalString(data.inviteLink),
+        sortOrder,
+      },
+    });
+
+    return {
+      folder: this.mapChatFolderEntity(folder),
+    };
+  }
+
+  public async deleteChatFolder(data: DeleteChatFolderRequest): Promise<void> {
+    const userId = data.userId?.trim();
+    const folderId = data.folderId?.trim();
+
+    if (!userId || !folderId) {
+      return;
+    }
+
+    const deleteResult = await this.prismaService.chatFolder.deleteMany({
+      where: { id: folderId, userId },
+    });
+
+    if (deleteResult.count === 0) {
+      throw new RpcException({
+        code: RpcStatus.NOT_FOUND,
+        details: 'Chat folder not found',
+      });
+    }
+  }
+
+  public async reorderChatFolders(data: ReorderChatFoldersRequest): Promise<void> {
+    const userId = data.userId?.trim();
+    if (!userId) {
+      return;
+    }
+
+    const orderedIds = this.normalizeStringArray(data.folderIds);
+    if (orderedIds.length === 0) {
+      return;
+    }
+
+    const existingFolders = await this.prismaService.chatFolder.findMany({
+      where: { userId },
+      select: { id: true, sortOrder: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    if (existingFolders.length === 0) {
+      return;
+    }
+
+    const existingIdSet = new Set(existingFolders.map((folder) => folder.id));
+    const listedIds = orderedIds.filter((id) => existingIdSet.has(id));
+    const listedIdSet = new Set(listedIds);
+    const restIds = existingFolders
+      .map((folder) => folder.id)
+      .filter((id) => !listedIdSet.has(id));
+    const nextOrder = [...listedIds, ...restIds];
+
+    if (nextOrder.length === 0) {
+      return;
+    }
+
+    await this.prismaService.$transaction(
+      nextOrder.map((id, index) =>
+        this.prismaService.chatFolder.update({
+          where: { id },
+          data: { sortOrder: index },
+        }),
+      ),
+    );
   }
 
   public async create(data: Record<string, unknown>): Promise<void> {
@@ -281,5 +448,53 @@ export class UsersRepository {
       createdAt: entity.createdAt.getTime(),
       updatedAt: entity.updatedAt.getTime(),
     };
+  }
+
+  private mapChatFolderEntity(entity: any): ChatFolder {
+    return {
+      id: entity.id,
+      userId: entity.userId,
+      name: entity.name,
+      includedChatIds: entity.includedChatIds ?? [],
+      excludedChatIds: entity.excludedChatIds ?? [],
+      includedTypes: entity.includedTypes ?? [],
+      excludedTypes: entity.excludedTypes ?? [],
+      inviteLink: entity.inviteLink ?? undefined,
+      sortOrder: entity.sortOrder ?? 0,
+      createdAt: entity.createdAt.getTime(),
+      updatedAt: entity.updatedAt.getTime(),
+    };
+  }
+
+  private normalizeStringArray(values: string[] | undefined): string[] {
+    if (!values || values.length === 0) {
+      return [];
+    }
+
+    const unique = new Set<string>();
+    for (const value of values) {
+      const normalized = value?.trim();
+      if (!normalized) {
+        continue;
+      }
+      unique.add(normalized);
+    }
+
+    return [...unique];
+  }
+
+  private normalizeOptionalString(value: string | undefined): string | null {
+    const normalized = value?.trim();
+    return normalized ? normalized : null;
+  }
+
+  private async getNextChatFolderSortOrder(userId: string): Promise<number> {
+    const lastFolder = await this.prismaService.chatFolder.findFirst({
+      where: { userId },
+      orderBy: { sortOrder: 'desc' },
+      select: { sortOrder: true },
+    });
+
+    return (lastFolder?.sortOrder ?? -1) + 1;
   }
 }

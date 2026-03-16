@@ -313,10 +313,19 @@ export interface ListMessagesRequestDto {
 export interface EditMessageRequestDto {
   messageId: string;
   text: string;
+  conversationId?: string;
 }
 
 export interface DeleteMessageRequestDto {
-  messageId: string;
+  messageId?: string;
+  messageIds?: string[];
+  conversationId?: string;
+}
+
+export interface DeleteMessageResponseDto {
+  ok: boolean;
+  deletedMessageIds?: string[];
+  failedMessageIds?: string[];
 }
 
 export interface MarkReadRequestDto {
@@ -2160,9 +2169,9 @@ export const getMessagesControllerDeleteUrl = () => {
   return `http://localhost:4000/messages/delete`
 }
 
-export const messagesControllerDelete = async (deleteMessageRequestDto: DeleteMessageRequestDto, options?: RequestInit): Promise<void> => {
+export const messagesControllerDelete = async (deleteMessageRequestDto: DeleteMessageRequestDto, options?: RequestInit): Promise<DeleteMessageResponseDto> => {
   
-  return customFetch<void>(getMessagesControllerDeleteUrl(),
+  return customFetch<DeleteMessageResponseDto>(getMessagesControllerDeleteUrl(),
   {      
     ...options,
     method: 'POST',

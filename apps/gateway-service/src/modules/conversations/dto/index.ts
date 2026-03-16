@@ -201,3 +201,17 @@ export class UploadConversationAvatarResponseDto {
   @ApiProperty({ type: ConversationAvatarObjectResponseDto, nullable: true })
   avatar: ConversationAvatarObjectResponseDto | null;
 }
+
+export class UploadConversationMediaResponseDto {
+  @ApiProperty()
+  ok: boolean;
+
+  @ApiProperty({ type: ConversationAvatarObjectResponseDto, nullable: true })
+  media: ConversationAvatarObjectResponseDto | null;
+}
+
+export class DeleteConversationMediaRequestDto {
+  @ApiProperty()
+  @IsString()
+  key: string;
+}

@@ -16,6 +16,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t("title"),
     description: t("description"),
+    icons: {
+      icon: [{ url: "/logo.png", type: "image/png" }],
+      shortcut: [{ url: "/logo.png", type: "image/png" }],
+      apple: [{ url: "/logo.png", type: "image/png" }],
+    },
   };
 }
 
@@ -28,6 +33,17 @@ export default async function RootLayout({
 
   return (
     <html lang={locale}>
+      <head>
+        <link rel="icon" href="/logo.png" type="image/png" />
+        <link rel="shortcut icon" href="/logo.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/logo.png" />
+        <link
+          rel="preload"
+          href="/assets/audio/message_sent.mp3"
+          as="audio"
+          type="audio/mpeg"
+        />
+      </head>
       <body className={`${inter.variable} antialiased`}>
         <NextIntlClientProvider>
           <Providers>{children}</Providers>

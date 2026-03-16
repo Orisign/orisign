@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   HttpCode,
@@ -17,12 +18,15 @@ import { CurrentUser, Protected } from 'src/shared/decorators';
 import {
   DeleteMessageRequestDto,
   EditMessageRequestDto,
+  GetUserBlockStatusRequestDto,
+  GetUserBlockStatusResponseDto,
   GetUnreadCountRequestDto,
   GetUnreadCountResponseDto,
   GetReadStateRequestDto,
   GetReadStateResponseDto,
   ListMessagesRequestDto,
   MarkReadRequestDto,
+  SetUserBlockRequestDto,
   SendMessageRequestDto,
 } from './dto';
 import { ChatRealtimeService } from './chat-realtime.service';
@@ -57,6 +61,11 @@ export class MessagesController {
 
     if (response?.ok && response.message) {
       this.chatRealtimeService.emitMessageCreated(response.message);
+      this.chatRealtimeService.emitChatListInvalidate({
+        conversationId: response.message.conversationId,
+        actorId: id,
+        reason: 'message.sent',
+      });
     }
 
     return response;
@@ -118,13 +127,36 @@ export class MessagesController {
   @Post('edit')
   @HttpCode(HttpStatus.OK)
   public async edit(@CurrentUser() id: string, @Body() dto: EditMessageRequestDto) {
-    return await lastValueFrom(
+    const response = await lastValueFrom(
       this.messagesClient.editMessage({
         messageId: dto.messageId,
         actorId: id,
         text: dto.text,
       }),
     );
+
+    if (response?.ok && dto.conversationId) {
+      const editedAt = Date.now();
+
+      this.chatRealtimeService.emitMessageUpdated({
+        conversationId: dto.conversationId,
+        messageId: dto.messageId,
+        text: dto.text,
+        editedAt,
+      });
+      this.chatRealtimeService.emitChatListInvalidate({
+        conversationId: dto.conversationId,
+        actorId: id,
+        reason: 'message.edited',
+      });
+    } else if (response?.ok) {
+      this.chatRealtimeService.emitChatListInvalidate({
+        actorId: id,
+        reason: 'message.edited',
+      });
+    }
+
+    return response;
   }
 
   @ApiOperation({ summary: 'Удалить сообщение' })
@@ -133,12 +165,66 @@ export class MessagesController {
   @Post('delete')
   @HttpCode(HttpStatus.OK)
   public async delete(@CurrentUser() id: string, @Body() dto: DeleteMessageRequestDto) {
-    return await lastValueFrom(
-      this.messagesClient.deleteMessage({
-        messageId: dto.messageId,
-        actorId: id,
-      }),
+    const messageIds = [
+      ...(dto.messageId?.trim() ? [dto.messageId.trim()] : []),
+      ...((dto.messageIds ?? []).map((messageId) => messageId.trim()).filter(Boolean)),
+    ].filter((messageId, index, allMessageIds) => allMessageIds.indexOf(messageId) === index);
+
+    if (messageIds.length === 0) {
+      throw new BadRequestException('messageId or messageIds[] is required');
+    }
+
+    const results = await Promise.allSettled(
+      messageIds.map(async (messageId) => ({
+        messageId,
+        response: await lastValueFrom(
+          this.messagesClient.deleteMessage({
+            messageId,
+            actorId: id,
+          }),
+        ),
+      })),
     );
+
+    const deletedMessageIds = results.flatMap((result) =>
+      result.status === 'fulfilled' && result.value.response?.ok
+        ? [result.value.messageId]
+        : [],
+    );
+    const failedMessageIds = results.flatMap((result, index) =>
+      result.status === 'rejected' ||
+      (result.status === 'fulfilled' && !result.value.response?.ok)
+        ? [messageIds[index]]
+        : [],
+    );
+
+    if (dto.conversationId && deletedMessageIds.length > 0) {
+      const deletedAt = Date.now();
+
+      deletedMessageIds.forEach((messageId) => {
+        this.chatRealtimeService.emitMessageDeleted({
+          conversationId: dto.conversationId as string,
+          messageId,
+          deletedAt,
+        });
+      });
+      this.chatRealtimeService.emitChatListInvalidate({
+        conversationId: dto.conversationId,
+        actorId: id,
+        reason: 'message.deleted',
+      });
+    } else if (deletedMessageIds.length > 0) {
+      this.chatRealtimeService.emitChatListInvalidate({
+        actorId: id,
+        reason: 'message.deleted',
+      });
+    }
+
+    return {
+      ok: failedMessageIds.length === 0,
+      deletedMessageIds,
+      failedMessageIds,
+    };
   }
 
   @ApiOperation({ summary: 'Обновить read-cursor' })
@@ -156,14 +242,74 @@ export class MessagesController {
     );
 
     if (response?.ok && dto.lastReadMessageId) {
+      const readState = await lastValueFrom(
+        this.messagesClient.getReadState({
+          conversationId: dto.conversationId,
+          requesterId: id,
+        }),
+      );
+      const actorCursor = (readState.cursors ?? []).find((cursor) => cursor.userId === id);
+
+      if (!actorCursor?.lastReadMessageId) {
+        return response;
+      }
+
       this.chatRealtimeService.emitReadCursorUpdated({
         conversationId: dto.conversationId,
         userId: id,
-        lastReadMessageId: dto.lastReadMessageId,
-        lastReadAt: Date.now(),
+        lastReadMessageId: actorCursor.lastReadMessageId,
+        lastReadAt: actorCursor.lastReadAt,
       });
     }
 
     return response;
+  }
+
+  @ApiOperation({ summary: 'Заблокировать/разблокировать пользователя для личных чатов' })
+  @ApiBody({ type: SetUserBlockRequestDto })
+  @ApiOkResponse({ description: 'Block status updated' })
+  @Post('block')
+  @HttpCode(HttpStatus.OK)
+  public async setUserBlock(
+    @CurrentUser() id: string,
+    @Body() dto: SetUserBlockRequestDto,
+  ) {
+    return await lastValueFrom(
+      this.messagesClient.setUserBlock({
+        actorId: id,
+        targetUserId: dto.targetUserId,
+        blocked: dto.blocked,
+      }),
+    );
+  }
+
+  @ApiOperation({ summary: 'Статус блокировки пользователя' })
+  @ApiBody({ type: GetUserBlockStatusRequestDto })
+  @ApiOkResponse({ type: GetUserBlockStatusResponseDto })
+  @Post('block/status')
+  @HttpCode(HttpStatus.OK)
+  public async getUserBlockStatus(
+    @CurrentUser() id: string,
+    @Body() dto: GetUserBlockStatusRequestDto,
+  ) {
+    const [actorToTarget, targetToActor] = await Promise.all([
+      lastValueFrom(
+        this.messagesClient.getUserBlockStatus({
+          actorId: id,
+          targetUserId: dto.targetUserId,
+        }),
+      ),
+      lastValueFrom(
+        this.messagesClient.getUserBlockStatus({
+          actorId: dto.targetUserId,
+          targetUserId: id,
+        }),
+      ),
+    ]);
+
+    return {
+      blocked: Boolean(actorToTarget?.blocked),
+      blockedByTarget: Boolean(targetToActor?.blocked),
+    };
   }
 }

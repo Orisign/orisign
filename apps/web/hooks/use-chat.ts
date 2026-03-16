@@ -36,6 +36,12 @@ interface RawListMessagesResponseDto {
   messages: Array<Partial<ChatMessageDto> | null | undefined>;
 }
 
+interface FetchChatMessagesPageParams {
+  conversationId: string;
+  limit: number;
+  offset: number;
+}
+
 export interface ChatMessagesQueryData {
   messages: ChatMessageDto[];
 }
@@ -156,6 +162,19 @@ export function appendChatMessageToData(
   };
 }
 
+export function prependChatMessagesToData(
+  data: ChatMessagesQueryData | undefined,
+  messages: ChatMessageDto[],
+): ChatMessagesQueryData {
+  const currentMessages = data?.messages ?? [];
+  const currentIds = new Set(currentMessages.map((message) => message.id));
+  const uniquePrepended = messages.filter((message) => !currentIds.has(message.id));
+
+  return {
+    messages: [...uniquePrepended, ...currentMessages],
+  };
+}
+
 export function getChatReadStateQueryKey(conversationId: string) {
   return [CHAT_QUERY_SCOPE, "read-state", conversationId] as const;
 }
@@ -225,30 +244,44 @@ export function bumpConversationQueryData(
   };
 }
 
+export async function fetchChatMessagesPage({
+  conversationId,
+  limit,
+  offset,
+}: FetchChatMessagesPageParams): Promise<ChatMessageDto[]> {
+  const response = await customFetch<RawListMessagesResponseDto>(
+    getMessagesControllerListUrl(),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        conversationId,
+        limit,
+        offset,
+      }),
+    },
+  );
+
+  return [...(response.messages ?? [])]
+    .map(normalizeChatMessage)
+    .filter((message): message is ChatMessageDto => message !== null)
+    .reverse();
+}
+
 export function useChatMessages(conversationId: string) {
   return useQuery<ChatMessagesQueryData>({
     queryKey: getChatMessagesQueryKey(conversationId),
     queryFn: async () => {
-      const response = await customFetch<RawListMessagesResponseDto>(
-        getMessagesControllerListUrl(),
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            conversationId,
-            limit: CHAT_MESSAGES_PAGE_SIZE,
-            offset: CHAT_MESSAGES_INITIAL_OFFSET,
-          }),
-        },
-      );
+      const messages = await fetchChatMessagesPage({
+        conversationId,
+        limit: CHAT_MESSAGES_PAGE_SIZE,
+        offset: CHAT_MESSAGES_INITIAL_OFFSET,
+      });
 
       return {
-        messages: [...(response.messages ?? [])]
-          .map(normalizeChatMessage)
-          .filter((message): message is ChatMessageDto => message !== null)
-          .reverse(),
+        messages,
       };
     },
     enabled: Boolean(conversationId),

@@ -25,6 +25,7 @@ interface EmojiInputProps
   onSubmit?: () => void;
   submitOnEnter?: boolean;
   focusToken?: string | number | null;
+  rightSlot?: React.ReactNode;
 }
 
 const MIN_INPUT_HEIGHT = 44;
@@ -233,6 +234,7 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
       onSubmit,
       submitOnEnter = true,
       focusToken,
+      rightSlot,
       onKeyDown,
       ...props
     },
@@ -448,6 +450,7 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
     }, [disabled, onChange, renderValue]);
 
     const hasLeftSlot = showEmojiPicker;
+    const hasRightSlot = Boolean(rightSlot);
     const showPlaceholder = isEmpty && Boolean(placeholder);
     const isMultiline = autoGrow && inputHeight > MIN_INPUT_HEIGHT + 2;
 
@@ -487,6 +490,16 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
             {placeholder}
           </span>
         ) : null}
+        {hasRightSlot ? (
+          <span
+            className={cn(
+              "absolute right-2 z-10 flex items-center text-muted-foreground transition-[top,transform] duration-140 ease-[cubic-bezier(.2,.8,.2,1)]",
+              isMultiline ? "top-2.5" : "top-1/2 -translate-y-1/2",
+            )}
+          >
+            {rightSlot}
+          </span>
+        ) : null}
         <div
           {...props}
           ref={editableRef}
@@ -501,6 +514,7 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
               ? "overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
               : "h-full overflow-x-auto whitespace-pre",
             hasLeftSlot && "pl-8",
+            hasRightSlot && "pr-12",
           )}
           style={{
             maxHeight: autoGrow ? maxHeight - 4 : undefined,

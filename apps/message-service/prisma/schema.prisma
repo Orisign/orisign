@@ -36,6 +36,17 @@ model MessageRead {
   @@map("message_reads")
 }
 
+model UserBlock {
+  id         String   @id @default(cuid())
+  blockerId  String   @map("blocker_id")
+  blockedId  String   @map("blocked_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+  @@map("user_blocks")
+}
+
 enum MessageKind {
   TEXT
   MEDIA

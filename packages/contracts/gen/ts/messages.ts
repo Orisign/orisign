@@ -88,6 +88,21 @@ export interface MutationResponse {
   ok: boolean;
 }
 
+export interface SetUserBlockRequest {
+  actorId: string;
+  targetUserId: string;
+  blocked: boolean;
+}
+
+export interface GetUserBlockStatusRequest {
+  actorId: string;
+  targetUserId: string;
+}
+
+export interface GetUserBlockStatusResponse {
+  blocked: boolean;
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -117,6 +132,10 @@ export interface MessagesServiceClient {
   deleteMessage(request: DeleteMessageRequest): Observable<MutationResponse>;
 
   markRead(request: MarkReadRequest): Observable<MutationResponse>;
+
+  setUserBlock(request: SetUserBlockRequest): Observable<MutationResponse>;
+
+  getUserBlockStatus(request: GetUserBlockStatusRequest): Observable<GetUserBlockStatusResponse>;
 }
 
 export interface MessagesServiceController {
@@ -143,6 +162,14 @@ export interface MessagesServiceController {
   ): Promise<MutationResponse> | Observable<MutationResponse> | MutationResponse;
 
   markRead(request: MarkReadRequest): Promise<MutationResponse> | Observable<MutationResponse> | MutationResponse;
+
+  setUserBlock(
+    request: SetUserBlockRequest,
+  ): Promise<MutationResponse> | Observable<MutationResponse> | MutationResponse;
+
+  getUserBlockStatus(
+    request: GetUserBlockStatusRequest,
+  ): Promise<GetUserBlockStatusResponse> | Observable<GetUserBlockStatusResponse> | GetUserBlockStatusResponse;
 }
 
 export function MessagesServiceControllerMethods() {
@@ -155,6 +182,8 @@ export function MessagesServiceControllerMethods() {
       "editMessage",
       "deleteMessage",
       "markRead",
+      "setUserBlock",
+      "getUserBlockStatus",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

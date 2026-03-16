@@ -51,13 +51,33 @@
   },
   "appShell": {
     "searchPlaceholder": "Search",
-    "resizeSidebarAriaLabel": "Resize sidebar"
+    "resizeSidebarAriaLabel": "Resize sidebar",
+    "folderTabs": {
+      "allChats": "All chats",
+      "untitled": "Untitled folder"
+    }
+  },
+  "chatSearchSidebar": {
+    "backAriaLabel": "Back",
+    "dismissAriaLabel": "Close search",
+    "placeholder": "Search by chat name",
+    "startTyping": "Type chat name to search.",
+    "empty": "No chats found"
   },
   "chat": {
     "list": {
       "empty": "No chats",
       "ownPrefix": "You:",
       "unknownAuthor": "User",
+      "call": {
+        "title": "Call",
+        "status": {
+          "completed": "Completed",
+          "declined": "Declined",
+          "canceled": "Canceled",
+          "failed": "Failed"
+        }
+      },
       "media": {
         "photo": "Photo",
         "file": "File",
@@ -67,16 +87,51 @@
     "header": {
       "searchPlaceholder": "Search",
       "members": "{count, plural, one {# member} other {# members}}",
-      "directFallback": "Direct chat"
+      "directFallback": "Direct chat",
+      "incomingCall": "Incoming call"
+    },
+    "callWindow": {
+      "secured": "End-to-end encrypted",
+      "securityHint": "Compare these emojis with your peer to confirm call security.",
+      "accept": "Accept",
+      "decline": "Decline",
+      "end": "End call",
+      "close": "Close",
+      "status": {
+        "incoming": "Incoming call",
+        "outgoing": "Calling…",
+        "connecting": "Connecting…",
+        "active": "In call",
+        "error": "Call error"
+      }
     },
     "dropdown": {
       "mute": "Mute notifications",
+      "unmute": "Unmute notifications",
       "startVideoChat": "Start video chat",
-      "leave": "Leave chat"
+      "leave": "Leave chat",
+      "deleteChat": "Delete chat",
+      "block": "Block user",
+      "unblock": "Unblock user",
+      "blockError": "Failed to update block status",
+      "deleteChatError": "Failed to delete chat",
+      "blockDialog": {
+        "title": "Block this user?",
+        "description": "After blocking, this user will not be able to message you in this direct chat.",
+        "deleteChatCheckbox": "Also delete this chat",
+        "cancel": "Cancel",
+        "confirm": "Block"
+      }
     },
     "sendMessageForm": {
       "placeholder": "Message",
-      "replyFallback": "No text"
+      "replyFallback": "No text",
+      "editingLabel": "Editing",
+      "blockedHint": "User is blocked. Unblock to send messages again.",
+      "blockedByPeerHint": "You can't send messages because this user has blocked you.",
+      "unblockAction": "Unblock",
+      "unblockError": "Failed to unblock user",
+      "sendError": "Failed to send message"
     },
     "messages": {
       "empty": "No messages yet",
@@ -85,6 +140,27 @@
       "edited": "edited",
       "replyUnavailable": "Message unavailable",
       "unknownAuthor": "User",
+      "callLog": {
+        "title": "Call",
+        "direction": {
+          "incoming": "Incoming call",
+          "outgoing": "Outgoing call"
+        },
+        "endedAt": "at {time}",
+        "status": {
+          "completed": "Completed",
+          "declined": "Declined",
+          "canceled": "Canceled",
+          "failed": "Failed"
+        }
+      },
+      "mediaPreview": {
+        "close": "Close",
+        "zoomIn": "Zoom in",
+        "zoomOut": "Zoom out",
+        "delete": "Delete message",
+        "deleteError": "Failed to delete message"
+      },
       "dayDivider": {
         "today": "Today",
         "yesterday": "Yesterday"
@@ -92,9 +168,13 @@
       "contextMenu": {
         "reply": "Reply",
         "copy": "Copy",
+        "copyLink": "Copy link",
+        "edit": "Edit",
+        "select": "Select",
         "readBy": "{count, plural, one {# view} other {# views}}",
         "delete": "Delete",
-        "copied": "Message copied"
+        "copied": "Message copied",
+        "linkCopied": "Link copied"
       },
       "readDialog": {
         "title": "{count, plural, one {# view} other {# views}}",
@@ -104,6 +184,10 @@
     },
     "page": {
       "placeholder": "Messages will appear here."
+    },
+    "selection": {
+      "selected": "{count, plural, one {# message} other {# messages}}",
+      "delete": "Delete"
     }
   },
   "userDropdown": {
@@ -191,6 +275,134 @@
         "locale": "English"
       }
     }
+  },
+  "generalSettingsSidebar": {
+    "title": "General",
+    "settingsLabel": "Settings",
+    "messageTextSize": "Message text size",
+    "chatWallpapers": "Chat wallpapers",
+    "animations": "Animations",
+    "powerSavingMode": "Power saving mode",
+    "enabled": "On",
+    "disabled": "Off",
+    "colorTheme": "Color theme",
+    "theme": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System default"
+    },
+    "hotkeys": "Keybindings",
+    "sendShortcut": {
+      "enter": {
+        "title": "Send with Enter",
+        "description": "New line with Shift + Enter"
+      },
+      "ctrlEnter": {
+        "title": "Send with Ctrl + Enter",
+        "description": "New line with Enter"
+      }
+    },
+    "timeFormat": "Time format",
+    "timeFormat12": "12-hour",
+    "timeFormat24": "24-hour"
+  },
+  "powerSavingSidebar": {
+    "title": "Power Saving",
+    "modeTitle": "Power saving mode",
+    "modeDescription": "Disable heavy animations to save battery and improve performance.",
+    "autoplayVideo": "Autoplay videos",
+    "autoplayGif": "Autoplay GIFs",
+    "animatedStickers": "Animated stickers {value}",
+    "animatedStickersOptions": {
+      "inPanel": "Autoplay in panel",
+      "inChats": "Autoplay in chats"
+    },
+    "interactiveEffects": "Interactive effects {value}",
+    "interactiveEffectsOptions": {
+      "reactions": "Animated reactions",
+      "premiumStickers": "Animated Premium stickers",
+      "emoji": "Animated emoji"
+    },
+    "chatAnimations": "Chat animations {value}",
+    "chatAnimationsOptions": {
+      "wallpaperRotation": "Wallpaper rotation",
+      "spoilerAnimation": "Spoiler animation"
+    },
+    "interfaceAnimations": "Interface animations"
+  },
+  "chatFoldersSidebar": {
+    "title": "Chat folders",
+    "description": "You can create folders with the chats you need and switch between them.",
+    "newFolder": "New folder",
+    "foldersLabel": "Folders",
+    "empty": "No folders yet",
+    "dragHint": "Drag a folder to change its order",
+    "defaultFolders": {
+      "private": "{count} chats",
+      "groups": "{count, plural, one {# group} other {# groups}}",
+      "channels": "{count, plural, one {# channel} other {# channels}}"
+    },
+    "customFolderSummary": "{included} chats, {excluded} excluded"
+  },
+  "chatFoldersEditorSidebar": {
+    "titleNew": "New folder",
+    "titleEdit": "Edit folder",
+    "description": "Choose chats and chat types that should or should not be shown in this folder.",
+    "folderNamePlaceholder": "Folder name",
+    "deleteFolderAction": "Delete folder",
+    "deleteDialogTitle": "Delete folder?",
+    "deleteDialogDescription": "Folder \"{name}\" will be deleted permanently.",
+    "deleteDialogCancel": "Cancel",
+    "deleteDialogConfirm": "Delete",
+    "errors": {
+      "nameRequired": "Enter folder name",
+      "nameTooLong": "Folder name is too long"
+    },
+    "draftFolderName": "New folder",
+    "includedChats": "Included chats",
+    "addChats": "Add chats",
+    "selectedChatsCount": "Selected chats: {count}",
+    "includedDescription": "Choose chats or chat types that should be shown in this folder.",
+    "excludedChats": "Excluded chats",
+    "addExclusions": "Add exclusions",
+    "excludedChatsCount": "Excluded chats: {count}",
+    "excludedDescription": "Choose chats or chat types that should not be shown in this folder.",
+    "inviteLinks": "Invite links",
+    "createLink": "Create link",
+    "inviteDescription": "You can share this folder with all added groups and channels."
+  },
+  "chatFoldersChatsSidebar": {
+    "titleInFolder": "Chats in folder",
+    "titleNotInFolder": "Chats not in folder",
+    "searchPlaceholder": "Search",
+    "chatTypes": "Chat types",
+    "chats": "Chats",
+    "types": {
+      "contacts": "Contacts",
+      "nonContacts": "Non-contacts",
+      "groups": "Groups",
+      "channels": "Channels",
+      "bots": "Bots",
+      "muted": "Muted",
+      "archived": "Archived",
+      "read": "Read"
+    },
+    "labels": {
+      "private": "Private",
+      "groups": "Groups",
+      "channels": "Channels"
+    }
+  },
+  "chatFoldersShareSidebar": {
+    "title": "Share folder",
+    "description": "This link lets others add this folder and chats in it.",
+    "inviteLinkLabel": "Invite link",
+    "copyLink": "Copy link",
+    "removeLink": "Delete link",
+    "shareLink": "Share link",
+    "selectedChats": "{count} chat selected",
+    "subscribersLabel": "4 subscribers",
+    "emptySelection": "Select chats for sharing."
   },
   "ui": {
     "dialog": {

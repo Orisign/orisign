@@ -4,3 +4,8 @@ export interface ChatReplyTarget {
   authorName: string;
   text: string;
 }
+
+export interface ChatEditTarget {
+  id: string;
+  text: string;
+}

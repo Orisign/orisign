@@ -3,6 +3,8 @@ import { ClientGrpc } from '@nestjs/microservices';
 import type {
   GetUnreadCountRequest,
   GetReadStateRequest,
+  GetUserBlockStatusRequest,
+  GetUserBlockStatusResponse,
   DeleteMessageRequest,
   EditMessageRequest,
   ListMessagesRequest,
@@ -10,6 +12,7 @@ import type {
   MessagesServiceClient,
   GetReadStateResponse,
   SendMessageRequest,
+  SetUserBlockRequest,
 } from '@repo/contracts/gen/ts/messages';
 
 @Injectable()
@@ -50,5 +53,15 @@ export class MessagesClientGrpc implements OnModuleInit {
 
   public markRead(request: MarkReadRequest) {
     return this.messagesClient.markRead(request);
+  }
+
+  public setUserBlock(request: SetUserBlockRequest) {
+    return this.messagesClient.setUserBlock(request);
+  }
+
+  public getUserBlockStatus(request: GetUserBlockStatusRequest) {
+    return this.messagesClient.getUserBlockStatus(request) as ReturnType<
+      MessagesServiceClient['getUserBlockStatus']
+    >;
   }
 }

@@ -5,6 +5,8 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
+  Put,
   Post,
   Patch,
   UploadedFile,
@@ -15,6 +17,7 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiParam,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -28,14 +31,20 @@ import { FileValidationPipe } from 'src/shared/pipes';
 
 import {
   CreateUserRequestDto,
+  CreateChatFolderRequestDto,
   DeleteAvatarRequestDto,
   GetUserResponseDto,
   GetUserRequestDto,
+  ChatFolderSingleResponseDto,
+  ListChatFoldersResponseDto,
   ListUsersRequestDto,
   ListUsersResponseDto,
   PatchPrivacyRequestDto,
   PatchUserRequestDto,
+  ReorderChatFoldersRequestDto,
+  UpdateChatFolderRequestDto,
 } from './dto';
+import { ChatRealtimeService } from '../messages/chat-realtime.service';
 import { ConversationsClientGrpc } from '../conversations/conversations.grpc';
 import { MediaClientGrpc } from './media.grpc';
 import { UsersClientGrpc } from './users.grpc';
@@ -47,6 +56,7 @@ export class UsersController {
     private readonly usersClient: UsersClientGrpc,
     private readonly mediaClient: MediaClientGrpc,
     private readonly conversationsClient: ConversationsClientGrpc,
+    private readonly chatRealtimeService: ChatRealtimeService,
   ) {}
 
   @ApiBearerAuth('access-token')
@@ -116,6 +126,138 @@ export class UsersController {
     );
   }
 
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Список папок чатов',
+    description: 'Возвращает список папок чатов текущего пользователя',
+  })
+  @ApiOkResponse({
+    description: 'Список папок чатов',
+    type: ListChatFoldersResponseDto,
+  })
+  @Protected()
+  @Get('chat-folders')
+  @HttpCode(HttpStatus.OK)
+  public async listChatFolders(@CurrentUser() id: string) {
+    return await lastValueFrom(this.usersClient.listChatFolders({ userId: id }));
+  }
+
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Создать папку чатов',
+    description: 'Создает новую папку чатов для текущего пользователя',
+  })
+  @ApiBody({ type: CreateChatFolderRequestDto })
+  @ApiOkResponse({
+    description: 'Созданная папка',
+    type: ChatFolderSingleResponseDto,
+  })
+  @Protected()
+  @Post('chat-folders')
+  @HttpCode(HttpStatus.OK)
+  public async createChatFolder(
+    @CurrentUser() id: string,
+    @Body() dto: CreateChatFolderRequestDto,
+  ) {
+    return await lastValueFrom(
+      this.usersClient.createChatFolder({
+        userId: id,
+        name: dto.name,
+        includedChatIds: dto.includedChatIds ?? [],
+        excludedChatIds: dto.excludedChatIds ?? [],
+        includedTypes: dto.includedTypes ?? [],
+        excludedTypes: dto.excludedTypes ?? [],
+        inviteLink: dto.inviteLink,
+        sortOrder: dto.sortOrder,
+      }),
+    );
+  }
+
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Обновить папку чатов',
+    description: 'Обновляет папку чатов текущего пользователя',
+  })
+  @ApiParam({ name: 'folderId', description: 'ID папки' })
+  @ApiBody({ type: UpdateChatFolderRequestDto })
+  @ApiOkResponse({
+    description: 'Обновленная папка',
+    type: ChatFolderSingleResponseDto,
+  })
+  @Protected()
+  @Patch('chat-folders/:folderId')
+  @HttpCode(HttpStatus.OK)
+  public async updateChatFolder(
+    @CurrentUser() id: string,
+    @Param('folderId') folderId: string,
+    @Body() dto: UpdateChatFolderRequestDto,
+  ) {
+    const currentFolders = await lastValueFrom(
+      this.usersClient.listChatFolders({ userId: id }),
+    );
+    const currentFolder = (currentFolders.folders ?? []).find(
+      (item) => item.id === folderId,
+    );
+
+    return await lastValueFrom(
+      this.usersClient.updateChatFolder({
+        userId: id,
+        folderId,
+        name: dto.name ?? currentFolder?.name ?? '',
+        includedChatIds: dto.includedChatIds ?? currentFolder?.includedChatIds ?? [],
+        excludedChatIds: dto.excludedChatIds ?? currentFolder?.excludedChatIds ?? [],
+        includedTypes: dto.includedTypes ?? currentFolder?.includedTypes ?? [],
+        excludedTypes: dto.excludedTypes ?? currentFolder?.excludedTypes ?? [],
+        inviteLink: dto.inviteLink ?? currentFolder?.inviteLink,
+        sortOrder: dto.sortOrder ?? currentFolder?.sortOrder,
+      }),
+    );
+  }
+
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Удалить папку чатов',
+    description: 'Удаляет папку чатов текущего пользователя',
+  })
+  @ApiParam({ name: 'folderId', description: 'ID папки' })
+  @ApiOkResponse({ description: 'Папка удалена' })
+  @Protected()
+  @Delete('chat-folders/:folderId')
+  @HttpCode(HttpStatus.OK)
+  public async deleteChatFolder(
+    @CurrentUser() id: string,
+    @Param('folderId') folderId: string,
+  ) {
+    return await lastValueFrom(
+      this.usersClient.deleteChatFolder({
+        userId: id,
+        folderId,
+      }),
+    );
+  }
+
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Изменить порядок папок',
+    description: 'Сохраняет новый порядок папок чатов текущего пользователя',
+  })
+  @ApiBody({ type: ReorderChatFoldersRequestDto })
+  @ApiOkResponse({ description: 'Порядок сохранен' })
+  @Protected()
+  @Put('chat-folders/reorder')
+  @HttpCode(HttpStatus.OK)
+  public async reorderChatFolders(
+    @CurrentUser() id: string,
+    @Body() dto: ReorderChatFoldersRequestDto,
+  ) {
+    return await lastValueFrom(
+      this.usersClient.reorderChatFolders({
+        userId: id,
+        folderIds: dto.folderIds ?? [],
+      }),
+    );
+  }
+
   private async getDirectContactIds(userId: string) {
     const limit = 200;
     let offset = 0;
@@ -181,7 +323,7 @@ export class UsersController {
     @CurrentUser() id: string,
     @Body() dto: PatchUserRequestDto,
   ) {
-    return await lastValueFrom(
+    const response = await lastValueFrom(
       this.usersClient.patchUser({
         userId: id,
         username: dto.username,
@@ -192,6 +334,16 @@ export class UsersController {
         birthDate: dto.birthDate ? new Date(dto.birthDate).getTime() : undefined,
       }),
     );
+
+    if (response?.ok) {
+      this.chatRealtimeService.emitChatListInvalidate({
+        conversationId: '',
+        actorId: id,
+        reason: 'user.updated',
+      });
+    }
+
+    return response;
   }
 
   @ApiBearerAuth('access-token')
@@ -277,6 +429,12 @@ export class UsersController {
       }),
     );
 
+    this.chatRealtimeService.emitChatListInvalidate({
+      conversationId: '',
+      actorId: id,
+      reason: 'user.avatar.updated',
+    });
+
     return {
       ok: true,
       avatar: uploadResult.avatar,
@@ -308,6 +466,12 @@ export class UsersController {
         avatars: { values: nextAvatars },
       }),
     );
+
+    this.chatRealtimeService.emitChatListInvalidate({
+      conversationId: '',
+      actorId: id,
+      reason: 'user.avatar.deleted',
+    });
 
     return { ok: true };
   }

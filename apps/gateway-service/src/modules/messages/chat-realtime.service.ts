@@ -13,6 +13,15 @@ type SocketMeta = {
   userId: string;
 };
 
+type ChatListSocketMeta = {
+  userId: string;
+};
+
+type CallSocketMeta = {
+  conversationId: string;
+  userId: string;
+};
+
 type ReadCursorRealtimePayload = {
   conversationId: string;
   userId: string;
@@ -25,7 +34,11 @@ export class ChatRealtimeService {
   private readonly logger = new Logger(ChatRealtimeService.name);
   private server: InstanceType<typeof WebSocketServer> | null = null;
   private readonly socketsByConversation = new Map<string, Set<any>>();
+  private readonly callSocketsByConversation = new Map<string, Set<any>>();
+  private readonly chatListSocketsByUserId = new Map<string, Set<any>>();
   private readonly socketMeta = new WeakMap<any, SocketMeta>();
+  private readonly callSocketMeta = new WeakMap<any, CallSocketMeta>();
+  private readonly chatListSocketMeta = new WeakMap<any, ChatListSocketMeta>();
 
   public constructor(
     private readonly passportService: PassportService,
@@ -37,7 +50,6 @@ export class ChatRealtimeService {
 
     this.server = new WebSocketServer({
       server: httpServer,
-      path: '/ws/chat',
     });
 
     this.server.on('connection', (socket: any, request: IncomingMessage) => {
@@ -81,9 +93,99 @@ export class ChatRealtimeService {
     }
   }
 
+  public emitMessageUpdated(payload: {
+    conversationId: string;
+    messageId: string;
+    text: string;
+    editedAt: number;
+  }) {
+    const sockets = this.socketsByConversation.get(payload.conversationId);
+    if (!sockets || sockets.size === 0) return;
+
+    const body = JSON.stringify({
+      type: 'message.updated',
+      conversationId: payload.conversationId,
+      messageId: payload.messageId,
+      text: payload.text,
+      editedAt: payload.editedAt,
+    });
+
+    for (const socket of sockets) {
+      if (socket.readyState !== 1) continue;
+      socket.send(body);
+    }
+  }
+
+  public emitMessageDeleted(payload: {
+    conversationId: string;
+    messageId: string;
+    deletedAt: number;
+  }) {
+    const sockets = this.socketsByConversation.get(payload.conversationId);
+    if (!sockets || sockets.size === 0) return;
+
+    const body = JSON.stringify({
+      type: 'message.deleted',
+      conversationId: payload.conversationId,
+      messageId: payload.messageId,
+      deletedAt: payload.deletedAt,
+    });
+
+    for (const socket of sockets) {
+      if (socket.readyState !== 1) continue;
+      socket.send(body);
+    }
+  }
+
+  public emitChatListInvalidate(params?: {
+    conversationId?: string;
+    actorId?: string;
+    reason?: string;
+  }) {
+    const body = JSON.stringify({
+      type: 'chat-list.invalidate',
+      conversationId: params?.conversationId ?? '',
+      actorId: params?.actorId ?? '',
+      reason: params?.reason ?? '',
+    });
+
+    for (const sockets of this.chatListSocketsByUserId.values()) {
+      for (const socket of sockets) {
+        if (socket.readyState !== 1) continue;
+        socket.send(body);
+      }
+    }
+  }
+
   private async handleConnection(socket: any, request: IncomingMessage) {
+    const requestUrl = new URL(
+      request.url ?? '',
+      `http://${request.headers.host ?? 'localhost'}`,
+    );
+
+    const pathname = requestUrl.pathname;
+
+    if (pathname === '/ws/chat-list') {
+      await this.handleChatListConnection(socket, request);
+      return;
+    }
+
+    if (pathname === '/ws/chat') {
+      await this.handleChatConnection(socket, request);
+      return;
+    }
+
+    if (pathname === '/ws/call') {
+      await this.handleCallConnection(socket, request);
+      return;
+    }
+
+    socket.close(1008, 'Unsupported websocket route');
+  }
+
+  private async handleChatConnection(socket: any, request: IncomingMessage) {
     try {
-      const meta = await this.authenticateRequest(request);
+      const meta = await this.authenticateChatRequest(request);
 
       if (!meta) {
         socket.close(1008, 'Unauthorized');
@@ -114,7 +216,79 @@ export class ChatRealtimeService {
     }
   }
 
-  private async authenticateRequest(request: IncomingMessage): Promise<SocketMeta | null> {
+  private async handleChatListConnection(socket: any, request: IncomingMessage) {
+    try {
+      const meta = this.authenticateChatListRequest(request);
+      if (!meta) {
+        socket.close(1008, 'Unauthorized');
+        return;
+      }
+
+      this.registerChatListSocket(socket, meta);
+
+      socket.on('close', () => {
+        this.unregisterChatListSocket(socket);
+      });
+
+      socket.on('error', () => {
+        this.unregisterChatListSocket(socket);
+      });
+
+      socket.send(
+        JSON.stringify({
+          type: 'ready',
+        }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        error instanceof Error
+          ? error.message
+          : 'Failed to initialize chat-list websocket',
+      );
+      socket.close(1011, 'Initialization failed');
+    }
+  }
+
+  private async handleCallConnection(socket: any, request: IncomingMessage) {
+    try {
+      const meta = await this.authenticateChatRequest(request);
+
+      if (!meta) {
+        socket.close(1008, 'Unauthorized');
+        return;
+      }
+
+      this.registerCallSocket(socket, meta);
+
+      socket.on('message', (rawPayload: unknown) => {
+        this.handleCallSignal(socket, rawPayload);
+      });
+
+      socket.on('close', () => {
+        this.unregisterCallSocket(socket);
+      });
+
+      socket.on('error', () => {
+        this.unregisterCallSocket(socket);
+      });
+
+      socket.send(
+        JSON.stringify({
+          type: 'ready',
+          conversationId: meta.conversationId,
+        }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        error instanceof Error ? error.message : 'Failed to initialize call websocket',
+      );
+      socket.close(1011, 'Initialization failed');
+    }
+  }
+
+  private async authenticateChatRequest(
+    request: IncomingMessage,
+  ): Promise<SocketMeta | null> {
     const requestUrl = new URL(
       request.url ?? '',
       `http://${request.headers.host ?? 'localhost'}`,
@@ -150,6 +324,29 @@ export class ChatRealtimeService {
     };
   }
 
+  private authenticateChatListRequest(
+    request: IncomingMessage,
+  ): ChatListSocketMeta | null {
+    const requestUrl = new URL(
+      request.url ?? '',
+      `http://${request.headers.host ?? 'localhost'}`,
+    );
+
+    const token = requestUrl.searchParams.get('token')?.trim();
+    if (!token) {
+      return null;
+    }
+
+    const verification = this.passportService.verify(token);
+    if (!verification.valid || !verification.userId) {
+      return null;
+    }
+
+    return {
+      userId: verification.userId,
+    };
+  }
+
   private registerSocket(socket: any, meta: SocketMeta) {
     this.socketMeta.set(socket, meta);
 
@@ -169,6 +366,98 @@ export class ChatRealtimeService {
 
     if (sockets.size === 0) {
       this.socketsByConversation.delete(meta.conversationId);
+    }
+  }
+
+  private registerChatListSocket(socket: any, meta: ChatListSocketMeta) {
+    this.chatListSocketMeta.set(socket, meta);
+
+    const sockets = this.chatListSocketsByUserId.get(meta.userId) ?? new Set<any>();
+    sockets.add(socket);
+    this.chatListSocketsByUserId.set(meta.userId, sockets);
+  }
+
+  private unregisterChatListSocket(socket: any) {
+    const meta = this.chatListSocketMeta.get(socket);
+    if (!meta) return;
+
+    const sockets = this.chatListSocketsByUserId.get(meta.userId);
+    if (!sockets) return;
+
+    sockets.delete(socket);
+    if (sockets.size === 0) {
+      this.chatListSocketsByUserId.delete(meta.userId);
+    }
+  }
+
+  private registerCallSocket(socket: any, meta: CallSocketMeta) {
+    this.callSocketMeta.set(socket, meta);
+
+    const sockets = this.callSocketsByConversation.get(meta.conversationId) ?? new Set<any>();
+    sockets.add(socket);
+    this.callSocketsByConversation.set(meta.conversationId, sockets);
+  }
+
+  private unregisterCallSocket(socket: any) {
+    const meta = this.callSocketMeta.get(socket);
+    if (!meta) return;
+
+    const sockets = this.callSocketsByConversation.get(meta.conversationId);
+    if (!sockets) return;
+
+    sockets.delete(socket);
+    if (sockets.size === 0) {
+      this.callSocketsByConversation.delete(meta.conversationId);
+    }
+  }
+
+  private handleCallSignal(socket: any, rawPayload: unknown) {
+    const meta = this.callSocketMeta.get(socket);
+    if (!meta) return;
+
+    let payload: Record<string, unknown> | null = null;
+
+    try {
+      payload =
+        typeof rawPayload === 'string'
+          ? JSON.parse(rawPayload)
+          : JSON.parse(String(rawPayload));
+    } catch {
+      return;
+    }
+
+    if (!payload || typeof payload.type !== 'string') {
+      return;
+    }
+
+    const allowedSignalTypes = new Set([
+      'call.offer',
+      'call.answer',
+      'call.ice',
+      'call.end',
+    ]);
+
+    if (!allowedSignalTypes.has(payload.type)) {
+      return;
+    }
+
+    const sockets = this.callSocketsByConversation.get(meta.conversationId);
+    if (!sockets || sockets.size === 0) {
+      return;
+    }
+
+    const body = JSON.stringify({
+      ...payload,
+      fromUserId: meta.userId,
+      conversationId: meta.conversationId,
+    });
+
+    for (const targetSocket of sockets) {
+      if (targetSocket === socket || targetSocket.readyState !== 1) {
+        continue;
+      }
+
+      targetSocket.send(body);
     }
   }
 }

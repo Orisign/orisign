@@ -28,6 +28,7 @@ import {
   SETTINGS_SECTION_ITEMS,
 } from "./settings-sidebar.constants";
 import { ProfileDropdown } from "@/components/user/profile-dropdown";
+import { SPRING_SOFT } from "@/lib/animations";
 
 export const SettingsSidebar = () => {
   const t = useTranslations("settingsSidebar");
@@ -97,9 +98,10 @@ export const SettingsSidebar = () => {
     [0, 1],
   );
   const progress = useSpring(progressRaw, {
-    stiffness: 120,
-    damping: 24,
-    mass: 0.35,
+    ...SPRING_SOFT,
+    stiffness: 180,
+    damping: 28,
+    mass: 0.6,
   });
 
   const initialSize = heroWidth || 280;

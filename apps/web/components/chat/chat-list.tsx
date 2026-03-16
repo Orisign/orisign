@@ -1,15 +1,47 @@
 "use client";
 
 import { useConversationsControllerMy } from "@/api/generated";
+import { getConversationSubtitle, getConversationTitle } from "@/lib/chat";
+import { filterConversationsByChatFolder, type ChatFolder } from "@/lib/chat-folders";
 import { Skeleton, SkeletonGroup } from "@repo/ui";
 import { useTranslations } from "next-intl";
+import { useMemo } from "react";
 import { ChatItem } from "./chat-item";
+import { useChatListRealtime } from "@/hooks/use-chat-list-realtime";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
-export const ChatList = () => {
+interface ChatListProps {
+  activeFolder?: ChatFolder | null;
+  searchQuery?: string;
+}
+
+export const ChatList = ({ activeFolder = null, searchQuery = "" }: ChatListProps) => {
   const t = useTranslations("chat.list");
+  const { user } = useCurrentUser();
+  useChatListRealtime(user?.id);
   const { data, isLoading } = useConversationsControllerMy();
 
-  const conversations = data?.conversations ?? [];
+  const allConversations = useMemo(() => data?.conversations ?? [], [data?.conversations]);
+  const folderFilteredConversations = useMemo(
+    () => filterConversationsByChatFolder(allConversations, activeFolder),
+    [activeFolder, allConversations],
+  );
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const conversations = useMemo(() => {
+    if (!normalizedSearchQuery) {
+      return folderFilteredConversations;
+    }
+
+    return folderFilteredConversations.filter((conversation) => {
+      const title = getConversationTitle(conversation).toLowerCase();
+      const subtitle = getConversationSubtitle(conversation).toLowerCase();
+
+      return (
+        title.includes(normalizedSearchQuery) ||
+        subtitle.includes(normalizedSearchQuery)
+      );
+    });
+  }, [folderFilteredConversations, normalizedSearchQuery]);
 
   if (isLoading) {
     return (
@@ -34,7 +66,9 @@ export const ChatList = () => {
   return (
     <div className="flex w-full flex-col gap-1">
       {conversations.map((conversation) => (
-        <ChatItem conversation={conversation} key={conversation.id} />
+        <div key={conversation.id}>
+          <ChatItem conversation={conversation} />
+        </div>
       ))}
     </div>
   );

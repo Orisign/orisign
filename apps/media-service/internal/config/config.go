@@ -11,6 +11,7 @@ import (
 type Config struct {
 	GRPCHost string
 	GRPCPort string
+	LogLevel string
 
 	S3Endpoint        string
 	S3Region          string
@@ -56,6 +57,7 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		GRPCHost: getEnv("GRPC_HOST", "0.0.0.0"),
 		GRPCPort: getEnv("GRPC_PORT", "50055"),
+		LogLevel: getEnv("LOG_LEVEL", "info"),
 
 		S3Endpoint:        getEnv("S3_ENDPOINT", ""),
 		S3Region:          s3Region,

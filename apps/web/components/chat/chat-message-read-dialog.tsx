@@ -6,6 +6,7 @@ import {
   formatTimestampTime,
   getConversationParticipantVisual,
 } from "@/lib/chat";
+import { useGeneralSettingsStore } from "@/store/settings/general-settings.store";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,7 @@ export function ChatMessageReadDialog({
   const t = useTranslations("chat.messages.readDialog");
   const td = useTranslations("chat.messages.dayDivider");
   const locale = useLocale();
+  const timeFormat = useGeneralSettingsStore((state) => state.timeFormat);
 
   const sortedReceipts = useMemo(
     () => [...readReceipts].sort((left, right) => right.readAt - left.readAt),
@@ -67,7 +69,9 @@ export function ChatMessageReadDialog({
                   today: td("today"),
                   yesterday: td("yesterday"),
                 });
-                const timeLabel = formatTimestampTime(receipt.readAt, locale);
+                const timeLabel = formatTimestampTime(receipt.readAt, locale, {
+                  timeFormat,
+                });
                 const participantVisual = getConversationParticipantVisual(
                   conversationId,
                   receipt.userId,

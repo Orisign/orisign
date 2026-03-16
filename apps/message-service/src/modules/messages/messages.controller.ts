@@ -5,6 +5,8 @@ import type {
   GetUnreadCountResponse,
   GetReadStateRequest,
   GetReadStateResponse,
+  GetUserBlockStatusRequest,
+  GetUserBlockStatusResponse,
   DeleteMessageRequest,
   EditMessageRequest,
   ListMessagesRequest,
@@ -13,6 +15,7 @@ import type {
   MutationResponse,
   SendMessageRequest,
   SendMessageResponse,
+  SetUserBlockRequest,
 } from '@repo/contracts/gen/ts/messages';
 import { MessagesService } from './messages.service';
 
@@ -55,5 +58,17 @@ export class MessagesController {
   @GrpcMethod('MessagesService', 'MarkRead')
   public async markRead(data: MarkReadRequest): Promise<MutationResponse> {
     return await this.messagesService.markRead(data);
+  }
+
+  @GrpcMethod('MessagesService', 'SetUserBlock')
+  public async setUserBlock(data: SetUserBlockRequest): Promise<MutationResponse> {
+    return await this.messagesService.setUserBlock(data);
+  }
+
+  @GrpcMethod('MessagesService', 'GetUserBlockStatus')
+  public async getUserBlockStatus(
+    data: GetUserBlockStatusRequest,
+  ): Promise<GetUserBlockStatusResponse> {
+    return await this.messagesService.getUserBlockStatus(data);
   }
 }

@@ -29,6 +29,8 @@ function MessagesServiceControllerMethods() {
             "editMessage",
             "deleteMessage",
             "markRead",
+            "setUserBlock",
+            "getUserBlockStatus",
         ];
         for (const method of grpcMethods) {
             const descriptor = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

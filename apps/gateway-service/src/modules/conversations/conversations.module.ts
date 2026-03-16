@@ -7,6 +7,8 @@ import { ConversationsController } from './conversations.controller';
 import { ConversationsClientGrpc } from './conversations.grpc';
 import { MediaClientGrpc } from './media.grpc';
 
+const ONE_GB_IN_BYTES = 1024 * 1024 * 1024;
+
 @Module({
   imports: [
     PassportModule.registerAsync({
@@ -36,6 +38,12 @@ import { MediaClientGrpc } from './media.grpc';
             package: ['media.v1'],
             protoPath: [PROTO_PATHS.MEDIA],
             url: configService.getOrThrow<string>('MEDIA_GRPC_URL'),
+            maxReceiveMessageLength: ONE_GB_IN_BYTES,
+            maxSendMessageLength: ONE_GB_IN_BYTES,
+            channelOptions: {
+              'grpc.max_receive_message_length': ONE_GB_IN_BYTES,
+              'grpc.max_send_message_length': ONE_GB_IN_BYTES,
+            },
           },
         }),
         inject: [ConfigService],

@@ -17,8 +17,8 @@ import type * as Prisma from "./prismaNamespace"
 
 const config: runtime.GetPrismaClientConfig = {
   "previewFeatures": [],
-  "clientVersion": "7.4.1",
-  "engineVersion": "55ae170b1ced7fc6ed07a15f110549408c501bb3",
+  "clientVersion": "7.4.2",
+  "engineVersion": "94a226be1cf2967af2541cca5529f0f7ba866919",
   "activeProvider": "postgresql",
   "inlineSchema": "generator client {\n  provider = \"prisma-client\"\n  output   = \"./generated\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n}\n\nmodel Account {\n  id String @id @default(cuid())\n\n  phone String  @unique\n  email String? @unique\n\n  isPhoneVerified Boolean @default(false) @map(\"is_phone_verified\")\n  isEmailVerified Boolean @default(false) @map(\"is_email_verified\")\n\n  role Role @default(USER)\n\n  sessions              Session[]\n  pendingContactChanges PendingContactChange[]\n\n  createdAt DateTime @default(now()) @map(\"created_at\")\n  updatedAt DateTime @updatedAt @map(\"updated_at\")\n\n  @@map(\"accounts\")\n}\n\nmodel Session {\n  id String @id @default(cuid())\n\n  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)\n  accountId String  @map(\"account_id\")\n\n  refreshTokenHash String @map(\"refresh_token_hash\")\n\n  deviceId  String? @map(\"device_id\")\n  userAgent String? @map(\"user_agent\")\n  ip        String?\n\n  createdAt  DateTime @default(now()) @map(\"created_at\")\n  lastSeenAt DateTime @default(now()) @map(\"last_seen_at\")\n\n  revokedAt       DateTime? @map(\"revoked_at\")\n  reuseDetectedAt DateTime? @map(\"reuse_detected_at\")\n\n  @@unique([accountId, deviceId])\n  @@index([accountId])\n  @@map(\"sessions\")\n}\n\nmodel PendingContactChange {\n  id String @id @default(cuid())\n\n  type      String\n  value     String\n  codeHash  String   @map(\"code_hash\")\n  expiresAt DateTime @map(\"expires_at\")\n\n  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)\n  accountId String  @map(\"account_id\")\n\n  createdAt DateTime @default(now()) @map(\"created_at\")\n  updatedAt DateTime @updatedAt\n\n  @@unique([accountId, type])\n  @@map(\"pending_contact_changes\")\n}\n\nenum Role {\n  USER\n  ADMIN\n\n  @@map(\"roles\")\n}\n",
   "runtimeDataModel": {
@@ -67,7 +67,9 @@ export interface PrismaClientConstructor {
    * Type-safe database client for TypeScript
    * @example
    * ```
-   * const prisma = new PrismaClient()
+   * const prisma = new PrismaClient({
+   *   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL })
+   * })
    * // Fetch zero or more Accounts
    * const accounts = await prisma.account.findMany()
    * ```
@@ -89,7 +91,9 @@ export interface PrismaClientConstructor {
  * Type-safe database client for TypeScript
  * @example
  * ```
- * const prisma = new PrismaClient()
+ * const prisma = new PrismaClient({
+ *   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL })
+ * })
  * // Fetch zero or more Accounts
  * const accounts = await prisma.account.findMany()
  * ```

@@ -21,7 +21,14 @@ import { motion } from "motion/react";
 import { useTranslations } from "next-intl";
 import { type ReactNode, forwardRef, useMemo, useState } from "react";
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui";
-import { FiCopy, FiCornerUpLeft, FiTrash2 } from "react-icons/fi";
+import {
+  FiCheckCircle,
+  FiCopy,
+  FiCornerUpLeft,
+  FiEdit2,
+  FiLink,
+  FiTrash2,
+} from "react-icons/fi";
 import { toast } from "@repo/ui";
 import {
   Avatar,
@@ -37,6 +44,7 @@ import {
   type ChatMessageReadReceipt,
 } from "./chat-message-read-dialog";
 import type { ChatReplyTarget } from "./chat.types";
+import { SPRING_MICRO } from "@/lib/animations";
 
 const ChatMessageContextMenuContent = forwardRef<
   React.ElementRef<typeof ContextMenuPrimitive.Content>,
@@ -63,7 +71,7 @@ const ChatMessageContextMenuItem = forwardRef<
 >(({ className, variant = "default", children, ...props }, ref) => (
   <motion.div
     whileTap={{ scale: 0.95 }}
-    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+    transition={SPRING_MICRO}
   >
     <ContextMenuPrimitive.Item
       ref={ref}
@@ -86,8 +94,14 @@ interface ChatMessageContextMenuProps {
   conversationId: string;
   message: ChatMessageDto;
   canDelete: boolean;
+  canEdit?: boolean;
+  canSelect?: boolean;
+  canCopyLink?: boolean;
+  disabled?: boolean;
   readReceipts?: ChatMessageReadReceipt[];
   onReply?: (message: ChatReplyTarget) => void;
+  onEdit?: (message: { id: string; text: string }) => void;
+  onStartSelect?: (messageId: string) => void;
   replyAuthorName: string;
   children: ReactNode;
 }
@@ -97,8 +111,14 @@ export function ChatMessageContextMenu({
   message,
   conversationId,
   canDelete,
+  canEdit = false,
+  canSelect = false,
+  canCopyLink = false,
+  disabled = false,
   readReceipts = [],
   onReply,
+  onEdit,
+  onStartSelect,
   replyAuthorName,
 }: ChatMessageContextMenuProps) {
   const t = useTranslations("chat.messages.contextMenu");
@@ -136,7 +156,16 @@ export function ChatMessageContextMenu({
     [readReceipts],
   );
 
-  if (!canCopy && !canDelete && !canViewReadReceipts && !canReply) {
+  if (
+    disabled ||
+    (!canCopy &&
+      !canDelete &&
+      !canViewReadReceipts &&
+      !canReply &&
+      !canSelect &&
+      !canEdit &&
+      !canCopyLink)
+  ) {
     return <>{children}</>;
   }
 
@@ -154,6 +183,7 @@ export function ChatMessageContextMenu({
     deleteMessage({
       data: {
         messageId: message.id,
+        conversationId,
       },
     });
   }
@@ -164,6 +194,32 @@ export function ChatMessageContextMenu({
       authorId: message.authorId,
       authorName: replyAuthorName,
       text: message.text,
+    });
+  }
+
+  function handleStartSelect() {
+    onStartSelect?.(message.id);
+  }
+
+  function handleEdit() {
+    if (!message.text.trim()) return;
+
+    onEdit?.({
+      id: message.id,
+      text: message.text,
+    });
+  }
+
+  async function handleCopyLink() {
+    const link = new URL(
+      `/c/${conversationId}/${message.id}`,
+      window.location.origin,
+    ).toString();
+
+    await navigator.clipboard.writeText(link);
+    toast({
+      title: t("linkCopied"),
+      type: "info",
     });
   }
 
@@ -186,6 +242,27 @@ export function ChatMessageContextMenu({
             <ChatMessageContextMenuItem onSelect={() => void onCopy()}>
               <FiCopy />
               {t("copy")}
+            </ChatMessageContextMenuItem>
+          ) : null}
+
+          {canCopyLink ? (
+            <ChatMessageContextMenuItem onSelect={() => void handleCopyLink()}>
+              <FiLink />
+              {t("copyLink")}
+            </ChatMessageContextMenuItem>
+          ) : null}
+
+          {canEdit ? (
+            <ChatMessageContextMenuItem onSelect={handleEdit}>
+              <FiEdit2 />
+              {t("edit")}
+            </ChatMessageContextMenuItem>
+          ) : null}
+
+          {canSelect ? (
+            <ChatMessageContextMenuItem onSelect={handleStartSelect}>
+              <FiCheckCircle />
+              {t("select")}
             </ChatMessageContextMenuItem>
           ) : null}
 

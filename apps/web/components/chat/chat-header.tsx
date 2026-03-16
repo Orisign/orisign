@@ -9,6 +9,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "next-intl";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { SPRING_LAYOUT, fadeY } from "@/lib/animations";
+import { FiPhone } from "react-icons/fi";
 
 interface ChatHeaderProps {
   conversationId: string;
@@ -19,6 +21,14 @@ interface ChatHeaderProps {
   avatarFallback?: string;
   avatarSeed?: string;
   isDirect?: boolean;
+  directPeerId?: string;
+  isPeerBlockedByCurrentUser?: boolean;
+  onTogglePeerBlock?: () => void;
+  isTogglingPeerBlock?: boolean;
+  onStartCall?: () => void;
+  onEndCall?: () => void;
+  callActive?: boolean;
+  callDisabled?: boolean;
 }
 
 export function ChatHeader({
@@ -30,20 +40,35 @@ export function ChatHeader({
   avatarFallback,
   avatarSeed,
   isDirect = false,
+  directPeerId,
+  isPeerBlockedByCurrentUser = false,
+  onTogglePeerBlock,
+  isTogglingPeerBlock = false,
+  onStartCall,
+  onEndCall,
+  callActive = false,
+  callDisabled = false,
 }: ChatHeaderProps) {
   const t = useTranslations("chat.header");
   const [searching, setSearching] = useState(false);
+  const panelVariants = fadeY(8);
 
   return (
-    <div className="z-20 shrink-0 flex w-full items-center gap-2 border-b border-border/60 bg-muted/60 px-4 py-2 backdrop-blur-sm">
+    <motion.div
+      layout
+      transition={SPRING_LAYOUT}
+      className="z-20 shrink-0 flex w-full items-center gap-2 border-b border-border/60 bg-muted/60 px-4 py-2 backdrop-blur-sm"
+    >
       <AnimatePresence mode="wait" initial={false}>
         {searching ? (
           <motion.div
             key="search"
-            initial={{ opacity: 0, y: -6, filter: "blur(2px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: 6, filter: "blur(2px)" }}
-            transition={{ duration: 0.2, ease: [0.22, 0.61, 0.36, 1] }}
+            layout
+            layoutId="chat-header-panel"
+            variants={panelVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
             className="w-full"
           >
             <Input
@@ -64,10 +89,12 @@ export function ChatHeader({
         ) : (
           <motion.div
             key="default"
-            initial={{ opacity: 0, y: -6, filter: "blur(2px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: 6, filter: "blur(2px)" }}
-            transition={{ duration: 0.2, ease: [0.22, 0.61, 0.36, 1] }}
+            layout
+            layoutId="chat-header-panel"
+            variants={panelVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
             className="flex w-full items-center gap-2"
           >
             <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -96,6 +123,16 @@ export function ChatHeader({
               </div>
             </div>
             <div className="flex items-center justify-center gap-2">
+              {isDirect ? (
+                <Button
+                  className="rounded-full size-10 [&_svg]:size-6"
+                  variant={callActive ? "destructive" : "ghost"}
+                  onClick={callActive ? onEndCall : onStartCall}
+                  disabled={callDisabled}
+                >
+                  <FiPhone className={cn(!callActive && "text-muted-foreground")} />
+                </Button>
+              ) : null}
               <Button
                 className="rounded-full size-10 [&_svg]:size-6"
                 variant={"ghost"}
@@ -103,7 +140,14 @@ export function ChatHeader({
               >
                 <IoSearch strokeWidth={3} className="text-muted-foreground" />
               </Button>
-              <ChatDropdown conversationId={conversationId}>
+              <ChatDropdown
+                conversationId={conversationId}
+                isDirect={isDirect}
+                directPeerId={directPeerId}
+                isPeerBlockedByCurrentUser={isPeerBlockedByCurrentUser}
+                onTogglePeerBlock={onTogglePeerBlock}
+                isTogglingPeerBlock={isTogglingPeerBlock}
+              >
                 <Button
                   className="rounded-full size-10 [&_svg]:size-6"
                   variant={"ghost"}
@@ -115,6 +159,6 @@ export function ChatHeader({
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }
