@@ -51,13 +51,33 @@
   },
   "appShell": {
     "searchPlaceholder": "Поиск",
-    "resizeSidebarAriaLabel": "Изменить ширину боковой панели"
+    "resizeSidebarAriaLabel": "Изменить ширину боковой панели",
+    "folderTabs": {
+      "allChats": "Все чаты",
+      "untitled": "Папка без названия"
+    }
+  },
+  "chatSearchSidebar": {
+    "backAriaLabel": "Назад",
+    "dismissAriaLabel": "Закрыть поиск",
+    "placeholder": "Поиск по названию чата",
+    "startTyping": "Введите название чата для поиска.",
+    "empty": "Чаты не найдены"
   },
   "chat": {
     "list": {
       "empty": "Нет бесед",
       "ownPrefix": "Вы:",
       "unknownAuthor": "Пользователь",
+      "call": {
+        "title": "Звонок",
+        "status": {
+          "completed": "Завершён",
+          "declined": "Отклонён",
+          "canceled": "Отменён",
+          "failed": "Ошибка"
+        }
+      },
       "media": {
         "photo": "Фото",
         "file": "Файл",
@@ -67,16 +87,51 @@
     "header": {
       "searchPlaceholder": "Поиск",
       "members": "{count, plural, one {# участник} few {# участника} many {# участников} other {# участника}}",
-      "directFallback": "Личный чат"
+      "directFallback": "Личный чат",
+      "incomingCall": "Входящий звонок"
+    },
+    "callWindow": {
+      "secured": "Защищено сквозным шифрованием",
+      "securityHint": "Сверьте эти эмодзи с собеседником, чтобы подтвердить безопасность звонка.",
+      "accept": "Принять",
+      "decline": "Отклонить",
+      "end": "Завершить",
+      "close": "Закрыть",
+      "status": {
+        "incoming": "Входящий звонок",
+        "outgoing": "Вызов…",
+        "connecting": "Соединение…",
+        "active": "В разговоре",
+        "error": "Ошибка звонка"
+      }
     },
     "dropdown": {
       "mute": "Выключить уведомления",
+      "unmute": "Включить уведомления",
       "startVideoChat": "Начать видео-чат",
-      "leave": "Покинуть чат"
+      "leave": "Покинуть чат",
+      "deleteChat": "Удалить чат",
+      "block": "Заблокировать",
+      "unblock": "Разблокировать",
+      "blockError": "Не удалось обновить блокировку",
+      "deleteChatError": "Не удалось удалить чат",
+      "blockDialog": {
+        "title": "Заблокировать пользователя?",
+        "description": "После блокировки пользователь не сможет писать вам в этом личном чате.",
+        "deleteChatCheckbox": "Также удалить этот чат",
+        "cancel": "Отмена",
+        "confirm": "Заблокировать"
+      }
     },
     "sendMessageForm": {
       "placeholder": "Сообщение",
-      "replyFallback": "Без текста"
+      "replyFallback": "Без текста",
+      "editingLabel": "Редактирование",
+      "blockedHint": "Пользователь заблокирован. Чтобы снова писать, разблокируйте его.",
+      "blockedByPeerHint": "Вы не можете отправлять сообщения: пользователь вас заблокировал.",
+      "unblockAction": "Разблокировать",
+      "unblockError": "Не удалось разблокировать пользователя",
+      "sendError": "Не удалось отправить сообщение"
     },
     "messages": {
       "empty": "Пока нет сообщений",
@@ -85,6 +140,27 @@
       "edited": "изменено",
       "replyUnavailable": "Сообщение недоступно",
       "unknownAuthor": "Пользователь",
+      "callLog": {
+        "title": "Звонок",
+        "direction": {
+          "incoming": "Входящий звонок",
+          "outgoing": "Исходящий звонок"
+        },
+        "endedAt": "в {time}",
+        "status": {
+          "completed": "Завершён",
+          "declined": "Занято",
+          "canceled": "Отменён",
+          "failed": "Ошибка"
+        }
+      },
+      "mediaPreview": {
+        "close": "Закрыть",
+        "zoomIn": "Увеличить",
+        "zoomOut": "Уменьшить",
+        "delete": "Удалить сообщение",
+        "deleteError": "Не удалось удалить сообщение"
+      },
       "dayDivider": {
         "today": "Сегодня",
         "yesterday": "Вчера"
@@ -92,9 +168,13 @@
       "contextMenu": {
         "reply": "Ответить",
         "copy": "Копировать",
+        "copyLink": "Скопировать ссылку",
+        "edit": "Изменить",
+        "select": "Выбрать",
         "readBy": "{count, plural, one {# просмотр} few {# просмотра} many {# просмотров} other {# просмотра}}",
         "delete": "Удалить",
-        "copied": "Сообщение скопировано"
+        "copied": "Сообщение скопировано",
+        "linkCopied": "Ссылка скопирована"
       },
       "readDialog": {
         "title": "{count, plural, one {# просмотр} few {# просмотра} many {# просмотров} other {# просмотра}}",
@@ -104,6 +184,10 @@
     },
     "page": {
       "placeholder": "Здесь будет лента сообщений."
+    },
+    "selection": {
+      "selected": "{count, plural, one {# сообщение} few {# сообщения} many {# сообщений} other {# сообщения}}",
+      "delete": "Удалить"
     }
   },
   "userDropdown": {
@@ -191,6 +275,134 @@
         "locale": "Английский"
       }
     }
+  },
+  "generalSettingsSidebar": {
+    "title": "Основные",
+    "settingsLabel": "Настройки",
+    "messageTextSize": "Размер текста сообщений",
+    "chatWallpapers": "Обои для чатов",
+    "animations": "Анимация",
+    "powerSavingMode": "Режим энергосбережения",
+    "enabled": "Вкл.",
+    "disabled": "Выкл.",
+    "colorTheme": "Цветовая тема",
+    "theme": {
+      "light": "Дневная",
+      "dark": "Ночная",
+      "system": "По умолчанию"
+    },
+    "hotkeys": "Сочетания клавиш",
+    "sendShortcut": {
+      "enter": {
+        "title": "Отправка по клавише Enter",
+        "description": "Разрыв строки по сочетанию Shift + Enter"
+      },
+      "ctrlEnter": {
+        "title": "Отправка по сочетанию Ctrl + Enter",
+        "description": "Разрыв строки по клавише Enter"
+      }
+    },
+    "timeFormat": "Формат времени",
+    "timeFormat12": "12-часовой",
+    "timeFormat24": "24-часовой"
+  },
+  "powerSavingSidebar": {
+    "title": "Энергосбережение",
+    "modeTitle": "Режим энергосбережения",
+    "modeDescription": "Отключить ресурсоёмкие анимации для экономии заряда и ускорения работы.",
+    "autoplayVideo": "Автозапуск видео",
+    "autoplayGif": "Автозапуск GIF",
+    "animatedStickers": "Анимированные стикеры {value}",
+    "animatedStickersOptions": {
+      "inPanel": "Автозапуск в панели",
+      "inChats": "Автозапуск в чатах"
+    },
+    "interactiveEffects": "Интерактивные эффекты {value}",
+    "interactiveEffectsOptions": {
+      "reactions": "Анимированные реакции",
+      "premiumStickers": "Анимированные Premium-стикеры",
+      "emoji": "Анимированные эмодзи"
+    },
+    "chatAnimations": "Анимации в чатах {value}",
+    "chatAnimationsOptions": {
+      "wallpaperRotation": "Вращение обоев",
+      "spoilerAnimation": "Анимация спойлера"
+    },
+    "interfaceAnimations": "Анимации интерфейса"
+  },
+  "chatFoldersSidebar": {
+    "title": "Папки с чатами",
+    "description": "Вы можете создать папки с нужными чатами и переключаться между ними.",
+    "newFolder": "Новая папка",
+    "foldersLabel": "Папки",
+    "empty": "Папок пока нет",
+    "dragHint": "Перетащите папку, чтобы изменить порядок",
+    "defaultFolders": {
+      "private": "{count} чатов",
+      "groups": "{count, plural, one {# группа} few {# группы} many {# групп} other {# группы}}",
+      "channels": "{count, plural, one {# канал} few {# канала} many {# каналов} other {# канала}}"
+    },
+    "customFolderSummary": "{included} чатов, исключено {excluded}"
+  },
+  "chatFoldersEditorSidebar": {
+    "titleNew": "Новая папка",
+    "titleEdit": "Редактировать папку",
+    "description": "Выберите чаты и типы чатов, которые нужно или не нужно показывать в этой папке.",
+    "folderNamePlaceholder": "Название папки",
+    "deleteFolderAction": "Удалить папку",
+    "deleteDialogTitle": "Удалить папку?",
+    "deleteDialogDescription": "Папка «{name}» будет удалена без возможности восстановления.",
+    "deleteDialogCancel": "Отмена",
+    "deleteDialogConfirm": "Удалить",
+    "errors": {
+      "nameRequired": "Введите название папки",
+      "nameTooLong": "Название папки слишком длинное"
+    },
+    "draftFolderName": "Новая папка",
+    "includedChats": "Выбранные чаты",
+    "addChats": "Добавить чаты",
+    "selectedChatsCount": "Выбрано чатов: {count}",
+    "includedDescription": "Выберите чаты или типы чатов, которые нужно показывать в этой папке.",
+    "excludedChats": "Исключённые чаты",
+    "addExclusions": "Добавить исключения",
+    "excludedChatsCount": "Исключено чатов: {count}",
+    "excludedDescription": "Выберите чаты или типы чатов, которые не нужно показывать в этой папке.",
+    "inviteLinks": "Пригласительные ссылки",
+    "createLink": "Создать ссылку",
+    "inviteDescription": "Вы можете поделиться с друзьями и коллегами папкой со всеми добавленными в неё группами и каналами."
+  },
+  "chatFoldersChatsSidebar": {
+    "titleInFolder": "Чаты в папке",
+    "titleNotInFolder": "Чаты не в папке",
+    "searchPlaceholder": "Поиск",
+    "chatTypes": "Типы чатов",
+    "chats": "Чаты",
+    "types": {
+      "contacts": "Контакты",
+      "nonContacts": "Не контакты",
+      "groups": "Группы",
+      "channels": "Каналы",
+      "bots": "Боты",
+      "muted": "Без уведомлений",
+      "archived": "Архивированные",
+      "read": "Прочитанные"
+    },
+    "labels": {
+      "private": "Личные",
+      "groups": "Группы",
+      "channels": "Каналы"
+    }
+  },
+  "chatFoldersShareSidebar": {
+    "title": "Поделиться папкой",
+    "description": "По этой ссылке можно добавить папку и чаты в ней.",
+    "inviteLinkLabel": "Ссылка-приглашение",
+    "copyLink": "Копировать ссылку",
+    "removeLink": "Удалить ссылку",
+    "shareLink": "Поделиться ссылкой",
+    "selectedChats": "Выбран {count} чат",
+    "subscribersLabel": "4 подписчика",
+    "emptySelection": "Выберите чаты для совместного доступа."
   },
   "ui": {
     "dialog": {

@@ -1,7 +1,9 @@
 import type { ChatMessageDto } from "@/hooks/use-chat";
 import type { ConversationResponseDto, UserResponseDto } from "@/api/generated";
+import type { TimeFormatMode } from "@/store/settings/general-settings.store";
 import { buildStorageFileUrl } from "./app-config";
 import { coerceProtobufNumber } from "./protobuf";
+import { formatCallDurationLabel, parseCallLogMessageText } from "./call-log-message";
 
 const CHAT_VISUAL_PALETTE = [
   {
@@ -81,21 +83,41 @@ export function getConversationInitial(conversation: ConversationResponseDto) {
   return getConversationTitle(conversation)[0]?.toUpperCase() ?? "#";
 }
 
-export function formatTimestampTime(value: number | null | undefined, locale = "ru-RU") {
+interface TimeFormatOptions {
+  timeFormat?: TimeFormatMode;
+}
+
+function resolveHour12Value(timeFormat: TimeFormatMode | undefined) {
+  if (timeFormat === "12h") return true;
+  if (timeFormat === "24h") return false;
+  return undefined;
+}
+
+export function formatTimestampTime(
+  value: number | null | undefined,
+  locale = "ru-RU",
+  options: TimeFormatOptions = {},
+) {
   const normalized = normalizeTimestamp(value);
   if (!normalized) return "";
 
   return new Intl.DateTimeFormat(locale, {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: resolveHour12Value(options.timeFormat),
   }).format(new Date(normalized));
 }
 
 export function formatConversationTime(
   conversation: ConversationResponseDto,
   locale = "ru-RU",
+  options: TimeFormatOptions = {},
 ) {
-  return formatTimestampTime(conversation.updatedAt || conversation.createdAt, locale);
+  return formatTimestampTime(
+    conversation.updatedAt || conversation.createdAt,
+    locale,
+    options,
+  );
 }
 
 export function resolveStorageFileUrl(value: string | null | undefined) {
@@ -237,6 +259,16 @@ export function formatChatListMessagePreview(
   message: Pick<ChatMessageDto, "text" | "mediaKeys"> | null | undefined,
   options: {
     prefixLabel?: string;
+    callLabels: {
+      title: string;
+      separator: string;
+      status: {
+        completed: string;
+        declined: string;
+        canceled: string;
+        failed: string;
+      };
+    };
     mediaLabels: {
       photo: string;
       file: string;
@@ -249,6 +281,16 @@ export function formatChatListMessagePreview(
   }
 
   const trimmedText = message.text.replace(/\s+/g, " ").trim();
+  const callLogPayload = parseCallLogMessageText(trimmedText);
+  if (callLogPayload) {
+    const statusLabel = options.callLabels.status[callLogPayload.status];
+    const durationLabel = formatCallDurationLabel(callLogPayload.durationSeconds);
+    const parts = [options.callLabels.title, durationLabel, statusLabel].filter(Boolean);
+    const summary = parts.join(` ${options.callLabels.separator} `);
+
+    return options.prefixLabel ? `${options.prefixLabel} ${summary}` : summary;
+  }
+
   const firstMediaKey = message.mediaKeys.at(0);
   let basePreview = trimmedText;
 

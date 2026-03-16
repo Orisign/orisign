@@ -12,6 +12,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@repo/ui";
+import type { ReactNode } from "react";
 import {
   Bookmark,
   Bug,
@@ -29,7 +30,17 @@ import {
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 
-export const UserDropdown = () => {
+interface UserDropdownProps {
+  triggerIcon?: ReactNode;
+  triggerDisabled?: boolean;
+  triggerClassName?: string;
+}
+
+export const UserDropdown = ({
+  triggerIcon,
+  triggerDisabled = false,
+  triggerClassName,
+}: UserDropdownProps = {}) => {
   const { push } = useSidebar();
   const t = useTranslations("userDropdown");
   const { theme, setTheme } = useTheme();
@@ -37,8 +48,13 @@ export const UserDropdown = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild className="ring-0 focus:ring-0">
-        <Button variant="ghost" size={"icon"}>
-          <Menu />
+        <Button
+          variant="ghost"
+          size={"icon"}
+          className={triggerClassName}
+          disabled={triggerDisabled}
+        >
+          {triggerIcon ?? <Menu />}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-fit" align="start">

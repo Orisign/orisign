@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
+import { SPRING_MICRO } from "@/lib/animations";
 
 type AvatarCarouselProps = {
   avatarKeys: string[];
@@ -69,16 +70,14 @@ export function AvatarCarousel({
             {avatarKeys.map((key, idx) => (
               <motion.div
                 key={key || idx}
+                layout
                 className="h-1 min-w-0 flex-1 rounded-full bg-white/95"
                 initial={false}
                 animate={{
                   flexGrow: idx === safeIndex ? 2.8 : 1,
                   opacity: idx === safeIndex ? 1 : 0.45,
                 }}
-                transition={{
-                  duration: 0.28,
-                  ease: [0.22, 0.61, 0.36, 1],
-                }}
+                transition={SPRING_MICRO}
               />
             ))}
           </div>

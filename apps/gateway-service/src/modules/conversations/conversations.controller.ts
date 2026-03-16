@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -22,22 +23,27 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { lastValueFrom } from 'rxjs';
 import { CurrentUser, Protected } from 'src/shared/decorators';
-import { FileValidationPipe } from 'src/shared/pipes';
+import { FileValidationPipe, MessageFileValidationPipe } from 'src/shared/pipes';
 import { ConversationsClientGrpc } from './conversations.grpc';
 import {
   AddMembersRequestDto,
   ConversationByIdRequestDto,
   CreateConversationResponseDto,
   CreateConversationRequestDto,
+  DeleteConversationMediaRequestDto,
   GetConversationResponseDto,
   ListMyConversationsRequestDto,
   ListMyConversationsResponseDto,
   MutationResponseDto,
   RemoveMemberRequestDto,
   UploadConversationAvatarResponseDto,
+  UploadConversationMediaResponseDto,
   UpdateMemberRoleRequestDto,
 } from './dto';
 import { MediaClientGrpc } from './media.grpc';
+
+const ONE_GB_IN_BYTES = 1024 * 1024 * 1024;
+const CHAT_MEDIA_UPLOAD_PREFIX = 'chat-media::';
 
 @ApiTags('Conversations')
 @ApiBearerAuth('access-token')
@@ -101,10 +107,14 @@ export class ConversationsController {
     @CurrentUser() id: string,
     @UploadedFile(FileValidationPipe) file: Express.Multer.File,
   ) {
+    const avatarFileName = file.originalname.startsWith(CHAT_MEDIA_UPLOAD_PREFIX)
+      ? file.originalname.slice(CHAT_MEDIA_UPLOAD_PREFIX.length) || 'avatar'
+      : file.originalname;
+
     const uploadResult = await lastValueFrom(
       this.mediaClient.uploadAvatar({
         accountId: id,
-        fileName: file.originalname,
+        fileName: avatarFileName,
         contentType: file.mimetype,
         data: file.buffer,
       }),
@@ -113,6 +123,67 @@ export class ConversationsController {
     return {
       ok: Boolean(uploadResult.ok && uploadResult.avatar),
       avatar: uploadResult.avatar ?? null,
+    };
+  }
+
+  @ApiOperation({ summary: 'Загрузить медиа-вложение для сообщения' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiOkResponse({
+    type: UploadConversationMediaResponseDto,
+    description: 'Conversation media uploaded',
+  })
+  @ApiBadRequestResponse({ description: 'Некорректный файл' })
+  @Post('media')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: ONE_GB_IN_BYTES } }))
+  @HttpCode(HttpStatus.OK)
+  public async uploadMedia(
+    @CurrentUser() id: string,
+    @UploadedFile(MessageFileValidationPipe) file: Express.Multer.File,
+  ) {
+    const uploadResult = await lastValueFrom(
+      this.mediaClient.uploadAvatar({
+        accountId: id,
+        fileName: `${CHAT_MEDIA_UPLOAD_PREFIX}${file.originalname}`,
+        contentType: file.mimetype,
+        data: file.buffer,
+      }),
+    );
+
+    return {
+      ok: Boolean(uploadResult.ok && uploadResult.avatar),
+      media: uploadResult.avatar ?? null,
+    };
+  }
+
+  @ApiOperation({ summary: 'Удалить медиа-вложение по key' })
+  @ApiBody({ type: DeleteConversationMediaRequestDto })
+  @ApiOkResponse({ type: MutationResponseDto, description: 'Conversation media deleted' })
+  @Post('media/delete')
+  @HttpCode(HttpStatus.OK)
+  public async deleteMedia(
+    @CurrentUser() id: string,
+    @Body() dto: DeleteConversationMediaRequestDto,
+  ) {
+    if (!dto.key.startsWith(`media/messages/${id}/`)) {
+      throw new BadRequestException('Invalid media key');
+    }
+
+    const response = await lastValueFrom(this.mediaClient.deleteAvatar({ key: dto.key }));
+
+    return {
+      ok: Boolean(response.ok),
     };
   }
 

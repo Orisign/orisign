@@ -1,6 +1,7 @@
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { ClientGrpc } from '@nestjs/microservices';
 import type {
+  DeleteAvatarRequest,
   MediaServiceClient,
   UploadAvatarRequest,
 } from '@repo/contracts/gen/ts/media';
@@ -19,5 +20,9 @@ export class MediaClientGrpc implements OnModuleInit {
 
   public uploadAvatar(request: UploadAvatarRequest) {
     return this.mediaClient.uploadAvatar(request);
+  }
+
+  public deleteAvatar(request: DeleteAvatarRequest) {
+    return this.mediaClient.deleteAvatar(request);
   }
 }

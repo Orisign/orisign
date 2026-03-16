@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
@@ -64,12 +65,29 @@ export class EditMessageRequestDto {
   @ApiProperty()
   @IsString()
   text: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  conversationId?: string;
 }
 
 export class DeleteMessageRequestDto {
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  messageId: string;
+  messageId?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  messageIds?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  conversationId?: string;
 }
 
 export class MarkReadRequestDto {
@@ -114,4 +132,28 @@ export class ReadCursorResponseDto {
 export class GetReadStateResponseDto {
   @ApiProperty({ type: [ReadCursorResponseDto] })
   cursors: ReadCursorResponseDto[];
+}
+
+export class SetUserBlockRequestDto {
+  @ApiProperty()
+  @IsString()
+  targetUserId: string;
+
+  @ApiProperty()
+  @IsBoolean()
+  blocked: boolean;
+}
+
+export class GetUserBlockStatusRequestDto {
+  @ApiProperty()
+  @IsString()
+  targetUserId: string;
+}
+
+export class GetUserBlockStatusResponseDto {
+  @ApiProperty()
+  blocked: boolean;
+
+  @ApiProperty()
+  blockedByTarget: boolean;
 }

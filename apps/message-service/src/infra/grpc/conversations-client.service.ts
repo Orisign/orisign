@@ -2,6 +2,8 @@ import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { ClientGrpc } from '@nestjs/microservices';
 import type {
   ConversationsServiceClient,
+  GetConversationRequest,
+  GetConversationResponse,
   PermissionRequest,
   PermissionResponse,
 } from '@repo/contracts/gen/ts/conversations';
@@ -26,5 +28,11 @@ export class ConversationsClientService implements OnModuleInit {
 
   public async canPost(request: PermissionRequest): Promise<PermissionResponse> {
     return await lastValueFrom(this.conversationsClient.canPost(request));
+  }
+
+  public async getConversation(
+    request: GetConversationRequest,
+  ): Promise<GetConversationResponse> {
+    return await lastValueFrom(this.conversationsClient.getConversation(request));
   }
 }

@@ -20,7 +20,8 @@ import {
 import { cn, Ripple } from "@repo/ui";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { useGeneralSettingsStore } from "@/store/settings/general-settings.store";
 
 interface ChatItemProps {
   conversation: ConversationResponseDto;
@@ -28,9 +29,12 @@ interface ChatItemProps {
 
 export function ChatItem({ conversation }: ChatItemProps) {
   const t = useTranslations("chat.list");
+  const locale = useLocale();
+  const timeFormat = useGeneralSettingsStore((state) => state.timeFormat);
   const pathname = usePathname();
   const { user } = useCurrentUser();
-  const isActive = pathname === `/${conversation.id}`;
+  const isActive =
+    pathname === `/${conversation.id}` || pathname.startsWith(`/c/${conversation.id}/`);
   const { data: lastMessagePreview } = useChatLastMessagePreview(conversation.id);
   const isDirect = isDirectConversation(conversation);
   const peerId = isDirect
@@ -69,6 +73,16 @@ export function ChatItem({ conversation }: ChatItemProps) {
         : "";
   const lastMessageText = formatChatListMessagePreview(lastMessage, {
     prefixLabel: lastMessagePrefix,
+    callLabels: {
+      title: t("call.title"),
+      separator: "·",
+      status: {
+        completed: t("call.status.completed"),
+        declined: t("call.status.declined"),
+        canceled: t("call.status.canceled"),
+        failed: t("call.status.failed"),
+      },
+    },
     mediaLabels: {
       photo: t("media.photo"),
       file: t("media.file"),
@@ -80,84 +94,86 @@ export function ChatItem({ conversation }: ChatItemProps) {
     ? formatConversationTime({
         ...conversation,
         updatedAt: lastMessagePreview.message.createdAt,
-      })
-    : formatConversationTime(conversation);
+      }, locale, { timeFormat })
+    : formatConversationTime(conversation, locale, { timeFormat });
 
   return (
     <Ripple asChild className="w-full rounded-xl">
-      <Link
-        href={`/${conversation.id}`}
-        className={cn(
-          "block w-full cursor-pointer rounded-xl px-2 py-2.5 transition-colors duration-200",
-          isActive
-            ? "bg-primary text-primary-foreground hover:bg-primary/95"
-            : "hover:bg-accent/70",
-        )}
-      >
-        <div className="flex items-center gap-3">
-          <Avatar
-            size="lg"
-            className={cn(
-              !avatarUrl
-                ? cn(
-                    "text-white",
-                    `bg-linear-to-br ${getAvatarGradient(peerId ?? conversation.id)}`,
-                  )
-                : "",
-            )}
-          >
-            {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
-            <AvatarFallback className={!avatarUrl ? "bg-transparent text-white" : ""}>
-              {initial}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <p className="truncate text-[15px] font-semibold leading-5">
-                {title}
-              </p>
-              {timeLabel ? (
-                <span
+      <div className="relative">
+        {isActive ? (
+          <span className="absolute inset-0 rounded-xl bg-primary" aria-hidden />
+        ) : null}
+        <Link
+          href={`/${conversation.id}`}
+          className={cn(
+            "relative z-10 block w-full cursor-pointer rounded-xl px-2 py-2.5 transition-colors duration-200",
+            isActive ? "text-primary-foreground" : "hover:bg-accent/70",
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <Avatar
+              size="lg"
+              className={cn(
+                !avatarUrl
+                  ? cn(
+                      "text-white",
+                      `bg-linear-to-br ${getAvatarGradient(peerId ?? conversation.id)}`,
+                    )
+                  : "",
+              )}
+            >
+              {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
+              <AvatarFallback className={!avatarUrl ? "bg-transparent text-white" : ""}>
+                {initial}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-[15px] font-semibold leading-5">
+                  {title}
+                </p>
+                {timeLabel ? (
+                  <span
+                    className={cn(
+                      "ml-auto shrink-0 text-xs",
+                      isActive
+                        ? "text-primary-foreground/75"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {timeLabel}
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-0.5 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+                <p
                   className={cn(
-                    "ml-auto shrink-0 text-xs",
+                    "min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm",
                     isActive
-                      ? "text-primary-foreground/75"
+                      ? "text-primary-foreground/80"
                       : "text-muted-foreground",
                   )}
+                  title={subtitle}
                 >
-                  {timeLabel}
-                </span>
-              ) : null}
-            </div>
-            <div className="mt-0.5 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-              <p
-                data-no-twemoji
-                className={cn(
-                  "min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm",
-                  isActive
-                    ? "text-primary-foreground/80"
-                    : "text-muted-foreground",
-                )}
-                title={subtitle}
-              >
-                {subtitle}
-              </p>
-              {unreadCount > 0 && !isActive ? (
-                <span
-                  className={cn(
-                    "justify-self-end rounded-full px-2 py-0.5 text-xs font-semibold",
-                    isActive
-                      ? "bg-primary-foreground/16 text-primary-foreground"
-                      : "bg-primary/15 text-primary",
-                  )}
-                >
-                  {unreadLabel}
-                </span>
-              ) : null}
+                  {subtitle}
+                </p>
+                {unreadCount > 0 && !isActive ? (
+                  <span
+                    className={cn(
+                      "justify-self-end rounded-full px-2 py-0.5 text-xs font-semibold",
+                      isActive
+                        ? "bg-primary-foreground/16 text-primary-foreground"
+                        : "bg-primary/15 text-primary",
+                    )}
+                  >
+                    {unreadLabel}
+                  </span>
+                ) : null}
+              </div>
             </div>
           </div>
-        </div>
-      </Link>
+        </Link>
+      </div>
     </Ripple>
   );
 }

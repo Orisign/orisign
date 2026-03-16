@@ -15,8 +15,12 @@ import type {
   MutationResponse,
   SendMessageRequest,
   SendMessageResponse,
+  SetUserBlockRequest,
+  GetUserBlockStatusRequest,
+  GetUserBlockStatusResponse,
 } from '@repo/contracts/gen/ts/messages';
 import { MessageKind } from '@repo/contracts/gen/ts/messages';
+import { ConversationType, MemberState } from '@repo/contracts/gen/ts/conversations';
 import { MessagesRepository } from './messages.repository';
 
 @Injectable()
@@ -53,6 +57,22 @@ export class MessagesService {
         code: RpcStatus.PERMISSION_DENIED,
         details: 'No permission to post in this conversation',
       });
+    }
+
+    const conversation = await this.conversationsClient.getConversation({
+      conversationId: data.conversationId,
+      requesterId: data.authorId,
+    });
+    const peerId = this.resolveDirectPeerId(conversation.conversation ?? null, data.authorId);
+
+    if (peerId) {
+      const blocked = await this.repository.isBlockedEitherWay(data.authorId, peerId);
+      if (blocked) {
+        throw new RpcException({
+          code: RpcStatus.PERMISSION_DENIED,
+          details: 'Messaging is blocked for this direct chat',
+        });
+      }
     }
 
     if (data.replyToId) {
@@ -267,6 +287,47 @@ export class MessagesService {
     return { ok: true };
   }
 
+  public async setUserBlock(data: SetUserBlockRequest): Promise<MutationResponse> {
+    if (!data.actorId || !data.targetUserId) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'Actor id and target user id are required',
+      });
+    }
+
+    if (data.actorId === data.targetUserId) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'Cannot block yourself',
+      });
+    }
+
+    await this.repository.setUserBlock({
+      blockerId: data.actorId,
+      blockedId: data.targetUserId,
+      blocked: Boolean(data.blocked),
+    });
+
+    return { ok: true };
+  }
+
+  public async getUserBlockStatus(
+    data: GetUserBlockStatusRequest,
+  ): Promise<GetUserBlockStatusResponse> {
+    if (!data.actorId || !data.targetUserId) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'Actor id and target user id are required',
+      });
+    }
+
+    const blocked = await this.repository.isUserBlocked(data.actorId, data.targetUserId);
+
+    return {
+      blocked,
+    };
+  }
+
   private normalizeMessageKind(value: unknown): MessageKind | null {
     const allowed = [MessageKind.TEXT, MessageKind.MEDIA, MessageKind.SYSTEM];
 
@@ -288,5 +349,26 @@ export class MessagesService {
     }
 
     return null;
+  }
+
+  private resolveDirectPeerId(
+    conversation: {
+      type?: number;
+      members?: Array<{ userId?: string; state?: number }>;
+    } | null,
+    requesterId: string,
+  ) {
+    if (!conversation || conversation.type !== ConversationType.DM) {
+      return null;
+    }
+
+    const peer = (conversation.members ?? []).find(
+      (member) =>
+        member.userId &&
+        member.userId !== requesterId &&
+        member.state === MemberState.ACTIVE,
+    );
+
+    return peer?.userId ?? null;
   }
 }

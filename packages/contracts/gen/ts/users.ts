@@ -134,6 +134,65 @@ export interface PatchPrivacySettingsRequest {
   birthDate?: PrivacyType | undefined;
 }
 
+export interface ListChatFoldersRequest {
+  userId: string;
+}
+
+export interface ListChatFoldersResponse {
+  folders: ChatFolder[];
+}
+
+export interface CreateChatFolderRequest {
+  userId: string;
+  name: string;
+  includedChatIds: string[];
+  excludedChatIds: string[];
+  includedTypes: string[];
+  excludedTypes: string[];
+  inviteLink?: string | undefined;
+  sortOrder?: number | undefined;
+}
+
+export interface UpdateChatFolderRequest {
+  userId: string;
+  folderId: string;
+  name: string;
+  includedChatIds: string[];
+  excludedChatIds: string[];
+  includedTypes: string[];
+  excludedTypes: string[];
+  inviteLink?: string | undefined;
+  sortOrder?: number | undefined;
+}
+
+export interface DeleteChatFolderRequest {
+  userId: string;
+  folderId: string;
+}
+
+export interface ReorderChatFoldersRequest {
+  userId: string;
+  folderIds: string[];
+}
+
+export interface ChatFolderResponse {
+  folder: ChatFolder | undefined;
+}
+
+export interface ChatFolder {
+  id: string;
+  userId: string;
+  name: string;
+  includedChatIds: string[];
+  excludedChatIds: string[];
+  includedTypes: string[];
+  excludedTypes: string[];
+  inviteLink?: string | undefined;
+  sortOrder: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 /** Generic patch status response. */
 export interface PatchResponse {
   ok: boolean;
@@ -191,6 +250,26 @@ export interface UsersServiceClient {
   /** Partially updates privacy settings. */
 
   patchPrivacySettings(request: PatchPrivacySettingsRequest): Observable<PatchResponse>;
+
+  /** Returns current user's chat folders. */
+
+  listChatFolders(request: ListChatFoldersRequest): Observable<ListChatFoldersResponse>;
+
+  /** Creates chat folder for current user. */
+
+  createChatFolder(request: CreateChatFolderRequest): Observable<ChatFolderResponse>;
+
+  /** Updates existing chat folder for current user. */
+
+  updateChatFolder(request: UpdateChatFolderRequest): Observable<ChatFolderResponse>;
+
+  /** Deletes chat folder for current user. */
+
+  deleteChatFolder(request: DeleteChatFolderRequest): Observable<PatchResponse>;
+
+  /** Reorders chat folders for current user. */
+
+  reorderChatFolders(request: ReorderChatFoldersRequest): Observable<PatchResponse>;
 }
 
 /** Users service exposes profile and privacy management operations. */
@@ -219,11 +298,52 @@ export interface UsersServiceController {
   patchPrivacySettings(
     request: PatchPrivacySettingsRequest,
   ): Promise<PatchResponse> | Observable<PatchResponse> | PatchResponse;
+
+  /** Returns current user's chat folders. */
+
+  listChatFolders(
+    request: ListChatFoldersRequest,
+  ): Promise<ListChatFoldersResponse> | Observable<ListChatFoldersResponse> | ListChatFoldersResponse;
+
+  /** Creates chat folder for current user. */
+
+  createChatFolder(
+    request: CreateChatFolderRequest,
+  ): Promise<ChatFolderResponse> | Observable<ChatFolderResponse> | ChatFolderResponse;
+
+  /** Updates existing chat folder for current user. */
+
+  updateChatFolder(
+    request: UpdateChatFolderRequest,
+  ): Promise<ChatFolderResponse> | Observable<ChatFolderResponse> | ChatFolderResponse;
+
+  /** Deletes chat folder for current user. */
+
+  deleteChatFolder(
+    request: DeleteChatFolderRequest,
+  ): Promise<PatchResponse> | Observable<PatchResponse> | PatchResponse;
+
+  /** Reorders chat folders for current user. */
+
+  reorderChatFolders(
+    request: ReorderChatFoldersRequest,
+  ): Promise<PatchResponse> | Observable<PatchResponse> | PatchResponse;
 }
 
 export function UsersServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getUser", "listUsers", "createUser", "patchUser", "patchPrivacySettings"];
+    const grpcMethods: string[] = [
+      "getUser",
+      "listUsers",
+      "createUser",
+      "patchUser",
+      "patchPrivacySettings",
+      "listChatFolders",
+      "createChatFolder",
+      "updateChatFolder",
+      "deleteChatFolder",
+      "reorderChatFolders",
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("UsersService", method)(constructor.prototype[method], method, descriptor);

@@ -16,10 +16,29 @@ model User {
   avatars         String[]
   birthDate       DateTime?        @map("birth_date")
   privacySettings PrivacySettings?
+  chatFolders     ChatFolder[]
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
 
   @@map("users")
+}
+
+model ChatFolder {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  includedChatIds String[] @default([]) @map("included_chat_ids")
+  excludedChatIds String[] @default([]) @map("excluded_chat_ids")
+  includedTypes   String[] @default([]) @map("included_types")
+  excludedTypes   String[] @default([]) @map("excluded_types")
+  inviteLink      String?  @map("invite_link")
+  sortOrder       Int      @default(0) @map("sort_order")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, sortOrder])
+  @@map("chat_folders")
 }
 
 model PrivacySettings {

@@ -80,7 +80,7 @@ const Ripple = React.forwardRef<HTMLElement, RippleProps>(
     };
 
     const rippleLayer = (
-      <span aria-hidden className="pointer-events-none absolute inset-0 z-0">
+      <span aria-hidden className="pointer-events-none absolute inset-0 z-[2]">
         {ripples.map((ripple) => (
           <span
             key={ripple.id}
@@ -111,14 +111,14 @@ const Ripple = React.forwardRef<HTMLElement, RippleProps>(
       };
 
       return React.cloneElement(childElement, {
-        className: cn("relative overflow-hidden", childProps.className, className),
+        className: cn("relative isolate overflow-hidden", childProps.className, className),
         onPointerDownCapture: (event: React.PointerEvent<HTMLElement>) =>
           handlePointerDownCapture(event, childProps.onPointerDownCapture),
         onMouseDown: (event: React.MouseEvent<HTMLElement>) =>
           handleMouseDown(event, childProps.onMouseDown),
         children: (
           <>
-            <span className="relative z-[1]">{childProps.children}</span>
+            {childProps.children}
             {rippleLayer}
           </>
         ),
@@ -128,12 +128,12 @@ const Ripple = React.forwardRef<HTMLElement, RippleProps>(
     return (
       <span
         ref={ref}
-        className={cn("relative overflow-hidden", className)}
+        className={cn("relative block isolate overflow-hidden", className)}
         {...props}
         onPointerDownCapture={(event) => handlePointerDownCapture(event)}
         onMouseDown={(event) => handleMouseDown(event)}
       >
-        <span className="relative z-[1]">{children}</span>
+        {children}
         {rippleLayer}
       </span>
     );

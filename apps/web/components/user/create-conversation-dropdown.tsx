@@ -13,6 +13,7 @@ import { Megaphone, Plus, User, Users, X } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTranslations } from "next-intl";
+import { iconSwap } from "@/lib/animations";
 
 export const CreateConversationDropdown = () => {
   const t = useTranslations("conversationDropdown");
@@ -24,15 +25,17 @@ export const CreateConversationDropdown = () => {
       <DropdownMenuTrigger asChild>
         <Button
           size={"icon"}
-          className="absolute bottom-2 right-2 rounded-full size-14 shadow-none"
+          className="absolute bottom-2 right-2 size-14 rounded-full shadow-none"
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={open ? "close" : "open"}
-              initial={{ scale: 0.82, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.82, opacity: 0 }}
-              transition={{ duration: 0.12, ease: "easeOut" }}
+              layout
+              layoutId="create-chat-fab-icon"
+              variants={iconSwap}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
             >
               {open ? (
                 <X className="size-14" strokeWidth={3} />

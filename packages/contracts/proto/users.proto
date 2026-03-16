@@ -14,6 +14,16 @@ service UsersService {
   rpc PatchUser (PatchUserRequest) returns (PatchResponse);
   // Partially updates privacy settings.
   rpc PatchPrivacySettings (PatchPrivacySettingsRequest) returns (PatchResponse);
+  // Returns current user's chat folders.
+  rpc ListChatFolders (ListChatFoldersRequest) returns (ListChatFoldersResponse);
+  // Creates chat folder for current user.
+  rpc CreateChatFolder (CreateChatFolderRequest) returns (ChatFolderResponse);
+  // Updates existing chat folder for current user.
+  rpc UpdateChatFolder (UpdateChatFolderRequest) returns (ChatFolderResponse);
+  // Deletes chat folder for current user.
+  rpc DeleteChatFolder (DeleteChatFolderRequest) returns (PatchResponse);
+  // Reorders chat folders for current user.
+  rpc ReorderChatFolders (ReorderChatFoldersRequest) returns (PatchResponse);
 }
 
 // Request to fetch user by exactly one identifier.
@@ -101,6 +111,65 @@ message PatchPrivacySettingsRequest {
   optional PrivacyType message = 10;
   // Optional birth date visibility update.
   optional PrivacyType birth_date = 11;
+}
+
+message ListChatFoldersRequest {
+  string user_id = 1;
+}
+
+message ListChatFoldersResponse {
+  repeated ChatFolder folders = 1;
+}
+
+message CreateChatFolderRequest {
+  string user_id = 1;
+  string name = 2;
+  repeated string included_chat_ids = 3;
+  repeated string excluded_chat_ids = 4;
+  repeated string included_types = 5;
+  repeated string excluded_types = 6;
+  optional string invite_link = 7;
+  optional int32 sort_order = 8;
+}
+
+message UpdateChatFolderRequest {
+  string user_id = 1;
+  string folder_id = 2;
+  string name = 3;
+  repeated string included_chat_ids = 4;
+  repeated string excluded_chat_ids = 5;
+  repeated string included_types = 6;
+  repeated string excluded_types = 7;
+  optional string invite_link = 8;
+  optional int32 sort_order = 9;
+}
+
+message DeleteChatFolderRequest {
+  string user_id = 1;
+  string folder_id = 2;
+}
+
+message ReorderChatFoldersRequest {
+  string user_id = 1;
+  repeated string folder_ids = 2;
+}
+
+message ChatFolderResponse {
+  ChatFolder folder = 1;
+}
+
+message ChatFolder {
+  string id = 1;
+  string user_id = 2;
+  string name = 3;
+  repeated string included_chat_ids = 4;
+  repeated string excluded_chat_ids = 5;
+  repeated string included_types = 6;
+  repeated string excluded_types = 7;
+  optional string invite_link = 8;
+  int32 sort_order = 9;
+  int64 created_at = 10;
+  int64 updated_at = 11;
 }
 
 // Generic patch status response.

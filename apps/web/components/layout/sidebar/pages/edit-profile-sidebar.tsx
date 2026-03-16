@@ -21,6 +21,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useMemo } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Field, FieldError, FieldLabel } from "../../../ui/field";
+import { fadeScale, SPRING_LAYOUT } from "@/lib/animations";
 
 export const EditProfileSidebar = () => {
   const t = useTranslations("editProfileSidebar");
@@ -186,10 +187,13 @@ export const EditProfileSidebar = () => {
       <AnimatePresence>
         {form.formState.isDirty ? (
           <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
+            layout
+            layoutId="edit-profile-save-fab"
+            variants={fadeScale}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            transition={SPRING_LAYOUT}
             className="absolute bottom-6 right-5"
           >
             <Button

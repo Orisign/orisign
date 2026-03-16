@@ -120,6 +120,61 @@ export class MessagesRepository {
     userId: string;
     lastReadMessageId?: string;
   }): Promise<void> {
+    const normalizedLastReadMessageId = params.lastReadMessageId?.trim() || null;
+    const existingCursor = await this.prismaService.messageRead.findUnique({
+      where: {
+        conversationId_userId: {
+          conversationId: params.conversationId,
+          userId: params.userId,
+        },
+      },
+    });
+
+    const existingLastReadMessageId = existingCursor?.lastReadMessageId?.trim() || null;
+
+    if (existingCursor) {
+      if (!normalizedLastReadMessageId) {
+        return;
+      }
+
+      if (existingLastReadMessageId === normalizedLastReadMessageId) {
+        return;
+      }
+
+      if (existingLastReadMessageId) {
+        const [incomingMessage, existingMessage] = await Promise.all([
+          this.prismaService.message.findFirst({
+            where: {
+              id: normalizedLastReadMessageId,
+              conversationId: params.conversationId,
+              deletedAt: null,
+            },
+            select: {
+              createdAt: true,
+            },
+          }),
+          this.prismaService.message.findFirst({
+            where: {
+              id: existingLastReadMessageId,
+              conversationId: params.conversationId,
+              deletedAt: null,
+            },
+            select: {
+              createdAt: true,
+            },
+          }),
+        ]);
+
+        if (
+          incomingMessage &&
+          existingMessage &&
+          incomingMessage.createdAt.getTime() <= existingMessage.createdAt.getTime()
+        ) {
+          return;
+        }
+      }
+    }
+
     await this.prismaService.messageRead.upsert({
       where: {
         conversationId_userId: {
@@ -129,14 +184,83 @@ export class MessagesRepository {
       },
       update: {
         lastReadAt: new Date(),
-        lastReadMessageId: params.lastReadMessageId || null,
+        lastReadMessageId: normalizedLastReadMessageId,
       },
       create: {
         conversationId: params.conversationId,
         userId: params.userId,
-        lastReadMessageId: params.lastReadMessageId || null,
+        lastReadMessageId: normalizedLastReadMessageId,
       },
     });
+  }
+
+  public async setUserBlock(params: {
+    blockerId: string;
+    blockedId: string;
+    blocked: boolean;
+  }): Promise<void> {
+    if (params.blocked) {
+      await this.prismaService.userBlock.upsert({
+        where: {
+          blockerId_blockedId: {
+            blockerId: params.blockerId,
+            blockedId: params.blockedId,
+          },
+        },
+        update: {},
+        create: {
+          blockerId: params.blockerId,
+          blockedId: params.blockedId,
+        },
+      });
+
+      return;
+    }
+
+    await this.prismaService.userBlock.deleteMany({
+      where: {
+        blockerId: params.blockerId,
+        blockedId: params.blockedId,
+      },
+    });
+  }
+
+  public async isUserBlocked(blockerId: string, blockedId: string): Promise<boolean> {
+    const relation = await this.prismaService.userBlock.findUnique({
+      where: {
+        blockerId_blockedId: {
+          blockerId,
+          blockedId,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return Boolean(relation);
+  }
+
+  public async isBlockedEitherWay(leftUserId: string, rightUserId: string): Promise<boolean> {
+    const relation = await this.prismaService.userBlock.findFirst({
+      where: {
+        OR: [
+          {
+            blockerId: leftUserId,
+            blockedId: rightUserId,
+          },
+          {
+            blockerId: rightUserId,
+            blockedId: leftUserId,
+          },
+        ],
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return Boolean(relation);
   }
 
   private toPrismaKind(kind: MessageKind): 'TEXT' | 'MEDIA' | 'SYSTEM' {

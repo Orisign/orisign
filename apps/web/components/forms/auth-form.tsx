@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { VerificationForm } from "./verification-form";
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { fadeX, SPRING_LAYOUT } from "@/lib/animations";
 
 export function AuthForm() {
   const t = useTranslations("auth");
@@ -44,6 +45,8 @@ export function AuthForm() {
 
   const challengeId = data?.challengeId;
   const showVerification = isSuccess && !!challengeId;
+  const verificationVariants = fadeX(24);
+  const authVariants = fadeX(-24);
 
   return (
     <div className="relative w-full overflow-x-hidden">
@@ -51,10 +54,13 @@ export function AuthForm() {
         {showVerification ? (
           <motion.div
             key="verification-form"
-            initial={{ opacity: 0, x: 32 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -32 }}
-            transition={{ duration: 0.28, ease: "easeInOut" }}
+            layout
+            layoutId="auth-flow-panel"
+            variants={verificationVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            transition={SPRING_LAYOUT}
             className="w-full"
           >
             <VerificationForm
@@ -66,10 +72,13 @@ export function AuthForm() {
         ) : (
           <motion.div
             key="auth-form"
-            initial={{ opacity: 0, x: -32 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 32 }}
-            transition={{ duration: 0.28, ease: "easeInOut" }}
+            layout
+            layoutId="auth-flow-panel"
+            variants={authVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            transition={SPRING_LAYOUT}
             className="flex w-full flex-col items-center justify-center space-y-5"
           >
             <img src={"/logo.png"} alt={t("logoAlt")} className="size-50" />

@@ -10,6 +10,8 @@ service MessagesService {
   rpc EditMessage (EditMessageRequest) returns (MutationResponse);
   rpc DeleteMessage (DeleteMessageRequest) returns (MutationResponse);
   rpc MarkRead (MarkReadRequest) returns (MutationResponse);
+  rpc SetUserBlock (SetUserBlockRequest) returns (MutationResponse);
+  rpc GetUserBlockStatus (GetUserBlockStatusRequest) returns (GetUserBlockStatusResponse);
 }
 
 enum MessageKind {
@@ -87,6 +89,21 @@ message MarkReadRequest {
 
 message MutationResponse {
   bool ok = 1;
+}
+
+message SetUserBlockRequest {
+  string actor_id = 1;
+  string target_user_id = 2;
+  bool blocked = 3;
+}
+
+message GetUserBlockStatusRequest {
+  string actor_id = 1;
+  string target_user_id = 2;
+}
+
+message GetUserBlockStatusResponse {
+  bool blocked = 1;
 }
 
 message Message {

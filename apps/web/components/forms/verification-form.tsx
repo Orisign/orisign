@@ -16,6 +16,7 @@ import { setCookie } from "@/lib/cookies";
 import { motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { SPRING_SHAKE } from "@/lib/animations";
 
 interface VerificationFormProps {
   challengeId: string;
@@ -156,7 +157,7 @@ export function VerificationForm({
                 animate={
                   hasOtpError ? { x: SHAKE_ANIMATION } : { x: 0 }
                 }
-                transition={{ duration: 1.2, ease: "easeInOut" }}
+                transition={SPRING_SHAKE}
               >
                 <InputOTPGroup className="justify-center">
                   {Array.from({ length: OTP_LENGTH }, (_, index) => (

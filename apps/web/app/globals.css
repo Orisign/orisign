@@ -118,6 +118,46 @@
   --sidebar-ring: oklch(0.439 0 0);
 }
 
+:root[data-accent-theme="default"] {
+  --primary: oklch(0.488 0.243 264.376);
+  --primary-foreground: oklch(0.97 0.014 254.604);
+  --sidebar-primary: oklch(0.623 0.214 259.815);
+  --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
+  --ring: oklch(0.556 0 0);
+}
+
+:root[data-accent-theme="forest"] {
+  --primary: oklch(0.62 0.18 153);
+  --primary-foreground: oklch(0.985 0.01 140);
+  --sidebar-primary: oklch(0.58 0.17 157);
+  --sidebar-primary-foreground: oklch(0.985 0.01 140);
+  --ring: oklch(0.7 0.08 153);
+}
+
+:root[data-accent-theme="frost"] {
+  --primary: oklch(0.66 0.14 236);
+  --primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.63 0.13 232);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.73 0.07 236);
+}
+
+:root[data-accent-theme="ocean"] {
+  --primary: oklch(0.64 0.16 214);
+  --primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.61 0.15 211);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.72 0.08 214);
+}
+
+:root[data-accent-theme="sunset"] {
+  --primary: oklch(0.68 0.19 42);
+  --primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.64 0.17 38);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.74 0.1 42);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -177,5 +217,36 @@
   .dark .chat-wallpaper::before {
     filter: none;
     opacity: 0.38;
+  }
+
+  :root[data-ui-animations="off"] *,
+  :root[data-ui-animations="off"] *::before,
+  :root[data-ui-animations="off"] *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+    opacity: 0.4;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+    opacity: 1;
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0.4;
   }
 }
