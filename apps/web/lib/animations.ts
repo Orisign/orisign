@@ -11,60 +11,58 @@ type StaggerOptions = {
   staggerChildren?: number;
 };
 
+const EASE_SMOOTH_OUT = [0.22, 1, 0.36, 1] as const;
+const EASE_SMOOTH_IN = [0.4, 0, 1, 1] as const;
+const EASE_GENTLE = [0.16, 1, 0.3, 1] as const;
+const EASE_STANDARD = [0.4, 0, 0.2, 1] as const;
+
 export const SPRING_SOFT: Transition = {
-  type: "spring",
-  stiffness: 250,
-  damping: 25,
-  mass: 0.8,
+  type: "tween",
+  duration: 0.24,
+  ease: EASE_GENTLE,
 };
 
 export const SPRING_SNAPPY: Transition = {
-  type: "spring",
-  stiffness: 300,
-  damping: 28,
-  mass: 0.75,
+  type: "tween",
+  duration: 0.16,
+  ease: EASE_SMOOTH_IN,
 };
 
 export const SPRING_LAYOUT: Transition = {
-  type: "spring",
-  stiffness: 280,
-  damping: 30,
-  mass: 0.78,
+  type: "tween",
+  duration: 0.2,
+  ease: EASE_SMOOTH_OUT,
 };
 
 export const SPRING_SIDEBAR_SLIDE: Transition = {
-  type: "spring",
-  stiffness: 420,
-  damping: 42,
-  mass: 0.6,
-  restSpeed: 0.25,
-  restDelta: 0.25,
+  type: "tween",
+  duration: 0.2,
+  ease: EASE_SMOOTH_OUT,
 };
 
 export const SPRING_SIDEBAR_ENTER: Transition = {
   type: "tween",
   duration: 0.2,
-  ease: [0.22, 1, 0.36, 1],
+  ease: EASE_SMOOTH_OUT,
 };
 
 export const SPRING_SIDEBAR_EXIT: Transition = {
   type: "tween",
-  duration: 0.16,
-  ease: [0.4, 0, 1, 1],
+  duration: 0.15,
+  ease: EASE_SMOOTH_IN,
 };
 
 export const SPRING_MICRO: Transition = {
-  type: "spring",
-  stiffness: 340,
-  damping: 32,
-  mass: 0.68,
+  type: "tween",
+  duration: 0.14,
+  ease: EASE_SMOOTH_OUT,
 };
 
 export const SPRING_SHAKE: Transition = {
   type: "spring",
-  stiffness: 420,
-  damping: 24,
-  mass: 0.45,
+  stiffness: 320,
+  damping: 28,
+  mass: 0.55,
 };
 
 export const fadeY = (distance = 10): Variants => ({
@@ -94,9 +92,9 @@ export const fadeScale: Variants = {
 };
 
 export const iconSwap: Variants = {
-  hidden: { opacity: 0, scale: 0.86, y: 4 },
+  hidden: { opacity: 0, scale: 0.9, y: 3 },
   visible: { opacity: 1, scale: 1, y: 0, transition: SPRING_MICRO },
-  exit: { opacity: 0, scale: 0.86, y: -4, transition: SPRING_MICRO },
+  exit: { opacity: 0, scale: 0.9, y: -3, transition: SPRING_MICRO },
 };
 
 export const sidebarSlideVariants: Variants = {
@@ -118,9 +116,36 @@ export const sidebarSlideVariants: Variants = {
 };
 
 export const messageListItemVariants: Variants = {
-  hidden: { opacity: 0, y: 12, scale: 0.99 },
-  visible: { opacity: 1, y: 0, scale: 1, transition: SPRING_SOFT },
-  exit: { opacity: 0, y: -10, scale: 0.99, transition: SPRING_SNAPPY },
+  hidden: (isOwn: boolean) => ({
+    opacity: 0,
+    scale: 0.8,
+    transformOrigin: isOwn ? "right center" : "left center",
+  }),
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: {
+      type: "tween",
+      duration: 0.3,
+      ease: EASE_STANDARD,
+    },
+  },
+  exit: (isOwn: boolean) => ({
+    opacity: 0,
+    scale: 0.88,
+    transformOrigin: isOwn ? "right center" : "left center",
+    transition: {
+      type: "tween",
+      duration: 0.25,
+      ease: EASE_STANDARD,
+    },
+  }),
+};
+
+export const messageListLayoutTransition: Transition = {
+  type: "tween",
+  duration: 0.25,
+  ease: EASE_STANDARD,
 };
 
 export const selectionToggleVariants: Variants = {
@@ -142,8 +167,8 @@ export const swapYVariants: Variants = {
 };
 
 export function createStaggerContainerVariants({
-  delayChildren = 0.02,
-  staggerChildren = 0.045,
+  delayChildren = 0.01,
+  staggerChildren = 0.03,
 }: StaggerOptions = {}): Variants {
   return {
     hidden: { opacity: 1 },

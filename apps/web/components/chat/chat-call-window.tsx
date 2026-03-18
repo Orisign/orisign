@@ -96,10 +96,9 @@ export function ChatCallWindow({
     state === "outgoing" || state === "connecting" || state === "active";
   const openEase = [0.22, 1, 0.36, 1] as const;
   const callActionTransition = {
-    type: "spring",
-    stiffness: 280,
-    damping: 28,
-    mass: 0.8,
+    type: "tween",
+    duration: 0.16,
+    ease: openEase,
   } as const;
   const contentVariants = {
     hidden: { opacity: 0 },
@@ -119,22 +118,20 @@ export function ChatCallWindow({
     },
   } as const;
   const revealItemVariants = {
-    hidden: { opacity: 0, y: 16, filter: "blur(7px)" },
+    hidden: { opacity: 0, y: 14 },
     visible: {
       opacity: 1,
       y: 0,
-      filter: "blur(0px)",
       transition: {
-        duration: 0.48,
+        duration: 0.34,
         ease: openEase,
       },
     },
     exit: {
       opacity: 0,
       y: 8,
-      filter: "blur(4px)",
       transition: {
-        duration: 0.2,
+        duration: 0.14,
         ease: openEase,
       },
     },
@@ -147,23 +144,23 @@ export function ChatCallWindow({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.28, ease: openEase }}
+          transition={{ duration: 0.2, ease: openEase }}
           className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-8"
         >
           <motion.div
             aria-hidden
-            className="absolute inset-0 bg-black/72 backdrop-blur-[10px]"
+            className="absolute inset-0 bg-black/72 backdrop-blur-[4px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.32, ease: openEase }}
+            transition={{ duration: 0.22, ease: openEase }}
           />
 
           <motion.div
             initial={{ opacity: 0, scale: 0.94, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: 12 }}
-            transition={{ duration: 0.46, ease: openEase }}
+            transition={{ duration: 0.32, ease: openEase }}
             className="relative aspect-square overflow-hidden rounded-[2.1rem] bg-black/30 text-white"
             style={{ width: "min(92vw, 84vh, 50rem)" }}
           >
@@ -172,7 +169,7 @@ export function ChatCallWindow({
               initial={{ opacity: 0, scale: 1.04 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.02 }}
-              transition={{ duration: 0.56, ease: openEase }}
+              transition={{ duration: 0.36, ease: openEase }}
             >
               <Avatar className="absolute inset-0 size-full rounded-none">
                 {avatarUrl ? (
@@ -188,7 +185,7 @@ export function ChatCallWindow({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.5, ease: openEase }}
+              transition={{ duration: 0.3, ease: openEase }}
             />
 
             <motion.div

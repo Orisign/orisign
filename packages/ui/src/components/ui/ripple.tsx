@@ -2,18 +2,13 @@ import * as React from "react";
 
 import { cn } from "../../lib/utils";
 
-type RippleEntry = {
-  id: number;
-  x: number;
-  y: number;
-  size: number;
-};
-
 export interface RippleProps extends React.ComponentPropsWithoutRef<"span"> {
   asChild?: boolean;
   disabled?: boolean;
   durationMs?: number;
 }
+
+const MAX_ACTIVE_RIPPLES = 3;
 
 const Ripple = React.forwardRef<HTMLElement, RippleProps>(
   (
@@ -29,8 +24,23 @@ const Ripple = React.forwardRef<HTMLElement, RippleProps>(
     },
     ref,
   ) => {
-    const [ripples, setRipples] = React.useState<RippleEntry[]>([]);
-    const rippleId = React.useRef(0);
+    const rippleLayerRef = React.useRef<HTMLSpanElement | null>(null);
+    const reducedMotionRef = React.useRef(false);
+
+    React.useEffect(() => {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+      const syncReducedMotion = () => {
+        reducedMotionRef.current = mediaQuery.matches;
+      };
+
+      syncReducedMotion();
+      mediaQuery.addEventListener("change", syncReducedMotion);
+      return () => mediaQuery.removeEventListener("change", syncReducedMotion);
+    }, []);
 
     const handleMouseDown = (
       event: React.MouseEvent<HTMLElement>,
@@ -46,23 +56,33 @@ const Ripple = React.forwardRef<HTMLElement, RippleProps>(
       clientX: number,
       clientY: number,
     ) => {
+      if (disabled || reducedMotionRef.current) return;
+
+      const layer = rippleLayerRef.current;
+      if (!layer) return;
+
       const rect = target.getBoundingClientRect();
       const size = Math.max(rect.width, rect.height) * 1.8;
-      const id = rippleId.current++;
+      const ripple = document.createElement("span");
+      ripple.className = "button-ripple";
+      ripple.style.left = `${clientX - rect.left - size / 2}px`;
+      ripple.style.top = `${clientY - rect.top - size / 2}px`;
+      ripple.style.width = `${size}px`;
+      ripple.style.height = `${size}px`;
+      ripple.style.animationDuration = `${durationMs}ms`;
+      layer.append(ripple);
 
-      setRipples((prev) => [
-        ...prev,
-        {
-          id,
-          x: clientX - rect.left - size / 2,
-          y: clientY - rect.top - size / 2,
-          size,
+      while (layer.childElementCount > MAX_ACTIVE_RIPPLES) {
+        layer.firstElementChild?.remove();
+      }
+
+      ripple.addEventListener(
+        "animationend",
+        () => {
+          ripple.remove();
         },
-      ]);
-
-      window.setTimeout(() => {
-        setRipples((prev) => prev.filter((ripple) => ripple.id !== id));
-      }, durationMs);
+        { once: true },
+      );
     };
 
     const handlePointerDownCapture = (
@@ -80,20 +100,11 @@ const Ripple = React.forwardRef<HTMLElement, RippleProps>(
     };
 
     const rippleLayer = (
-      <span aria-hidden className="pointer-events-none absolute inset-0 z-[2]">
-        {ripples.map((ripple) => (
-          <span
-            key={ripple.id}
-            className="button-ripple"
-            style={{
-              left: ripple.x,
-              top: ripple.y,
-              width: ripple.size,
-              height: ripple.size,
-            }}
-          />
-        ))}
-      </span>
+      <span
+        ref={rippleLayerRef}
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-[2] overflow-hidden"
+      />
     );
 
     if (asChild) {

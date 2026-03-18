@@ -17,7 +17,6 @@ import {
 } from "@/hooks/use-chat";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
-import { motion } from "motion/react";
 import { useTranslations } from "next-intl";
 import { type ReactNode, forwardRef, useMemo, useState } from "react";
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui";
@@ -25,6 +24,7 @@ import {
   FiCheckCircle,
   FiCopy,
   FiCornerUpLeft,
+  FiDownload,
   FiEdit2,
   FiLink,
   FiTrash2,
@@ -37,14 +37,17 @@ import {
   AvatarGroupCount,
   AvatarImage,
 } from "@/components/ui/avatar";
-import { getConversationParticipantVisual } from "@/lib/chat";
+import {
+  getConversationParticipantVisual,
+  isVoiceMediaKey,
+} from "@/lib/chat";
+import { downloadMediaByKey } from "@/lib/download-media";
 import { CheckCheck } from "lucide-react";
 import {
   ChatMessageReadDialog,
   type ChatMessageReadReceipt,
 } from "./chat-message-read-dialog";
 import type { ChatReplyTarget } from "./chat.types";
-import { SPRING_MICRO } from "@/lib/animations";
 
 const ChatMessageContextMenuContent = forwardRef<
   React.ElementRef<typeof ContextMenuPrimitive.Content>,
@@ -54,7 +57,7 @@ const ChatMessageContextMenuContent = forwardRef<
     <ContextMenuPrimitive.Content
       ref={ref}
       className={cn(
-        "z-50 max-h-(--radix-context-menu-content-available-height) min-w-32 overflow-y-auto overflow-x-hidden rounded-md bg-popover px-1.5 py-1 text-popover-foreground origin-[--radix-context-menu-content-transform-origin] [will-change:transform,opacity,filter] data-[state=open]:animate-[dropdown-in_280ms_cubic-bezier(.22,.8,.2,1)] data-[state=closed]:animate-[dropdown-out_200ms_cubic-bezier(.4,0,.2,1)]",
+        "z-50 max-h-(--radix-context-menu-content-available-height) min-w-32 overflow-y-auto overflow-x-hidden rounded-md bg-popover px-1.5 py-1 text-popover-foreground origin-[--radix-context-menu-content-transform-origin] [will-change:transform,opacity] data-[state=open]:animate-[dropdown-in_180ms_cubic-bezier(.22,.8,.2,1)] data-[state=closed]:animate-[dropdown-out_140ms_cubic-bezier(.4,0,.2,1)]",
         className,
       )}
       {...props}
@@ -69,24 +72,19 @@ const ChatMessageContextMenuItem = forwardRef<
     variant?: "default" | "destructive";
   }
 >(({ className, variant = "default", children, ...props }, ref) => (
-  <motion.div
-    whileTap={{ scale: 0.95 }}
-    transition={SPRING_MICRO}
+  <ContextMenuPrimitive.Item
+    ref={ref}
+    className={cn(
+      "relative flex cursor-pointer select-none items-center gap-5 rounded-md px-3 py-1.5 text-sm font-semibold outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:stroke-[2.5px] [&_svg]:size-5 [&_svg]:shrink-0",
+      variant === "default" && "focus:bg-accent focus:text-accent-foreground",
+      variant === "destructive" &&
+        "text-destructive [&_svg]:text-destructive focus:bg-destructive/10 focus:text-destructive",
+      className,
+    )}
+    {...props}
   >
-    <ContextMenuPrimitive.Item
-      ref={ref}
-      className={cn(
-        "relative flex cursor-pointer select-none items-center gap-5 rounded-md px-3 py-1.5 text-sm font-semibold outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:stroke-[2.5px] [&_svg]:size-5 [&_svg]:shrink-0",
-        variant === "default" && "focus:bg-accent focus:text-accent-foreground",
-        variant === "destructive" &&
-          "text-destructive [&_svg]:text-destructive focus:bg-destructive/10 focus:text-destructive",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </ContextMenuPrimitive.Item>
-  </motion.div>
+    {children}
+  </ContextMenuPrimitive.Item>
 ));
 ChatMessageContextMenuItem.displayName = ContextMenuPrimitive.Item.displayName;
 
@@ -103,6 +101,7 @@ interface ChatMessageContextMenuProps {
   onEdit?: (message: { id: string; text: string }) => void;
   onStartSelect?: (messageId: string) => void;
   replyAuthorName: string;
+  mediaKeys?: string[];
   children: ReactNode;
 }
 
@@ -120,6 +119,7 @@ export function ChatMessageContextMenu({
   onEdit,
   onStartSelect,
   replyAuthorName,
+  mediaKeys = [],
 }: ChatMessageContextMenuProps) {
   const t = useTranslations("chat.messages.contextMenu");
   const queryClient = useQueryClient();
@@ -149,6 +149,11 @@ export function ChatMessageContextMenu({
   });
 
   const canCopy = message.text.trim().length > 0;
+  const downloadableMediaKeys = useMemo(
+    () => mediaKeys.filter((key) => key && !isVoiceMediaKey(key)),
+    [mediaKeys],
+  );
+  const canDownloadMedia = downloadableMediaKeys.length > 0;
   const canViewReadReceipts = readReceipts.length > 0;
   const canReply = message.kind !== CHAT_MESSAGE_KIND.SYSTEM;
   const previewReadReceipts = useMemo(
@@ -164,7 +169,8 @@ export function ChatMessageContextMenu({
       !canReply &&
       !canSelect &&
       !canEdit &&
-      !canCopyLink)
+      !canCopyLink &&
+      !canDownloadMedia)
   ) {
     return <>{children}</>;
   }
@@ -223,6 +229,26 @@ export function ChatMessageContextMenu({
     });
   }
 
+  async function handleDownloadMedia() {
+    if (!canDownloadMedia) return;
+
+    try {
+      for (const mediaKey of downloadableMediaKeys) {
+        await downloadMediaByKey(mediaKey);
+      }
+
+      toast({
+        title: t("downloaded"),
+        type: "info",
+      });
+    } catch {
+      toast({
+        title: t("downloadError"),
+        type: "error",
+      });
+    }
+  }
+
   return (
     <>
       <ContextMenuPrimitive.Root>
@@ -249,6 +275,13 @@ export function ChatMessageContextMenu({
             <ChatMessageContextMenuItem onSelect={() => void handleCopyLink()}>
               <FiLink />
               {t("copyLink")}
+            </ChatMessageContextMenuItem>
+          ) : null}
+
+          {canDownloadMedia ? (
+            <ChatMessageContextMenuItem onSelect={() => void handleDownloadMedia()}>
+              <FiDownload />
+              {t("download")}
             </ChatMessageContextMenuItem>
           ) : null}
 

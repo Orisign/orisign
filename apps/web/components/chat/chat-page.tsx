@@ -26,18 +26,23 @@ import { useRouter } from "next/navigation";
 import { SendMessageForm } from "./send-message-form";
 import { ChatMessageList } from "./chat-message-list";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, toast } from "@repo/ui";
 import { AnimatePresence, motion } from "motion/react";
 import { FiTrash2, FiX } from "react-icons/fi";
 import { SPRING_LAYOUT, fadeScale } from "@/lib/animations";
-import { CHAT_FOCUS_STORAGE_KEY_PREFIX } from "@/lib/chat.constants";
+import {
+  CHAT_FOCUS_STORAGE_KEY_PREFIX,
+  CHAT_SELECT_EVENT,
+  CHAT_SELECT_STORAGE_KEY_PREFIX,
+} from "@/lib/chat.constants";
 import {
   getAvatarGradient,
   getConversationAvatarUrl,
   getConversationInitial,
   getConversationTitle,
+  formatTimestampTime,
   getUserAvatarUrl,
   getUserDisplayName,
   getUserInitial,
@@ -47,6 +52,7 @@ import type { ChatEditTarget, ChatReplyTarget } from "./chat.types";
 import { useDirectCall } from "@/hooks/use-direct-call";
 import { ChatCallWindow } from "./chat-call-window";
 import { createCallLogMessageText } from "@/lib/call-log-message";
+import { useRightSidebar } from "@/hooks/use-right-sidebar";
 
 interface ChatPageProps {
   conversationId: string;
@@ -59,9 +65,9 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
   const tHeader = useTranslations("chat.header");
   const tSelection = useTranslations("chat.selection");
   const tSendForm = useTranslations("chat.sendMessageForm");
+  const locale = useLocale();
   const conversationQuery = useConversationQuery(conversationId);
   const { user: currentUser } = useCurrentUser();
-  useChatRealtime(conversationId, currentUser?.id);
   const router = useRouter();
   const queryClient = useQueryClient();
   const composerVariants = fadeScale;
@@ -115,6 +121,7 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
     useMessagesControllerDelete();
   const { mutate: sendMessage } = useMessagesControllerSend();
   const { mutateAsync: setUserBlock, isPending: isSettingPeerBlock } = useSetChatBlock();
+  const rightSidebar = useRightSidebar();
 
   useEffect(() => {
     if (conversationQuery.isPending) return;
@@ -148,6 +155,35 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
       ids: new Set([messageId]),
     });
   }, [conversationId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const storageKey = `${CHAT_SELECT_STORAGE_KEY_PREFIX}:${conversationId}`;
+    const pendingMessageId = sessionStorage.getItem(storageKey);
+    if (pendingMessageId) {
+      sessionStorage.removeItem(storageKey);
+      queueMicrotask(() => {
+        startSelectionMode(pendingMessageId);
+      });
+    }
+
+    const onStartSelect = (event: Event) => {
+      const detail = (event as CustomEvent<{ conversationId?: string; messageId?: string }>).detail;
+      if (!detail?.messageId || detail.conversationId !== conversationId) {
+        return;
+      }
+
+      startSelectionMode(detail.messageId);
+    };
+
+    window.addEventListener(CHAT_SELECT_EVENT, onStartSelect as EventListener);
+    return () => {
+      window.removeEventListener(CHAT_SELECT_EVENT, onStartSelect as EventListener);
+    };
+  }, [conversationId, startSelectionMode]);
 
   const toggleMessageSelection = useCallback((messageId: string) => {
     if (!messageId) return;
@@ -245,13 +281,42 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
     ? (conversation?.members ?? []).find((member) => member.userId !== currentUser?.id)
         ?.userId
     : undefined;
-  const { data: usersMap } = useChatAuthors(peerId ? [peerId] : []);
+  const chatRealtime = useChatRealtime(conversationId, currentUser?.id, peerId);
+  const groupStatusUserId = isDirect ? null : chatRealtime.groupState.activeUserId;
+  const statusAuthorIds = [...new Set([peerId, groupStatusUserId].filter(Boolean))] as string[];
+  const { data: usersMap } = useChatAuthors(statusAuthorIds);
   const { data: blockStatus } = useChatBlockStatus(isDirect ? peerId : null);
   const peerUser = peerId ? (usersMap?.[peerId] ?? null) : null;
+  const groupStatusUser = groupStatusUserId
+    ? (usersMap?.[groupStatusUserId] ?? null)
+    : null;
+  const peerUserLastSeenAt =
+    (peerUser as { lastSeenAt?: number | null } | null)?.lastSeenAt ?? null;
   const title = isDirect
     ? getUserDisplayName(peerUser, tHeader("directFallback"))
     : (conversation ? getConversationTitle(conversation) : "");
-  const subtitle = isDirect ? (peerUser?.username ? `@${peerUser.username}` : "") : "";
+  const resolvedPeerLastSeenAt = chatRealtime.peerState.lastSeenAt ?? peerUserLastSeenAt;
+  const peerLastSeenTime = formatTimestampTime(resolvedPeerLastSeenAt, locale);
+  const directFallbackSubtitle = tHeader("directFallback");
+  const groupStatusUserName = getUserDisplayName(groupStatusUser, tHeader("unknownUser"));
+  const groupStatusSubtitle = chatRealtime.groupState.activity
+    ? (chatRealtime.groupState.activity === "uploadingMedia"
+      ? tHeader("uploadingMediaByUser", { name: groupStatusUserName })
+      : tHeader("typingByUser", { name: groupStatusUserName }))
+    : "";
+  const subtitle = isDirect
+    ? (chatRealtime.peerState.isUploadingMedia
+      ? tHeader("uploadingMedia")
+      : chatRealtime.peerState.isTyping
+        ? tHeader("typing")
+        : chatRealtime.peerState.isOnline
+          ? tHeader("online")
+          : (resolvedPeerLastSeenAt
+            ? (peerLastSeenTime
+              ? tHeader("lastSeenAt", { time: peerLastSeenTime })
+              : directFallbackSubtitle)
+            : directFallbackSubtitle))
+    : groupStatusSubtitle;
   const avatarUrl = isDirect
     ? getUserAvatarUrl(peerUser)
     : getConversationAvatarUrl(conversation);
@@ -322,6 +387,7 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
         onEndCall={directCall.endCall}
         callActive={directCall.isInCall}
         callDisabled={isCallBlocked}
+        onToggleRightSidebar={() => rightSidebar.toggle(conversationId)}
       />
 
       <ChatCallWindow
@@ -448,6 +514,8 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
                     conversationId={conversationId}
                     isBlockedByCurrentUser={isPeerBlockedByCurrentUser}
                     isBlockedByPeer={isCurrentUserBlockedByPeer}
+                    onTypingStateChange={chatRealtime.setTypingActive}
+                    onUploadingMediaStateChange={chatRealtime.setMediaUploadingActive}
                     replyTarget={replyTarget}
                     editTarget={editTarget}
                     onCancelReply={() =>

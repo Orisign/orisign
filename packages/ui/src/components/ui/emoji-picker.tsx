@@ -707,7 +707,7 @@ export function EmojiPicker({
           sideOffset={10}
           className={cn(
             "z-50 w-[22rem] transform-gpu overflow-hidden rounded-2xl border border-white/10 bg-accent/78 p-2 text-foreground shadow-2xl backdrop-blur-2xl [backface-visibility:hidden]",
-            "origin-bottom-left [will-change:transform,opacity] data-[state=open]:animate-[ui-emoji-picker-in_190ms_cubic-bezier(.2,.8,.2,1)] data-[state=closed]:animate-[ui-emoji-picker-out_130ms_cubic-bezier(.4,0,.2,1)]",
+            "origin-bottom-left [will-change:transform,opacity] data-[state=open]:animate-[ui-emoji-picker-in_200ms_cubic-bezier(.4,0,.2,1)] data-[state=closed]:animate-[ui-emoji-picker-out_180ms_cubic-bezier(.4,0,.2,1)]",
           )}
           onOpenAutoFocus={(event) => event.preventDefault()}
           onFocusOutside={(event) => {

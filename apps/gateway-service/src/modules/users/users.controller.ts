@@ -1,492 +1,609 @@
 import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Put,
-  Post,
-  Patch,
-  UploadedFile,
-  UseInterceptors,
-} from '@nestjs/common';
+	Body,
+	Controller,
+	Delete,
+	Get,
+	HttpCode,
+	HttpStatus,
+	Param,
+	Patch,
+	Post,
+	Query,
+	Put,
+	UploadedFile,
+	UseInterceptors
+} from '@nestjs/common'
+import { FileInterceptor } from '@nestjs/platform-express'
 import {
-  ApiConsumes,
-  ApiBadRequestResponse,
-  ApiBearerAuth,
-  ApiBody,
-  ApiParam,
-  ApiOkResponse,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { lastValueFrom } from 'rxjs';
-import { SkipThrottle } from '@nestjs/throttler';
-import { ConversationType, MemberState } from '@repo/contracts/gen/ts/conversations';
-import { CurrentUser, Protected } from 'src/shared/decorators';
-import { FileValidationPipe } from 'src/shared/pipes';
+	ApiBadRequestResponse,
+	ApiBearerAuth,
+	ApiBody,
+	ApiConsumes,
+	ApiOkResponse,
+	ApiOperation,
+	ApiParam,
+	ApiTags
+} from '@nestjs/swagger'
+import { SkipThrottle } from '@nestjs/throttler'
+import {
+	ConversationType,
+	MemberState
+} from '@repo/contracts/gen/ts/conversations'
+import { lastValueFrom } from 'rxjs'
+import { CurrentUser, Protected } from 'src/shared/decorators'
+import { FileValidationPipe } from 'src/shared/pipes'
+
+import { ConversationsClientGrpc } from '../conversations/conversations.grpc'
+import { ChatRealtimeService } from '../messages/chat-realtime.service'
 
 import {
-  CreateUserRequestDto,
-  CreateChatFolderRequestDto,
-  DeleteAvatarRequestDto,
-  GetUserResponseDto,
-  GetUserRequestDto,
-  ChatFolderSingleResponseDto,
-  ListChatFoldersResponseDto,
-  ListUsersRequestDto,
-  ListUsersResponseDto,
-  PatchPrivacyRequestDto,
-  PatchUserRequestDto,
-  ReorderChatFoldersRequestDto,
-  UpdateChatFolderRequestDto,
-} from './dto';
-import { ChatRealtimeService } from '../messages/chat-realtime.service';
-import { ConversationsClientGrpc } from '../conversations/conversations.grpc';
-import { MediaClientGrpc } from './media.grpc';
-import { UsersClientGrpc } from './users.grpc';
+	ChatFolderSingleResponseDto,
+	CreateChatFolderRequestDto,
+	CreateUserRequestDto,
+	DeleteAvatarRequestDto,
+	GetUserRequestDto,
+	GetUserResponseDto,
+	ListChatFoldersResponseDto,
+	ListSearchHistoryRequestDto,
+	ListUsersRequestDto,
+	ListUsersResponseDto,
+	PatchPrivacyRequestDto,
+	PatchUserRequestDto,
+	ReorderChatFoldersRequestDto,
+	SearchHistoryListResponseDto,
+	SearchHistorySingleResponseDto,
+	UpsertSearchHistoryRequestDto,
+	UpdateChatFolderRequestDto
+} from './dto'
+import { MediaClientGrpc } from './media.grpc'
+import { UsersClientGrpc } from './users.grpc'
 
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
-  public constructor(
-    private readonly usersClient: UsersClientGrpc,
-    private readonly mediaClient: MediaClientGrpc,
-    private readonly conversationsClient: ConversationsClientGrpc,
-    private readonly chatRealtimeService: ChatRealtimeService,
-  ) {}
+	public constructor(
+		private readonly usersClient: UsersClientGrpc,
+		private readonly mediaClient: MediaClientGrpc,
+		private readonly conversationsClient: ConversationsClientGrpc,
+		private readonly chatRealtimeService: ChatRealtimeService
+	) {}
 
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Текущий пользователь',
-    description: 'Возвращает профиль текущего авторизованного пользователя',
-  })
-  @ApiOkResponse({
-    description: 'Профиль пользователя',
-    type: GetUserResponseDto,
-  })
-  @SkipThrottle()
-  @Protected()
-  @Get('me')
-  @HttpCode(HttpStatus.OK)
-  public async me(@CurrentUser() id: string) {
-    return await lastValueFrom(this.usersClient.getUser({ id }));
-  }
+	@ApiBearerAuth('access-token')
+	@ApiOperation({
+		summary: 'Текущий пользователь',
+		description: 'Возвращает профиль текущего авторизованного пользователя'
+	})
+	@ApiOkResponse({
+		description: 'Профиль пользователя',
+		type: GetUserResponseDto
+	})
+	@SkipThrottle()
+	@Protected()
+	@Get('me')
+	@HttpCode(HttpStatus.OK)
+	public async me(@CurrentUser() id: string) {
+		return await lastValueFrom(this.usersClient.getUser({ id }))
+	}
 
-  @ApiOperation({
-    summary: 'Получить пользователя',
-    description: 'Получает пользователя по id или username',
-  })
-  @ApiBody({ type: GetUserRequestDto })
-  @ApiOkResponse({
-    description: 'Профиль пользователя',
-    type: GetUserResponseDto,
-  })
-  @ApiBadRequestResponse({
-    description: 'Нужно передать хотя бы один идентификатор',
-  })
-  @Post('get')
-  @HttpCode(HttpStatus.OK)
-  public async get(@Body() dto: GetUserRequestDto) {
-    return await lastValueFrom(this.usersClient.getUser(dto));
-  }
+	@ApiOperation({
+		summary: 'Получить пользователя',
+		description: 'Получает пользователя по id или username'
+	})
+	@ApiBody({ type: GetUserRequestDto })
+	@ApiOkResponse({
+		description: 'Профиль пользователя',
+		type: GetUserResponseDto
+	})
+	@ApiBadRequestResponse({
+		description: 'Нужно передать хотя бы один идентификатор'
+	})
+	@Post('get')
+	@HttpCode(HttpStatus.OK)
+	public async get(@Body() dto: GetUserRequestDto) {
+		return await lastValueFrom(this.usersClient.getUser(dto))
+	}
 
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Список пользователей',
-    description: 'Возвращает список пользователей с опциональным поиском',
-  })
-  @ApiBody({ type: ListUsersRequestDto })
-  @ApiOkResponse({
-    description: 'Список пользователей',
-    type: ListUsersResponseDto,
-  })
-  @Protected()
-  @Post('list')
-  @HttpCode(HttpStatus.OK)
-  public async list(@CurrentUser() id: string, @Body() dto: ListUsersRequestDto) {
-    const contactIds = await this.getDirectContactIds(id);
-    const excludeIds = [...new Set([id, ...(dto.excludeIds ?? [])])];
+	@ApiBearerAuth('access-token')
+	@ApiOperation({
+		summary: 'Список пользователей',
+		description: 'Возвращает список пользователей с опциональным поиском'
+	})
+	@ApiBody({ type: ListUsersRequestDto })
+	@ApiOkResponse({
+		description: 'Список пользователей',
+		type: ListUsersResponseDto
+	})
+	@Protected()
+	@Post('list')
+	@HttpCode(HttpStatus.OK)
+	public async list(
+		@CurrentUser() id: string,
+		@Body() dto: ListUsersRequestDto
+	) {
+		const contactIds = await this.getDirectContactIds(id)
+		const excludeIds = [...new Set([id, ...(dto.excludeIds ?? [])])]
 
-    if (contactIds.length === 0) {
-      return { users: [] };
-    }
+		if (contactIds.length === 0) {
+			return { users: [] }
+		}
 
-    return await lastValueFrom(
-      this.usersClient.listUsers({
-        query: dto.query ?? '',
-        limit: dto.limit ?? 30,
-        offset: dto.offset ?? 0,
-        excludeIds,
-        includeIds: contactIds,
-      }),
-    );
-  }
+		return await lastValueFrom(
+			this.usersClient.listUsers({
+				query: dto.query ?? '',
+				limit: dto.limit ?? 30,
+				offset: dto.offset ?? 0,
+				excludeIds,
+				includeIds: contactIds
+			})
+		)
+	}
 
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Список папок чатов',
-    description: 'Возвращает список папок чатов текущего пользователя',
-  })
-  @ApiOkResponse({
-    description: 'Список папок чатов',
-    type: ListChatFoldersResponseDto,
-  })
-  @Protected()
-  @Get('chat-folders')
-  @HttpCode(HttpStatus.OK)
-  public async listChatFolders(@CurrentUser() id: string) {
-    return await lastValueFrom(this.usersClient.listChatFolders({ userId: id }));
-  }
+	@ApiBearerAuth('access-token')
+	@ApiOperation({
+		summary: 'Список папок чатов',
+		description: 'Возвращает список папок чатов текущего пользователя'
+	})
+	@ApiOkResponse({
+		description: 'Список папок чатов',
+		type: ListChatFoldersResponseDto
+	})
+	@Protected()
+	@Get('chat-folders')
+	@HttpCode(HttpStatus.OK)
+	public async listChatFolders(@CurrentUser() id: string) {
+		return await lastValueFrom(
+			this.usersClient.listChatFolders({ userId: id })
+		)
+	}
 
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Создать папку чатов',
-    description: 'Создает новую папку чатов для текущего пользователя',
-  })
-  @ApiBody({ type: CreateChatFolderRequestDto })
-  @ApiOkResponse({
-    description: 'Созданная папка',
-    type: ChatFolderSingleResponseDto,
-  })
-  @Protected()
-  @Post('chat-folders')
-  @HttpCode(HttpStatus.OK)
-  public async createChatFolder(
-    @CurrentUser() id: string,
-    @Body() dto: CreateChatFolderRequestDto,
-  ) {
-    return await lastValueFrom(
-      this.usersClient.createChatFolder({
-        userId: id,
-        name: dto.name,
-        includedChatIds: dto.includedChatIds ?? [],
-        excludedChatIds: dto.excludedChatIds ?? [],
-        includedTypes: dto.includedTypes ?? [],
-        excludedTypes: dto.excludedTypes ?? [],
-        inviteLink: dto.inviteLink,
-        sortOrder: dto.sortOrder,
-      }),
-    );
-  }
+	@ApiBearerAuth('access-token')
+	@ApiOperation({
+		summary: 'Создать папку чатов',
+		description: 'Создает новую папку чатов для текущего пользователя'
+	})
+	@ApiBody({ type: CreateChatFolderRequestDto })
+	@ApiOkResponse({
+		description: 'Созданная папка',
+		type: ChatFolderSingleResponseDto
+	})
+	@Protected()
+	@Post('chat-folders')
+	@HttpCode(HttpStatus.OK)
+	public async createChatFolder(
+		@CurrentUser() id: string,
+		@Body() dto: CreateChatFolderRequestDto
+	) {
+		return await lastValueFrom(
+			this.usersClient.createChatFolder({
+				userId: id,
+				name: dto.name,
+				includedChatIds: dto.includedChatIds ?? [],
+				excludedChatIds: dto.excludedChatIds ?? [],
+				includedTypes: dto.includedTypes ?? [],
+				excludedTypes: dto.excludedTypes ?? [],
+				inviteLink: dto.inviteLink,
+				sortOrder: dto.sortOrder
+			})
+		)
+	}
 
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Обновить папку чатов',
-    description: 'Обновляет папку чатов текущего пользователя',
-  })
-  @ApiParam({ name: 'folderId', description: 'ID папки' })
-  @ApiBody({ type: UpdateChatFolderRequestDto })
-  @ApiOkResponse({
-    description: 'Обновленная папка',
-    type: ChatFolderSingleResponseDto,
-  })
-  @Protected()
-  @Patch('chat-folders/:folderId')
-  @HttpCode(HttpStatus.OK)
-  public async updateChatFolder(
-    @CurrentUser() id: string,
-    @Param('folderId') folderId: string,
-    @Body() dto: UpdateChatFolderRequestDto,
-  ) {
-    const currentFolders = await lastValueFrom(
-      this.usersClient.listChatFolders({ userId: id }),
-    );
-    const currentFolder = (currentFolders.folders ?? []).find(
-      (item) => item.id === folderId,
-    );
+	@ApiBearerAuth('access-token')
+	@ApiOperation({
+		summary: 'Обновить папку чатов',
+		description: 'Обновляет папку чатов текущего пользователя'
+	})
+	@ApiParam({ name: 'folderId', description: 'ID папки' })
+	@ApiBody({ type: UpdateChatFolderRequestDto })
+	@ApiOkResponse({
+		description: 'Обновленная папка',
+		type: ChatFolderSingleResponseDto
+	})
+	@Protected()
+	@Patch('chat-folders/:folderId')
+	@HttpCode(HttpStatus.OK)
+	public async updateChatFolder(
+		@CurrentUser() id: string,
+		@Param('folderId') folderId: string,
+		@Body() dto: UpdateChatFolderRequestDto
+	) {
+		const currentFolders = await lastValueFrom(
+			this.usersClient.listChatFolders({ userId: id })
+		)
+		const currentFolder = (currentFolders.folders ?? []).find(
+			item => item.id === folderId
+		)
 
-    return await lastValueFrom(
-      this.usersClient.updateChatFolder({
-        userId: id,
-        folderId,
-        name: dto.name ?? currentFolder?.name ?? '',
-        includedChatIds: dto.includedChatIds ?? currentFolder?.includedChatIds ?? [],
-        excludedChatIds: dto.excludedChatIds ?? currentFolder?.excludedChatIds ?? [],
-        includedTypes: dto.includedTypes ?? currentFolder?.includedTypes ?? [],
-        excludedTypes: dto.excludedTypes ?? currentFolder?.excludedTypes ?? [],
-        inviteLink: dto.inviteLink ?? currentFolder?.inviteLink,
-        sortOrder: dto.sortOrder ?? currentFolder?.sortOrder,
-      }),
-    );
-  }
+		return await lastValueFrom(
+			this.usersClient.updateChatFolder({
+				userId: id,
+				folderId,
+				name: dto.name ?? currentFolder?.name ?? '',
+				includedChatIds:
+					dto.includedChatIds ?? currentFolder?.includedChatIds ?? [],
+				excludedChatIds:
+					dto.excludedChatIds ?? currentFolder?.excludedChatIds ?? [],
+				includedTypes:
+					dto.includedTypes ?? currentFolder?.includedTypes ?? [],
+				excludedTypes:
+					dto.excludedTypes ?? currentFolder?.excludedTypes ?? [],
+				inviteLink: dto.inviteLink ?? currentFolder?.inviteLink,
+				sortOrder: dto.sortOrder ?? currentFolder?.sortOrder
+			})
+		)
+	}
 
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Удалить папку чатов',
-    description: 'Удаляет папку чатов текущего пользователя',
-  })
-  @ApiParam({ name: 'folderId', description: 'ID папки' })
-  @ApiOkResponse({ description: 'Папка удалена' })
-  @Protected()
-  @Delete('chat-folders/:folderId')
-  @HttpCode(HttpStatus.OK)
-  public async deleteChatFolder(
-    @CurrentUser() id: string,
-    @Param('folderId') folderId: string,
-  ) {
-    return await lastValueFrom(
-      this.usersClient.deleteChatFolder({
-        userId: id,
-        folderId,
-      }),
-    );
-  }
+	@ApiBearerAuth('access-token')
+	@ApiOperation({
+		summary: 'Удалить папку чатов',
+		description: 'Удаляет папку чатов текущего пользователя'
+	})
+	@ApiParam({ name: 'folderId', description: 'ID папки' })
+	@ApiOkResponse({ description: 'Папка удалена' })
+	@Protected()
+	@Delete('chat-folders/:folderId')
+	@HttpCode(HttpStatus.OK)
+	public async deleteChatFolder(
+		@CurrentUser() id: string,
+		@Param('folderId') folderId: string
+	) {
+		return await lastValueFrom(
+			this.usersClient.deleteChatFolder({
+				userId: id,
+				folderId
+			})
+		)
+	}
 
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Изменить порядок папок',
-    description: 'Сохраняет новый порядок папок чатов текущего пользователя',
-  })
-  @ApiBody({ type: ReorderChatFoldersRequestDto })
-  @ApiOkResponse({ description: 'Порядок сохранен' })
-  @Protected()
-  @Put('chat-folders/reorder')
-  @HttpCode(HttpStatus.OK)
-  public async reorderChatFolders(
-    @CurrentUser() id: string,
-    @Body() dto: ReorderChatFoldersRequestDto,
-  ) {
-    return await lastValueFrom(
-      this.usersClient.reorderChatFolders({
-        userId: id,
-        folderIds: dto.folderIds ?? [],
-      }),
-    );
-  }
+	@ApiBearerAuth('access-token')
+	@ApiOperation({
+		summary: 'Изменить порядок папок',
+		description: 'Сохраняет новый порядок папок чатов текущего пользователя'
+	})
+	@ApiBody({ type: ReorderChatFoldersRequestDto })
+	@ApiOkResponse({ description: 'Порядок сохранен' })
+	@Protected()
+	@Put('chat-folders/reorder')
+	@HttpCode(HttpStatus.OK)
+	public async reorderChatFolders(
+		@CurrentUser() id: string,
+		@Body() dto: ReorderChatFoldersRequestDto
+	) {
+		return await lastValueFrom(
+			this.usersClient.reorderChatFolders({
+				userId: id,
+				folderIds: dto.folderIds ?? []
+			})
+		)
+	}
 
-  private async getDirectContactIds(userId: string) {
-    const limit = 200;
-    let offset = 0;
-    const directPeerIds = new Set<string>();
+	@ApiBearerAuth('access-token')
+	@ApiOperation({
+		summary: 'История поиска чатов',
+		description: 'Возвращает последние поисковые запросы текущего пользователя'
+	})
+	@ApiOkResponse({
+		description: 'История поиска',
+		type: SearchHistoryListResponseDto
+	})
+	@Protected()
+	@Get('search-history')
+	@HttpCode(HttpStatus.OK)
+	public async listSearchHistory(
+		@CurrentUser() id: string,
+		@Query() query: ListSearchHistoryRequestDto
+	) {
+		return await lastValueFrom(
+			this.usersClient.listSearchHistory({
+				userId: id,
+				limit: query.limit ?? 20
+			})
+		)
+	}
 
-    while (true) {
-      const page = await lastValueFrom(
-        this.conversationsClient.listMyConversations({
-          requesterId: userId,
-          limit,
-          offset,
-        }),
-      );
+	@ApiBearerAuth('access-token')
+	@ApiOperation({
+		summary: 'Добавить запись в историю поиска',
+		description: 'Добавляет или обновляет запрос в истории поиска'
+	})
+	@ApiBody({ type: UpsertSearchHistoryRequestDto })
+	@ApiOkResponse({
+		description: 'Запись истории поиска',
+		type: SearchHistorySingleResponseDto
+	})
+	@Protected()
+	@Post('search-history')
+	@HttpCode(HttpStatus.OK)
+	public async upsertSearchHistory(
+		@CurrentUser() id: string,
+		@Body() dto: UpsertSearchHistoryRequestDto
+	) {
+		return await lastValueFrom(
+			this.usersClient.upsertSearchHistory({
+				userId: id,
+				query: dto.query
+			})
+		)
+	}
 
-      const conversations = page.conversations ?? [];
-      for (const conversation of conversations) {
-        if (conversation.type !== ConversationType.DM) {
-          continue;
-        }
+	@ApiBearerAuth('access-token')
+	@ApiOperation({
+		summary: 'Удалить запись истории поиска',
+		description: 'Удаляет одну запись истории поиска пользователя'
+	})
+	@ApiParam({ name: 'entryId', description: 'ID записи истории поиска' })
+	@ApiOkResponse({ description: 'Запись удалена' })
+	@Protected()
+	@Delete('search-history/:entryId')
+	@HttpCode(HttpStatus.OK)
+	public async deleteSearchHistoryEntry(
+		@CurrentUser() id: string,
+		@Param('entryId') entryId: string
+	) {
+		return await lastValueFrom(
+			this.usersClient.deleteSearchHistoryEntry({
+				userId: id,
+				entryId
+			})
+		)
+	}
 
-        for (const member of conversation.members ?? []) {
-          if (member.userId === userId || member.state !== MemberState.ACTIVE) {
-            continue;
-          }
+	@ApiBearerAuth('access-token')
+	@ApiOperation({
+		summary: 'Очистить историю поиска',
+		description: 'Удаляет все записи истории поиска текущего пользователя'
+	})
+	@ApiOkResponse({ description: 'История поиска очищена' })
+	@Protected()
+	@Delete('search-history')
+	@HttpCode(HttpStatus.OK)
+	public async clearSearchHistory(@CurrentUser() id: string) {
+		return await lastValueFrom(
+			this.usersClient.clearSearchHistory({
+				userId: id
+			})
+		)
+	}
 
-          directPeerIds.add(member.userId);
-        }
-      }
+	private async getDirectContactIds(userId: string) {
+		const limit = 200
+		let offset = 0
+		const directPeerIds = new Set<string>()
 
-      if (conversations.length < limit) {
-        break;
-      }
+		while (true) {
+			const page = await lastValueFrom(
+				this.conversationsClient.listMyConversations({
+					requesterId: userId,
+					limit,
+					offset
+				})
+			)
 
-      offset += limit;
-    }
+			const conversations = page.conversations ?? []
+			for (const conversation of conversations) {
+				if (conversation.type !== ConversationType.DM) {
+					continue
+				}
 
-    return [...directPeerIds];
-  }
+				for (const member of conversation.members ?? []) {
+					if (
+						member.userId === userId ||
+						member.state !== MemberState.ACTIVE
+					) {
+						continue
+					}
 
-  @ApiOperation({
-    summary: 'Создать пользователя',
-    description: 'Создаёт пользователя в users-service по id',
-  })
-  @ApiBody({ type: CreateUserRequestDto })
-  @ApiOkResponse({ description: 'Пользователь создан' })
-  @Post('create')
-  @HttpCode(HttpStatus.OK)
-  public async create(@Body() dto: CreateUserRequestDto) {
-    return await lastValueFrom(this.usersClient.createUser(dto));
-  }
+					directPeerIds.add(member.userId)
+				}
+			}
 
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Обновить профиль',
-    description: 'Частично обновляет основные поля профиля пользователя',
-  })
-  @ApiBody({ type: PatchUserRequestDto })
-  @ApiOkResponse({ description: 'Профиль обновлён' })
-  @Protected()
-  @Patch()
-  @HttpCode(HttpStatus.OK)
-  public async patch(
-    @CurrentUser() id: string,
-    @Body() dto: PatchUserRequestDto,
-  ) {
-    const response = await lastValueFrom(
-      this.usersClient.patchUser({
-        userId: id,
-        username: dto.username,
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        bio: dto.bio,
-        avatars: dto.avatars ? { values: dto.avatars } : undefined,
-        birthDate: dto.birthDate ? new Date(dto.birthDate).getTime() : undefined,
-      }),
-    );
+			if (conversations.length < limit) {
+				break
+			}
 
-    if (response?.ok) {
-      this.chatRealtimeService.emitChatListInvalidate({
-        conversationId: '',
-        actorId: id,
-        reason: 'user.updated',
-      });
-    }
+			offset += limit
+		}
 
-    return response;
-  }
+		return [...directPeerIds]
+	}
 
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Обновить приватность',
-    description: 'Частично обновляет настройки приватности текущего пользователя',
-  })
-  @ApiBody({ type: PatchPrivacyRequestDto })
-  @ApiOkResponse({ description: 'Настройки приватности обновлены' })
-  @Protected()
-  @Patch('privacy')
-  @HttpCode(HttpStatus.OK)
-  public async patchPrivacy(
-    @CurrentUser() id: string,
-    @Body() dto: PatchPrivacyRequestDto,
-  ) {
-    return await lastValueFrom(
-      this.usersClient.patchPrivacySettings({
-        userId: id,
-        phone: dto.phone,
-        lastSeenTime: dto.lastSeenTime,
-        photo: dto.photo,
-        bio: dto.bio,
-        call: dto.call,
-        reply: dto.reply,
-        invite: dto.invite,
-        mediaMessage: dto.mediaMessage,
-        message: dto.message,
-        birthDate: dto.birthDate,
-      }),
-    );
-  }
+	@ApiOperation({
+		summary: 'Создать пользователя',
+		description: 'Создаёт пользователя в users-service по id'
+	})
+	@ApiBody({ type: CreateUserRequestDto })
+	@ApiOkResponse({ description: 'Пользователь создан' })
+	@Post('create')
+	@HttpCode(HttpStatus.OK)
+	public async create(@Body() dto: CreateUserRequestDto) {
+		return await lastValueFrom(this.usersClient.createUser(dto))
+	}
 
-  @ApiBearerAuth('access-token')
-  @ApiConsumes('multipart/form-data')
-  @ApiOperation({
-    summary: 'Добавить аватар',
-    description: 'Загружает новый аватар в media-service и добавляет его key в профиль',
-  })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-      required: ['file'],
-    },
-  })
-  @ApiOkResponse({ description: 'Аватар добавлен' })
-  @ApiBadRequestResponse({ description: 'Некорректный файл' })
-  @Protected()
-  @Post('avatar')
-  @UseInterceptors(FileInterceptor('file'))
-  public async addAvatar(
-    @CurrentUser() id: string,
-    @UploadedFile(FileValidationPipe) file: Express.Multer.File,
-  ) {
-    const uploadResult = await lastValueFrom(
-      this.mediaClient.uploadAvatar({
-        accountId: id,
-        fileName: file.originalname,
-        contentType: file.mimetype,
-        data: file.buffer,
-      }),
-    );
+	@ApiBearerAuth('access-token')
+	@ApiOperation({
+		summary: 'Обновить профиль',
+		description: 'Частично обновляет основные поля профиля пользователя'
+	})
+	@ApiBody({ type: PatchUserRequestDto })
+	@ApiOkResponse({ description: 'Профиль обновлён' })
+	@Protected()
+	@Patch()
+	@HttpCode(HttpStatus.OK)
+	public async patch(
+		@CurrentUser() id: string,
+		@Body() dto: PatchUserRequestDto
+	) {
+		const response = await lastValueFrom(
+			this.usersClient.patchUser({
+				userId: id,
+				username: dto.username,
+				firstName: dto.firstName,
+				lastName: dto.lastName,
+				bio: dto.bio,
+				avatars: dto.avatars ? { values: dto.avatars } : undefined,
+				birthDate: dto.birthDate
+					? new Date(dto.birthDate).getTime()
+					: undefined
+			})
+		)
 
-    const key = uploadResult.avatar?.key;
-    if (!key) {
-      return { ok: false };
-    }
+		if (response?.ok) {
+			this.chatRealtimeService.emitChatListInvalidate({
+				conversationId: '',
+				actorId: id,
+				reason: 'user.updated'
+			})
+		}
 
-    const current = await lastValueFrom(this.usersClient.getUser({ id }));
-    const avatars = current.user?.avatars ?? [];
-    const nextAvatars = avatars.includes(key) ? avatars : [...avatars, key];
+		return response
+	}
 
-    await lastValueFrom(
-      this.usersClient.patchUser({
-        userId: id,
-        avatars: { values: nextAvatars },
-      }),
-    );
+	@ApiBearerAuth('access-token')
+	@ApiOperation({
+		summary: 'Обновить приватность',
+		description:
+			'Частично обновляет настройки приватности текущего пользователя'
+	})
+	@ApiBody({ type: PatchPrivacyRequestDto })
+	@ApiOkResponse({ description: 'Настройки приватности обновлены' })
+	@Protected()
+	@Patch('privacy')
+	@HttpCode(HttpStatus.OK)
+	public async patchPrivacy(
+		@CurrentUser() id: string,
+		@Body() dto: PatchPrivacyRequestDto
+	) {
+		return await lastValueFrom(
+			this.usersClient.patchPrivacySettings({
+				userId: id,
+				phone: dto.phone,
+				lastSeenTime: dto.lastSeenTime,
+				photo: dto.photo,
+				bio: dto.bio,
+				call: dto.call,
+				reply: dto.reply,
+				invite: dto.invite,
+				mediaMessage: dto.mediaMessage,
+				message: dto.message,
+				birthDate: dto.birthDate
+			})
+		)
+	}
 
-    this.chatRealtimeService.emitChatListInvalidate({
-      conversationId: '',
-      actorId: id,
-      reason: 'user.avatar.updated',
-    });
+	@ApiBearerAuth('access-token')
+	@ApiConsumes('multipart/form-data')
+	@ApiOperation({
+		summary: 'Добавить аватар',
+		description:
+			'Загружает новый аватар в media-service и добавляет его key в профиль'
+	})
+	@ApiBody({
+		schema: {
+			type: 'object',
+			properties: {
+				file: {
+					type: 'string',
+					format: 'binary'
+				}
+			},
+			required: ['file']
+		}
+	})
+	@ApiOkResponse({ description: 'Аватар добавлен' })
+	@ApiBadRequestResponse({ description: 'Некорректный файл' })
+	@Protected()
+	@Post('avatar')
+	@UseInterceptors(FileInterceptor('file'))
+	public async addAvatar(
+		@CurrentUser() id: string,
+		@UploadedFile(FileValidationPipe) file: Express.Multer.File
+	) {
+		const uploadResult = await lastValueFrom(
+			this.mediaClient.uploadAvatar({
+				accountId: id,
+				fileName: file.originalname,
+				contentType: file.mimetype,
+				data: file.buffer
+			})
+		)
 
-    return {
-      ok: true,
-      avatar: uploadResult.avatar,
-    };
-  }
+		const key = uploadResult.avatar?.key
+		if (!key) {
+			return { ok: false }
+		}
 
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Удалить аватар',
-    description: 'Удаляет аватар из media-service и убирает его key из профиля',
-  })
-  @ApiBody({ type: DeleteAvatarRequestDto })
-  @ApiOkResponse({ description: 'Аватар удален' })
-  @Protected()
-  @Delete('avatar')
-  public async deleteAvatar(
-    @CurrentUser() id: string,
-    @Body() dto: DeleteAvatarRequestDto,
-  ) {
-    await lastValueFrom(this.mediaClient.deleteAvatar({ key: dto.key }));
+		const current = await lastValueFrom(this.usersClient.getUser({ id }))
+		const avatars = current.user?.avatars ?? []
+		const nextAvatars = avatars.includes(key) ? avatars : [...avatars, key]
 
-    const current = await lastValueFrom(this.usersClient.getUser({ id }));
-    const avatars = current.user?.avatars ?? [];
-    const nextAvatars = avatars.filter((avatar) => avatar !== dto.key);
+		await lastValueFrom(
+			this.usersClient.patchUser({
+				userId: id,
+				avatars: { values: nextAvatars }
+			})
+		)
 
-    await lastValueFrom(
-      this.usersClient.patchUser({
-        userId: id,
-        avatars: { values: nextAvatars },
-      }),
-    );
+		this.chatRealtimeService.emitChatListInvalidate({
+			conversationId: '',
+			actorId: id,
+			reason: 'user.avatar.updated'
+		})
 
-    this.chatRealtimeService.emitChatListInvalidate({
-      conversationId: '',
-      actorId: id,
-      reason: 'user.avatar.deleted',
-    });
+		return {
+			ok: true,
+			avatar: uploadResult.avatar
+		}
+	}
 
-    return { ok: true };
-  }
+	@ApiBearerAuth('access-token')
+	@ApiOperation({
+		summary: 'Удалить аватар',
+		description:
+			'Удаляет аватар из media-service и убирает его key из профиля'
+	})
+	@ApiBody({ type: DeleteAvatarRequestDto })
+	@ApiOkResponse({ description: 'Аватар удален' })
+	@Protected()
+	@Delete('avatar')
+	public async deleteAvatar(
+		@CurrentUser() id: string,
+		@Body() dto: DeleteAvatarRequestDto
+	) {
+		await lastValueFrom(this.mediaClient.deleteAvatar({ key: dto.key }))
 
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Получить URL аватара',
-    description: 'Возвращает короткоживущий signed URL для приватного аватара',
-  })
-  @ApiBody({ type: DeleteAvatarRequestDto })
-  @ApiOkResponse({ description: 'Signed URL получен' })
-  @SkipThrottle()
-  @Protected()
-  @Post('avatar/url')
-  public async getAvatarUrl(@Body() dto: DeleteAvatarRequestDto) {
-    return await lastValueFrom(this.mediaClient.getAvatarUrl({ key: dto.key }));
-  }
+		const current = await lastValueFrom(this.usersClient.getUser({ id }))
+		const avatars = current.user?.avatars ?? []
+		const nextAvatars = avatars.filter(avatar => avatar !== dto.key)
+
+		await lastValueFrom(
+			this.usersClient.patchUser({
+				userId: id,
+				avatars: { values: nextAvatars }
+			})
+		)
+
+		this.chatRealtimeService.emitChatListInvalidate({
+			conversationId: '',
+			actorId: id,
+			reason: 'user.avatar.deleted'
+		})
+
+		return { ok: true }
+	}
+
+	@ApiBearerAuth('access-token')
+	@ApiOperation({
+		summary: 'Получить URL аватара',
+		description:
+			'Возвращает короткоживущий signed URL для приватного аватара'
+	})
+	@ApiBody({ type: DeleteAvatarRequestDto })
+	@ApiOkResponse({ description: 'Signed URL получен' })
+	@SkipThrottle()
+	@Protected()
+	@Post('avatar/url')
+	public async getAvatarUrl(@Body() dto: DeleteAvatarRequestDto) {
+		return await lastValueFrom(
+			this.mediaClient.getAvatarUrl({ key: dto.key })
+		)
+	}
 }

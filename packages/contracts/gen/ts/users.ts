@@ -193,6 +193,46 @@ export interface ChatFolder {
   updatedAt: number;
 }
 
+export interface ListSearchHistoryRequest {
+  userId: string;
+  limit?: number | undefined;
+}
+
+export interface ListSearchHistoryResponse {
+  entries: SearchHistoryEntry[];
+}
+
+export interface UpsertSearchHistoryRequest {
+  userId: string;
+  query: string;
+}
+
+export interface SearchHistoryResponse {
+  entry: SearchHistoryEntry | undefined;
+}
+
+export interface DeleteSearchHistoryEntryRequest {
+  userId: string;
+  entryId: string;
+}
+
+export interface ClearSearchHistoryRequest {
+  userId: string;
+}
+
+export interface PatchLastSeenAtRequest {
+  userId: string;
+  lastSeenAt: number;
+}
+
+export interface SearchHistoryEntry {
+  id: string;
+  userId: string;
+  query: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 /** Generic patch status response. */
 export interface PatchResponse {
   ok: boolean;
@@ -210,6 +250,7 @@ export interface User {
   createdAt: number;
   updatedAt: number;
   bio?: string | undefined;
+  lastSeenAt?: number | undefined;
 }
 
 /** User privacy settings. */
@@ -270,6 +311,26 @@ export interface UsersServiceClient {
   /** Reorders chat folders for current user. */
 
   reorderChatFolders(request: ReorderChatFoldersRequest): Observable<PatchResponse>;
+
+  /** Returns recent search history for current user. */
+
+  listSearchHistory(request: ListSearchHistoryRequest): Observable<ListSearchHistoryResponse>;
+
+  /** Adds (or bumps) single search query in history. */
+
+  upsertSearchHistory(request: UpsertSearchHistoryRequest): Observable<SearchHistoryResponse>;
+
+  /** Deletes one search history entry for current user. */
+
+  deleteSearchHistoryEntry(request: DeleteSearchHistoryEntryRequest): Observable<PatchResponse>;
+
+  /** Clears all search history entries for current user. */
+
+  clearSearchHistory(request: ClearSearchHistoryRequest): Observable<PatchResponse>;
+
+  /** Updates user's last seen timestamp. */
+
+  patchLastSeenAt(request: PatchLastSeenAtRequest): Observable<PatchResponse>;
 }
 
 /** Users service exposes profile and privacy management operations. */
@@ -328,6 +389,34 @@ export interface UsersServiceController {
   reorderChatFolders(
     request: ReorderChatFoldersRequest,
   ): Promise<PatchResponse> | Observable<PatchResponse> | PatchResponse;
+
+  /** Returns recent search history for current user. */
+
+  listSearchHistory(
+    request: ListSearchHistoryRequest,
+  ): Promise<ListSearchHistoryResponse> | Observable<ListSearchHistoryResponse> | ListSearchHistoryResponse;
+
+  /** Adds (or bumps) single search query in history. */
+
+  upsertSearchHistory(
+    request: UpsertSearchHistoryRequest,
+  ): Promise<SearchHistoryResponse> | Observable<SearchHistoryResponse> | SearchHistoryResponse;
+
+  /** Deletes one search history entry for current user. */
+
+  deleteSearchHistoryEntry(
+    request: DeleteSearchHistoryEntryRequest,
+  ): Promise<PatchResponse> | Observable<PatchResponse> | PatchResponse;
+
+  /** Clears all search history entries for current user. */
+
+  clearSearchHistory(
+    request: ClearSearchHistoryRequest,
+  ): Promise<PatchResponse> | Observable<PatchResponse> | PatchResponse;
+
+  /** Updates user's last seen timestamp. */
+
+  patchLastSeenAt(request: PatchLastSeenAtRequest): Promise<PatchResponse> | Observable<PatchResponse> | PatchResponse;
 }
 
 export function UsersServiceControllerMethods() {
@@ -343,6 +432,11 @@ export function UsersServiceControllerMethods() {
       "updateChatFolder",
       "deleteChatFolder",
       "reorderChatFolders",
+      "listSearchHistory",
+      "upsertSearchHistory",
+      "deleteSearchHistoryEntry",
+      "clearSearchHistory",
+      "patchLastSeenAt",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

@@ -3,20 +3,27 @@ import { RpcException } from '@nestjs/microservices';
 import { RpcStatus } from '@repo/common';
 import type {
   ChatFolderResponse,
+  ClearSearchHistoryRequest,
   CreateUserRequest,
   CreateChatFolderRequest,
+  DeleteSearchHistoryEntryRequest,
   DeleteChatFolderRequest,
   CreateUserResponse,
   GetUserRequest,
   GetUserResponse,
   ListChatFoldersRequest,
   ListChatFoldersResponse,
+  ListSearchHistoryRequest,
+  ListSearchHistoryResponse,
   ListUsersRequest,
   ListUsersResponse,
+  PatchLastSeenAtRequest,
   PatchPrivacySettingsRequest,
   PatchResponse,
   PatchUserRequest,
   ReorderChatFoldersRequest,
+  SearchHistoryResponse,
+  UpsertSearchHistoryRequest,
   UpdateChatFolderRequest,
 } from '@repo/contracts/gen/ts/users';
 
@@ -214,6 +221,133 @@ export class UsersService {
     await this.usersRepository.reorderChatFolders({
       userId,
       folderIds: data.folderIds ?? [],
+    });
+
+    return { ok: true };
+  }
+
+  public async listSearchHistory(
+    data: ListSearchHistoryRequest,
+  ): Promise<ListSearchHistoryResponse> {
+    const userId = data.userId?.trim();
+
+    if (!userId) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'User id is required',
+      });
+    }
+
+    const user = await this.usersRepository.getById(userId);
+    if (!user) {
+      throw new RpcException({
+        code: RpcStatus.NOT_FOUND,
+        details: 'User not found',
+      });
+    }
+
+    return await this.usersRepository.listSearchHistory({
+      userId,
+      limit: data.limit,
+    });
+  }
+
+  public async upsertSearchHistory(
+    data: UpsertSearchHistoryRequest,
+  ): Promise<SearchHistoryResponse> {
+    const userId = data.userId?.trim();
+    const query = data.query?.trim();
+
+    if (!userId || !query) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'User id and query are required',
+      });
+    }
+
+    const user = await this.usersRepository.getById(userId);
+    if (!user) {
+      throw new RpcException({
+        code: RpcStatus.NOT_FOUND,
+        details: 'User not found',
+      });
+    }
+
+    return await this.usersRepository.upsertSearchHistory({
+      userId,
+      query,
+    });
+  }
+
+  public async deleteSearchHistoryEntry(
+    data: DeleteSearchHistoryEntryRequest,
+  ): Promise<PatchResponse> {
+    const userId = data.userId?.trim();
+    const entryId = data.entryId?.trim();
+
+    if (!userId || !entryId) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'User id and entry id are required',
+      });
+    }
+
+    const user = await this.usersRepository.getById(userId);
+    if (!user) {
+      throw new RpcException({
+        code: RpcStatus.NOT_FOUND,
+        details: 'User not found',
+      });
+    }
+
+    await this.usersRepository.deleteSearchHistoryEntry({
+      userId,
+      entryId,
+    });
+
+    return { ok: true };
+  }
+
+  public async clearSearchHistory(
+    data: ClearSearchHistoryRequest,
+  ): Promise<PatchResponse> {
+    const userId = data.userId?.trim();
+
+    if (!userId) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'User id is required',
+      });
+    }
+
+    const user = await this.usersRepository.getById(userId);
+    if (!user) {
+      throw new RpcException({
+        code: RpcStatus.NOT_FOUND,
+        details: 'User not found',
+      });
+    }
+
+    await this.usersRepository.clearSearchHistory({ userId });
+
+    return { ok: true };
+  }
+
+  public async patchLastSeenAt(
+    data: PatchLastSeenAtRequest,
+  ): Promise<PatchResponse> {
+    const userId = data.userId?.trim();
+
+    if (!userId) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'User id is required',
+      });
+    }
+
+    await this.usersRepository.patchLastSeenAt({
+      userId,
+      lastSeenAt: data.lastSeenAt,
     });
 
     return { ok: true };

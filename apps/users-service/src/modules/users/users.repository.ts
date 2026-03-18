@@ -5,18 +5,26 @@ import { RpcStatus } from '@repo/common';
 import type {
   ChatFolder,
   ChatFolderResponse,
+  ClearSearchHistoryRequest,
   CreateChatFolderRequest,
+  DeleteSearchHistoryEntryRequest,
   DeleteChatFolderRequest,
   GetUserRequest,
   GetUserResponse,
   ListChatFoldersRequest,
   ListChatFoldersResponse,
+  ListSearchHistoryRequest,
+  ListSearchHistoryResponse,
   ListUsersRequest,
   ListUsersResponse,
+  PatchLastSeenAtRequest,
   PatchPrivacySettingsRequest,
   PatchUserRequest,
   PrivacySettings,
   ReorderChatFoldersRequest,
+  SearchHistoryEntry,
+  SearchHistoryResponse,
+  UpsertSearchHistoryRequest,
   UpdateChatFolderRequest,
   User,
 } from '@repo/contracts/gen/ts/users';
@@ -279,6 +287,127 @@ export class UsersRepository {
     );
   }
 
+  public async listSearchHistory(
+    data: ListSearchHistoryRequest,
+  ): Promise<ListSearchHistoryResponse> {
+    const userId = data.userId?.trim();
+    if (!userId) {
+      return { entries: [] };
+    }
+
+    const limit =
+      typeof data.limit === 'number' && data.limit > 0
+        ? Math.min(Math.floor(data.limit), 30)
+        : 20;
+
+    const entries = await this.prismaService.searchHistory.findMany({
+      where: { userId },
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      take: limit,
+    });
+
+    return {
+      entries: entries.map((entry) => this.mapSearchHistoryEntity(entry)),
+    };
+  }
+
+  public async upsertSearchHistory(
+    data: UpsertSearchHistoryRequest,
+  ): Promise<SearchHistoryResponse> {
+    const userId = data.userId?.trim();
+    const query = this.normalizeSearchQuery(data.query);
+
+    if (!userId || !query) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'User id and query are required',
+      });
+    }
+
+    const normalizedQuery = query.toLowerCase();
+
+    const entry = await this.prismaService.searchHistory.upsert({
+      where: {
+        userId_normalizedQuery: {
+          userId,
+          normalizedQuery,
+        },
+      },
+      create: {
+        userId,
+        query,
+        normalizedQuery,
+      },
+      update: {
+        query,
+      },
+    });
+
+    const staleEntries = await this.prismaService.searchHistory.findMany({
+      where: { userId },
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      skip: 50,
+      select: { id: true },
+    });
+
+    if (staleEntries.length > 0) {
+      await this.prismaService.searchHistory.deleteMany({
+        where: {
+          id: {
+            in: staleEntries.map((item) => item.id),
+          },
+        },
+      });
+    }
+
+    return {
+      entry: this.mapSearchHistoryEntity(entry),
+    };
+  }
+
+  public async deleteSearchHistoryEntry(
+    data: DeleteSearchHistoryEntryRequest,
+  ): Promise<void> {
+    const userId = data.userId?.trim();
+    const entryId = data.entryId?.trim();
+
+    if (!userId || !entryId) {
+      return;
+    }
+
+    await this.prismaService.searchHistory.deleteMany({
+      where: {
+        id: entryId,
+        userId,
+      },
+    });
+  }
+
+  public async clearSearchHistory(data: ClearSearchHistoryRequest): Promise<void> {
+    const userId = data.userId?.trim();
+    if (!userId) {
+      return;
+    }
+
+    await this.prismaService.searchHistory.deleteMany({
+      where: { userId },
+    });
+  }
+
+  public async patchLastSeenAt(data: PatchLastSeenAtRequest): Promise<void> {
+    const userId = data.userId?.trim();
+    const lastSeenAt = this.parseLastSeenAt(data.lastSeenAt);
+
+    if (!userId || !lastSeenAt) {
+      return;
+    }
+
+    await this.prismaService.user.updateMany({
+      where: { id: userId },
+      data: { lastSeenAt },
+    });
+  }
+
   public async create(data: Record<string, unknown>): Promise<void> {
     await this.prismaService.user.create({ data: data as any });
   }
@@ -418,6 +547,30 @@ export class UsersRepository {
     return date;
   }
 
+  private parseLastSeenAt(value: unknown): Date | null {
+    if (value === null || value === undefined || value === '' || value === '0' || value === 0) {
+      return null;
+    }
+
+    const epoch =
+      typeof value === 'string' ? Number(value) : (value as number);
+
+    if (!Number.isFinite(epoch)) {
+      return null;
+    }
+
+    const date = new Date(epoch);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+
+    return date;
+  }
+
+  private normalizeSearchQuery(value: string | undefined): string {
+    return (value ?? '').replace(/\s+/g, ' ').trim().slice(0, 160);
+  }
+
   private normalizePrivacySettings(input: unknown): PrivacySettings {
     const source = (input ?? {}) as Partial<Record<keyof PrivacySettings, any>>;
 
@@ -444,7 +597,18 @@ export class UsersRepository {
       avatars: entity.avatars ?? [],
       birthDate: entity.birthDate ? entity.birthDate.getTime() : undefined,
       bio: entity.bio ?? undefined,
+      lastSeenAt: entity.lastSeenAt ? entity.lastSeenAt.getTime() : undefined,
       privacySettings: this.normalizePrivacySettings(entity.privacySettings),
+      createdAt: entity.createdAt.getTime(),
+      updatedAt: entity.updatedAt.getTime(),
+    };
+  }
+
+  private mapSearchHistoryEntity(entity: any): SearchHistoryEntry {
+    return {
+      id: entity.id,
+      userId: entity.userId,
+      query: entity.query,
       createdAt: entity.createdAt.getTime(),
       updatedAt: entity.updatedAt.getTime(),
     };

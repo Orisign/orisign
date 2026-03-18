@@ -1,8 +1,8 @@
-import { ValidationPipeOptions } from "@nestjs/common";
+import { ValidationPipeOptions } from '@nestjs/common'
 
 export function getValidationPipeConfig(): ValidationPipeOptions {
-  return {
-    transform: true,
-    whitelist: true,
-  };
+	return {
+		transform: true,
+		whitelist: true
+	}
 }

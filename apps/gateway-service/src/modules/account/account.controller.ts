@@ -1,4 +1,11 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common'
+import {
+	Body,
+	Controller,
+	Get,
+	HttpCode,
+	HttpStatus,
+	Post
+} from '@nestjs/common'
 import {
 	ApiBadRequestResponse,
 	ApiBearerAuth,
@@ -29,7 +36,8 @@ export class AccountController {
 
 	@ApiOperation({
 		summary: 'Текущий аккаунт',
-		description: 'Возвращает данные аккаунта текущего авторизованного пользователя'
+		description:
+			'Возвращает данные аккаунта текущего авторизованного пользователя'
 	})
 	@ApiOkResponse({ type: AccountResponseDto })
 	@Get('me')

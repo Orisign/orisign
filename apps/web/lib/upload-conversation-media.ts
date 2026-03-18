@@ -15,20 +15,41 @@ interface UploadConversationMediaResponse {
   media: UploadedConversationMedia | null;
 }
 
+type UploadConversationMediaKind = "messages" | "voice" | "ring";
+
+interface UploadConversationMediaOptions {
+  mediaKind?: UploadConversationMediaKind;
+  conversationId?: string;
+}
+
 export async function uploadConversationMedia(
   file: File,
   onProgress?: (progress: number) => void,
+  options: UploadConversationMediaOptions = {},
 ): Promise<UploadedConversationMedia> {
-  const endpoint = buildApiUrl("/conversations/media");
+  const endpoint = new URL(buildApiUrl("/conversations/media"));
   const token = getCookie("accessToken");
+
+  if (options.mediaKind) {
+    endpoint.searchParams.set("mediaKind", options.mediaKind);
+  }
+  if (options.conversationId) {
+    endpoint.searchParams.set("conversationId", options.conversationId);
+  }
 
   return await new Promise<UploadedConversationMedia>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const formData = new FormData();
 
-    formData.append("file", file);
+    formData.append("mediaKind", options.mediaKind ?? "messages");
 
-    xhr.open("POST", endpoint, true);
+    if (options.conversationId) {
+      formData.append("conversationId", options.conversationId);
+    }
+
+    formData.append("file", file, file.name);
+
+    xhr.open("POST", endpoint.toString(), true);
     xhr.withCredentials = true;
 
     if (token) {

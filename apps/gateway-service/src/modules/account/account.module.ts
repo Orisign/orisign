@@ -11,7 +11,9 @@ import { AccountClientGrpc } from './account.grpc'
 	imports: [
 		PassportModule.registerAsync({
 			useFactory: (configService: ConfigService) => ({
-				secretKey: configService.getOrThrow<string>('PASSPORT_SECRET_KEY')
+				secretKey: configService.getOrThrow<string>(
+					'PASSPORT_SECRET_KEY'
+				)
 			}),
 			inject: [ConfigService]
 		}),
