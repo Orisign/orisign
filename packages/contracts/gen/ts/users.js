@@ -33,6 +33,11 @@ function UsersServiceControllerMethods() {
             "updateChatFolder",
             "deleteChatFolder",
             "reorderChatFolders",
+            "listSearchHistory",
+            "upsertSearchHistory",
+            "deleteSearchHistoryEntry",
+            "clearSearchHistory",
+            "patchLastSeenAt",
         ];
         for (const method of grpcMethods) {
             const descriptor = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

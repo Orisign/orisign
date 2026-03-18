@@ -10,9 +10,12 @@ import {
   getUserAvatarUrl,
   getUserDisplayName,
   getUserInitial,
+  isRingMediaKey,
   isSameCalendarDay,
+  isVoiceMediaKey,
   normalizeTimestamp,
 } from "@/lib/chat";
+import { extractMessageUrls, stripMessageFormatting } from "@/lib/chat-message-format";
 import {
   parseCallLogMessageText,
 } from "@/lib/call-log-message";
@@ -21,7 +24,6 @@ import { Check, CheckCheck } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   selectionToggleVariants,
-  SPRING_LAYOUT,
   SPRING_SOFT,
 } from "@/lib/animations";
 import { MdRemoveRedEye } from "react-icons/md";
@@ -33,6 +35,8 @@ import {
 } from "react-icons/fi";
 import { ChatMessageContextMenu } from "./chat-message-context-menu";
 import { ChatMessageMedia } from "./chat-message-media";
+import { ChatFormattedMessage } from "./chat-formatted-message";
+import { ChatMessageLinkPreview } from "./chat-message-link-preview";
 import type { ChatMessageReadReceipt } from "./chat-message-read-dialog";
 import type { ChatEditTarget, ChatReplyTarget } from "./chat.types";
 import { useGeneralSettingsStore } from "@/store/settings/general-settings.store";
@@ -71,19 +75,31 @@ function getBubbleClassName({
   startsGroup,
   endsGroup,
   selectionMode,
+  minimalMedia,
 }: {
   isOwn: boolean;
   startsGroup: boolean;
   endsGroup: boolean;
   selectionMode: boolean;
+  minimalMedia: boolean;
 }) {
   const classes = [
-    "relative w-fit max-w-[38rem] px-2.5 py-1.5 transition-[background-color,box-shadow,transform] duration-200",
+    "relative w-fit max-w-[38rem] transition-[background-color,box-shadow,transform] duration-200",
     selectionMode ? "cursor-pointer" : "cursor-context-menu",
   ];
 
+  if (minimalMedia) {
+    classes.push("bg-transparent px-0 py-0 shadow-none");
+  } else {
+    classes.push("px-2.5 py-1.5");
+  }
+
   if (isOwn) {
-    classes.push("bg-primary text-primary-foreground");
+    if (!minimalMedia) {
+      classes.push("bg-primary text-primary-foreground");
+    } else {
+      classes.push("text-primary-foreground");
+    }
 
     if (startsGroup && endsGroup) {
       classes.push("rounded-[1rem] rounded-br-[0.3rem]");
@@ -98,7 +114,11 @@ function getBubbleClassName({
     return classes.join(" ");
   }
 
-  classes.push("bg-accent/85 text-foreground backdrop-blur-sm");
+  if (!minimalMedia) {
+    classes.push("bg-sidebar text-foreground");
+  } else {
+    classes.push("text-foreground");
+  }
 
   if (startsGroup && endsGroup) {
     classes.push("rounded-[1rem] rounded-bl-[0.3rem]");
@@ -153,7 +173,7 @@ export function ChatMessageItem({
   if (message.kind === CHAT_MESSAGE_KIND.SYSTEM) {
     return (
       <div className="flex justify-center py-1">
-        <div className="rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur-sm">
+        <div className="rounded-full border border-border bg-sidebar px-3 py-1 text-xs font-medium text-muted-foreground">
           {message.text}
         </div>
       </div>
@@ -186,8 +206,18 @@ export function ChatMessageItem({
 
   const showAuthorName = !isOwn && startsGroup && Boolean(authorName);
   const showAvatar = !isOwn && !isChannel && endsGroup;
-  const replyPreviewText = repliedMessage?.text?.trim() || replyUnavailableLabel;
+  const replyPreviewText = stripMessageFormatting(repliedMessage?.text ?? "").trim() || replyUnavailableLabel;
   const showReplyBlock = Boolean(message.replyToId);
+  const hasOnlyRingMedia =
+    mediaKeys.length > 0 &&
+    mediaKeys.every((mediaKey) => isRingMediaKey(mediaKey));
+  const hasOnlyVoiceOrRingMedia =
+    mediaKeys.length > 0 &&
+    mediaKeys.every((mediaKey) => isVoiceMediaKey(mediaKey) || isRingMediaKey(mediaKey));
+  const showInlineMediaMeta = hasOnlyVoiceOrRingMedia && !messageText && !isCallLogMessage;
+  const messageLinkUrls = !isCallLogMessage
+    ? extractMessageUrls(messageText, 3)
+    : [];
   const messageMeta = (
     <span
       className={cn(
@@ -218,14 +248,13 @@ export function ChatMessageItem({
   }
 
   const bubble = (
-    <motion.div
-      layout="position"
-      transition={SPRING_LAYOUT}
+    <div
       className={getBubbleClassName({
         isOwn,
         startsGroup,
         endsGroup,
         selectionMode,
+        minimalMedia: hasOnlyRingMedia,
       })}
       onClick={selectionMode ? handleToggleSelect : undefined}
     >
@@ -363,19 +392,28 @@ export function ChatMessageItem({
                     messageId={message.id}
                     mediaKeys={mediaKeys}
                     canDelete={isOwn && !isDeleted}
+                    inlineMeta={showInlineMediaMeta ? messageMeta : null}
                   />
                 </div>
               ) : null}
 
               {messageText ? (
-                <div className="relative">
-                  <p className="whitespace-pre-wrap break-words text-[length:var(--chat-message-font-size,15px)] leading-[1.15]">
-                    {messageText}
-                    <span aria-hidden className="inline-block w-24" />
-                  </p>
-                  <span className="pointer-events-none absolute bottom-0 right-0">
+                <div className="min-w-0">
+                  <ChatFormattedMessage text={messageText} isOwn={isOwn} />
+                  {messageLinkUrls.length > 0 ? (
+                    <div className="mt-1.5 flex max-w-[28rem] flex-col gap-1.5">
+                      {messageLinkUrls.map((url) => (
+                        <ChatMessageLinkPreview
+                          key={`${message.id}-link-preview-${url}`}
+                          url={url}
+                          isOwn={isOwn}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="mt-1 flex justify-end">
                     {messageMeta}
-                  </span>
+                  </div>
                 </div>
               ) : null}
             </>
@@ -387,8 +425,10 @@ export function ChatMessageItem({
         </p>
       )}
 
-      {!messageText && !isCallLogMessage ? <div className="mt-px">{messageMeta}</div> : null}
-    </motion.div>
+      {!messageText && !isCallLogMessage && !showInlineMediaMeta ? (
+        <div className="mt-px">{messageMeta}</div>
+      ) : null}
+    </div>
   );
 
   const selectionToggle = (
@@ -443,27 +483,15 @@ export function ChatMessageItem({
   };
 
   const content = isOwn ? (
-    <motion.div
-      layout="position"
-      transition={SPRING_LAYOUT}
-      className="relative mt-0.5 flex w-full justify-end px-0"
-    >
+    <div className="relative mt-0.5 flex w-full justify-end px-0">
       {renderRowHighlight()}
       {selectionToggle("left-0")}
-      <motion.div
-        layout="position"
-        transition={SPRING_LAYOUT}
-        className="relative flex max-w-[85%] flex-col items-end"
-      >
+      <div className="relative flex max-w-[85%] flex-col items-end">
         {bubble}
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   ) : (
-    <motion.div
-      layout="position"
-      transition={SPRING_LAYOUT}
-      className="relative mt-0.5 flex w-full justify-start px-0 pl-10"
-    >
+    <div className="relative mt-0.5 flex w-full justify-start px-0 pl-10">
       {renderRowHighlight()}
       {selectionToggle(showAvatar ? "-left-8" : "left-0")}
       {showAvatar ? (
@@ -485,14 +513,10 @@ export function ChatMessageItem({
           </AvatarFallback>
         </Avatar>
       ) : null}
-      <motion.div
-        layout="position"
-        transition={SPRING_LAYOUT}
-        className="relative flex max-w-[85%] min-w-0 flex-col items-start"
-      >
+      <div className="relative flex max-w-[85%] min-w-0 flex-col items-start">
         {bubble}
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 
   return (
@@ -509,6 +533,7 @@ export function ChatMessageItem({
       onEdit={onEdit}
       onStartSelect={onStartSelect}
       replyAuthorName={authorName}
+      mediaKeys={mediaKeys}
     >
       {content}
     </ChatMessageContextMenu>

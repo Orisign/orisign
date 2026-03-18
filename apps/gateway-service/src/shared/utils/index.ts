@@ -1,1 +1,1 @@
-export * from './grpc-to-http-status.filter';
+export * from './grpc-to-http-status.filter'

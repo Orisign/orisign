@@ -20,10 +20,12 @@ export function SectionButton({ icon, title, route }: SectionButtonProps) {
       onClick={() => push(route)}
       className={SECTION_BUTTON_CLASSNAME}
     >
-      <div className="flex items-center justify-center gap-5">
-        {icon}
-        <div className="flex flex-1 flex-col space-y-1">
-          <p className="font-semibold">{title}</p>
+      <div className="flex min-w-0 items-start justify-center gap-5">
+        <span className="shrink-0">{icon}</span>
+        <div className="flex min-w-0 flex-1 flex-col space-y-1">
+          <p className="break-words [overflow-wrap:anywhere] font-semibold leading-snug">
+            {title}
+          </p>
         </div>
       </div>
     </Ripple>

@@ -40,7 +40,9 @@ export function CreateConversationMembersSidebar({
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
-  const selectedUserIds = route.selectedUserIds;
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>(
+    route.selectedUserIds,
+  );
   const isDirect = route.type === "direct";
 
   const usersQuery = useUsersList({
@@ -74,21 +76,14 @@ export function CreateConversationMembersSidebar({
     },
   });
 
-  function updateSelectedUserIds(nextUserIds: string[]) {
-    setCurrent({
-      ...route,
-      selectedUserIds: nextUserIds,
-    });
-  }
-
   function handleToggleUser(userId: string) {
     const isSelected = selectedUserIds.includes(userId);
     if (isDirect) {
-      updateSelectedUserIds(isSelected ? [] : [userId]);
+      setSelectedUserIds(isSelected ? [] : [userId]);
       return;
     }
 
-    updateSelectedUserIds(
+    setSelectedUserIds(
       isSelected
         ? selectedUserIds.filter((id) => id !== userId)
         : [...selectedUserIds, userId],
@@ -104,16 +99,20 @@ export function CreateConversationMembersSidebar({
       createConversation({
         data: {
           type: CreateConversationRequestDtoType.NUMBER_1,
-          memberIds: selectedUserIds,
+          memberIds: [...selectedUserIds],
         },
       });
       return;
     }
 
+    setCurrent({
+      ...route,
+      selectedUserIds: [...selectedUserIds],
+    });
     push({
       screen: "create-conversation-details",
       type: "group",
-      memberIds: selectedUserIds,
+      memberIds: [...selectedUserIds],
     });
   }
 

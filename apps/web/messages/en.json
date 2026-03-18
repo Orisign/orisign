@@ -62,7 +62,116 @@
     "dismissAriaLabel": "Close search",
     "placeholder": "Search by chat name",
     "startTyping": "Type chat name to search.",
-    "empty": "No chats found"
+    "empty": "No chats found",
+    "resultsTitle": "Results",
+    "historyTitle": "Recent chats",
+    "clearAll": "Clear all",
+    "deleteHistoryItemAriaLabel": "Delete chat from search history",
+    "emptyRecentTitle": "Search history is empty",
+    "emptyRecentDescription": "Open chats from search and they will appear here.",
+    "clearDialogTitle": "Clear search history?",
+    "clearDialogDescription": "All chats opened from search will be removed from history.",
+    "clearDialogCancel": "Cancel",
+    "clearDialogConfirm": "Clear"
+  },
+  "rightSidebar": {
+    "title": "Chat info",
+    "backAriaLabel": "Close panel",
+    "goBackAriaLabel": "Go back",
+    "directFallback": "Direct chat",
+    "unknownUser": "User",
+    "header": {
+      "tabCounter": "{tab}, {count}",
+      "membersCounter": "{count} members",
+      "selectedCounter": "Selected: {count}"
+    },
+    "members": {
+      "title": "Members",
+      "addTitle": "Add members",
+      "notifications": "Notifications",
+      "searchPlaceholder": "Search members",
+      "searchUsersPlaceholder": "Search users",
+      "addSelected": "Add ({count})",
+      "adding": "Adding...",
+      "added": "Members added",
+      "addError": "Failed to add members",
+      "adminGranted": "Admin rights updated",
+      "rightsRestricted": "Member rights restricted",
+      "removed": "Member removed",
+      "roleUpdateError": "Failed to update member role",
+      "removeError": "Failed to remove member",
+      "writeError": "Failed to open chat",
+      "editAriaLabel": "Edit chat info",
+      "editUnavailable": "Editing for this chat type is not available yet",
+      "addAriaLabel": "Add members",
+      "emptySearch": "No users found"
+    },
+    "sections": {
+      "type": "Type",
+      "username": "Username",
+      "about": "Description",
+      "direct": "Direct chat",
+      "group": "Group",
+      "channel": "Channel",
+      "subscribers": "Subscribers",
+      "chat": "Chat",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "tabs": {
+      "media": "Media",
+      "files": "Files",
+      "links": "Links",
+      "voice": "Voice",
+      "members": "Members"
+    },
+    "empty": {
+      "media": "No media yet",
+      "files": "No files yet",
+      "links": "No links yet",
+      "voice": "No voice messages yet",
+      "members": "No members found"
+    },
+    "loadMore": "Load more",
+    "loadingMore": "Loading...",
+    "context": {
+      "goToMessage": "Go to message",
+      "select": "Select",
+      "delete": "Delete",
+      "openLink": "Open link",
+      "copyLink": "Copy link",
+      "copyUser": "Copy user",
+      "write": "Write message",
+      "makeAdmin": "Make admin",
+      "restrictRights": "Restrict rights",
+      "removeMember": "Remove from group",
+      "download": "Download",
+      "downloaded": "Downloaded",
+      "downloadError": "Failed to download",
+      "linkCopied": "Link copied",
+      "userCopied": "User copied",
+      "copyError": "Failed to copy",
+      "deleteError": "Failed to delete message"
+    },
+    "preview": {
+      "close": "Close",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "download": "Download",
+      "delete": "Delete",
+      "seekVideo": "Seek video",
+      "pauseVideo": "Pause",
+      "playVideo": "Play",
+      "muteVideo": "Mute",
+      "unmuteVideo": "Unmute"
+    },
+    "memberRole": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "moderator": "Moderator",
+      "member": "Member",
+      "subscriber": "Subscriber"
+    }
   },
   "chat": {
     "list": {
@@ -88,7 +197,14 @@
       "searchPlaceholder": "Search",
       "members": "{count, plural, one {# member} other {# members}}",
       "directFallback": "Direct chat",
-      "incomingCall": "Incoming call"
+      "unknownUser": "User",
+      "incomingCall": "Incoming call",
+      "online": "online",
+      "lastSeenAt": "last seen at {time}",
+      "typing": "typing...",
+      "typingByUser": "{name} is typing...",
+      "uploadingMedia": "uploading media...",
+      "uploadingMediaByUser": "{name} is uploading media..."
     },
     "callWindow": {
       "secured": "End-to-end encrypted",
@@ -131,7 +247,20 @@
       "blockedByPeerHint": "You can't send messages because this user has blocked you.",
       "unblockAction": "Unblock",
       "unblockError": "Failed to unblock user",
-      "sendError": "Failed to send message"
+      "sendError": "Failed to send message",
+      "dragToPin": "Drag up to pin recording",
+      "releaseToPin": "Release to pin",
+      "recordingSavedHint": "Recording draft saved",
+      "recordUnsupported": "Voice recording is not supported in this browser",
+      "recordPermissionError": "Allow microphone access to send voice messages",
+      "recordingTooShort": "Recording is too short",
+      "circleLabel": "Circle",
+      "recordingPinned": "Recording pinned",
+      "recordUploading": "Uploading media... {progress}%",
+      "recordButtonHintVoice": "Tap to switch to video circle. Drag up to start and pin voice recording",
+      "recordButtonHintRing": "Tap to switch to voice message. Drag up to start and pin video circle",
+      "recordingRingLabel": "Video circle recording",
+      "recordingRingLimit": "Max 60s"
     },
     "messages": {
       "empty": "No messages yet",
@@ -158,6 +287,17 @@
         "close": "Close",
         "zoomIn": "Zoom in",
         "zoomOut": "Zoom out",
+        "download": "Download",
+        "downloadError": "Failed to download file",
+        "seekVideo": "Seek video",
+        "pauseVideo": "Pause",
+        "playVideo": "Play",
+        "muteVideo": "Mute",
+        "unmuteVideo": "Unmute",
+        "pauseVoice": "Pause voice message",
+        "playVoice": "Play voice message",
+        "pauseCircle": "Pause video circle",
+        "playCircle": "Play video circle",
         "delete": "Delete message",
         "deleteError": "Failed to delete message"
       },
@@ -171,10 +311,13 @@
         "copyLink": "Copy link",
         "edit": "Edit",
         "select": "Select",
+        "download": "Download",
         "readBy": "{count, plural, one {# view} other {# views}}",
         "delete": "Delete",
         "copied": "Message copied",
-        "linkCopied": "Link copied"
+        "linkCopied": "Link copied",
+        "downloaded": "File downloaded",
+        "downloadError": "Failed to download file"
       },
       "readDialog": {
         "title": "{count, plural, one {# view} other {# views}}",
@@ -256,10 +399,45 @@
       "notificationsAndSound": "Notifications and sound",
       "dataAndStorage": "Data and storage",
       "privacyAndSecurity": "Privacy and security",
+      "devices": "Devices",
       "generalSettings": "General settings",
       "chatFolders": "Chat folders",
       "stickersAndEmoji": "Stickers and emoji",
       "language": "Language"
+    }
+  },
+  "sessionsSidebar": {
+    "title": "Devices",
+    "subtitle": "Manage active Orisign sessions across your devices.",
+    "currentSession": "This device",
+    "otherSessions": "Other devices",
+    "empty": "No other active sessions",
+    "unknownClient": "Unknown client",
+    "labels": {
+      "desktop": "Desktop",
+      "mobile": "Phone",
+      "tablet": "Tablet",
+      "browser": "Browser"
+    },
+    "meta": {
+      "ip": "IP: {value}",
+      "lastSeen": "Last activity: {value}",
+      "createdAt": "Signed in: {value}"
+    },
+    "actions": {
+      "backAriaLabel": "Back",
+      "refresh": "Refresh",
+      "current": "Current",
+      "terminate": "Terminate",
+      "terminating": "Terminating...",
+      "terminateAllOthers": "Terminate all others"
+    },
+    "states": {
+      "loadError": "Failed to load sessions",
+      "revokeError": "Failed to terminate session",
+      "revokeSuccess": "Session terminated",
+      "revokeAllSuccess": "All other sessions terminated",
+      "revokeAllError": "Failed to terminate some sessions"
     }
   },
   "languageSidebar": {

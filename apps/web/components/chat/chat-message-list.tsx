@@ -25,18 +25,18 @@ import {
 } from "@/lib/chat";
 import { ScrollArea, Skeleton } from "@repo/ui";
 import { useQueryClient } from "@tanstack/react-query";
-import { AnimatePresence, motion, useInView } from "motion/react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import InfiniteScroll from "react-infinite-scroll-component";
-import {
-  createStaggerContainerVariants,
-  messageListItemVariants,
-} from "@/lib/animations";
+import { AnimatePresence, motion } from "motion/react";
 import type { ChatMessageReadReceipt } from "./chat-message-read-dialog";
 import { ChatMessageDayDivider } from "./chat-message-day-divider";
 import { ChatMessageItem } from "./chat-message-item";
 import type { ChatEditTarget, ChatReplyTarget } from "./chat.types";
+import {
+  messageListItemVariants,
+  messageListLayoutTransition,
+} from "@/lib/animations";
 
 interface ChatMessageListProps {
   conversationId: string;
@@ -80,20 +80,6 @@ export function ChatMessageList({
   const [highlightedMessageId, setHighlightedMessageId] = useState("");
   const [hasMoreOlder, setHasMoreOlder] = useState(true);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
-  const listRef = useRef<HTMLDivElement | null>(null);
-  const listInView = useInView(listRef, {
-    once: true,
-    amount: 0.06,
-    margin: "0px 0px -12% 0px",
-  });
-  const listVariants = useMemo(
-    () =>
-      createStaggerContainerVariants({
-        delayChildren: 0.01,
-        staggerChildren: 0.04,
-      }),
-    [],
-  );
   const shouldStickToBottomRef = useRef(true);
   const didInitialScrollRef = useRef(false);
   const lastMarkedReadMessageIdRef = useRef("");
@@ -568,13 +554,7 @@ export function ChatMessageList({
       viewportClassName="overscroll-contain"
       onViewportScroll={handleScroll}
     >
-      <motion.div
-        ref={listRef}
-        variants={listVariants}
-        initial="hidden"
-        animate={listInView ? "visible" : "hidden"}
-        className="mx-auto flex w-full max-w-3xl flex-col gap-0.5 px-4 py-4 pb-6"
-      >
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-0.5 px-4 py-4 pb-6">
         <InfiniteScroll
           dataLength={messages.length}
           next={() => void loadOlderMessages()}
@@ -606,16 +586,19 @@ export function ChatMessageList({
                 dayLabel &&
                 (index === 0 ||
                   !isSameCalendarDay(previousMessage?.createdAt, message.createdAt));
+              const isOwnMessage = message.authorId === currentUserId;
 
               return (
                 <motion.div
                   key={message.id}
                   layout="position"
+                  custom={isOwnMessage}
                   variants={messageListItemVariants}
                   initial="hidden"
                   animate="visible"
                   exit="exit"
-                  style={{ willChange: "transform, opacity" }}
+                  transition={{ layout: messageListLayoutTransition }}
+                  className="transform-gpu [will-change:transform,opacity]"
                   ref={(node) => {
                     if (node) {
                       messageNodeRefs.current.set(message.id, node);
@@ -635,7 +618,7 @@ export function ChatMessageList({
                     previousMessage={previousMessage}
                     nextMessage={nextMessage}
                     author={authorsById[message.authorId]}
-                    isOwn={message.authorId === currentUserId}
+                    isOwn={isOwnMessage}
                     isReadByOthers={ownMessageReadState.get(message.id) ?? false}
                     readReceipts={ownMessageReadReceipts.get(message.id) ?? []}
                     isChannel={isChannel}
@@ -670,7 +653,7 @@ export function ChatMessageList({
             })}
           </AnimatePresence>
         </InfiniteScroll>
-      </motion.div>
+      </div>
     </ScrollArea>
   );
 }

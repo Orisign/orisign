@@ -28,11 +28,15 @@ export function CopyableProfileValue({
 
   return (
     <Ripple className={COPYABLE_PROFILE_VALUE_CLASSNAME} onClick={onClick}>
-      <div className="flex items-center justify-center gap-5">
-        {icon}
-        <div className="flex flex-1 flex-col space-y-1">
-          <p className="font-semibold">{title}</p>
-          <p className="text-muted-foreground">{description}</p>
+      <div className="flex min-w-0 items-start justify-center gap-5">
+        <span className="shrink-0">{icon}</span>
+        <div className="flex min-w-0 flex-1 flex-col space-y-1">
+          <p className="break-words [overflow-wrap:anywhere] font-semibold leading-snug">
+            {title}
+          </p>
+          <p className="break-words [overflow-wrap:anywhere] text-muted-foreground leading-snug">
+            {description}
+          </p>
         </div>
       </div>
     </Ripple>

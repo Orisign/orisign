@@ -15,9 +15,9 @@ import {
 	ApiCookieAuth,
 	ApiOkResponse,
 	ApiOperation,
+	ApiTags,
 	ApiTooManyRequestsResponse,
-	ApiUnauthorizedResponse,
-	ApiTags
+	ApiUnauthorizedResponse
 } from '@nestjs/swagger'
 import { SkipThrottle, Throttle } from '@nestjs/throttler'
 import { UserInfo as UserInfoData } from '@repo/contracts/gen/ts/auth'
@@ -33,8 +33,8 @@ import {
 	ListSessionsResponseDto,
 	OkResponseDto,
 	RevokeSessionRequestDto,
-	SendOtpResponseDto,
 	SendOtpRequest,
+	SendOtpResponseDto,
 	VerifyOtpRequest
 } from './dto'
 
@@ -57,7 +57,8 @@ export class AuthController {
 	})
 	@ApiOkResponse({
 		type: SendOtpResponseDto,
-		description: 'OTP-код успешно отправлен, возвращён challengeId для подтверждения'
+		description:
+			'OTP-код успешно отправлен, возвращён challengeId для подтверждения'
 	})
 	@ApiBadRequestResponse({
 		description: 'Невалидный номер телефона или deviceId'
@@ -212,7 +213,9 @@ export class AuthController {
 		const refreshToken = req.cookies?.refreshToken
 
 		if (refreshToken) {
-			await lastValueFrom(this.authService.logout({ accountId: id, refreshToken }))
+			await lastValueFrom(
+				this.authService.logout({ accountId: id, refreshToken })
+			)
 		}
 
 		res.cookie('refreshToken', '', {
@@ -252,6 +255,8 @@ export class AuthController {
 		@Body() dto: RevokeSessionRequestDto,
 		@CurrentUser() id: string
 	) {
-		return await lastValueFrom(this.authService.revoke({ id: dto.id, accountId: id }))
+		return await lastValueFrom(
+			this.authService.revoke({ id: dto.id, accountId: id })
+		)
 	}
 }

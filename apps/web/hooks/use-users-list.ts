@@ -13,6 +13,7 @@ interface UseUsersListOptions {
   query: string;
   excludeIds?: string[];
   limit?: number;
+  enabled?: boolean;
 }
 
 function getUsersListQueryKey({
@@ -27,6 +28,7 @@ export function useUsersList(options: UseUsersListOptions) {
   const query = options.query.trim();
   const excludeIds = [...new Set(options.excludeIds ?? [])].filter(Boolean);
   const limit = options.limit ?? 40;
+  const enabled = options.enabled ?? true;
 
   return useQuery<ListUsersResponseDto>({
     queryKey: getUsersListQueryKey({
@@ -49,5 +51,6 @@ export function useUsersList(options: UseUsersListOptions) {
       }),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
+    enabled,
   });
 }

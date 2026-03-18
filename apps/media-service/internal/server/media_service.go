@@ -22,6 +22,10 @@ type MediaService struct {
 }
 
 const chatMediaFileNamePrefix = "chat-media::"
+const (
+	chatMediaKindVoice = "voice"
+	chatMediaKindRing  = "ring"
+)
 
 func NewMediaService(storageClient *storage.S3Storage, logger *slog.Logger) *MediaService {
 	if logger == nil {
@@ -52,23 +56,33 @@ func (s *MediaService) UploadAvatar(
 	}
 
 	fileName := req.GetFileName()
+	uploadContentType := req.GetContentType()
+	uploadData := req.GetData()
 	key := buildAvatarKey(req.GetAccountId(), fileName)
 	assetType := "avatar"
 	if strings.HasPrefix(fileName, chatMediaFileNamePrefix) {
-		originalFileName := strings.TrimPrefix(fileName, chatMediaFileNamePrefix)
-		key = buildMessageMediaKey(req.GetAccountId(), originalFileName)
+		mediaKind, conversationID, originalFileName := parseChatMediaMeta(fileName)
+		uploadData, uploadContentType, fileName = transformChatMedia(
+			ctx,
+			mediaKind,
+			originalFileName,
+			uploadContentType,
+			uploadData,
+			s.logger,
+		)
+		key = buildMessageMediaKey(req.GetAccountId(), mediaKind, conversationID, fileName)
 		assetType = "message-media"
 	}
 
-	if err := s.storage.PutObject(ctx, key, req.GetContentType(), req.GetData()); err != nil {
+	if err := s.storage.PutObject(ctx, key, uploadContentType, uploadData); err != nil {
 		s.logger.ErrorContext(
 			ctx,
 			"upload failed",
 			"asset_type", assetType,
 			"account_id", req.GetAccountId(),
 			"file_name", fileName,
-			"content_type", req.GetContentType(),
-			"bytes", len(req.GetData()),
+			"content_type", uploadContentType,
+			"bytes", len(uploadData),
 			"key", key,
 			"error", err,
 		)
@@ -94,8 +108,8 @@ func (s *MediaService) UploadAvatar(
 		"asset_type", assetType,
 		"account_id", req.GetAccountId(),
 		"file_name", fileName,
-		"content_type", req.GetContentType(),
-		"bytes", len(req.GetData()),
+		"content_type", uploadContentType,
+		"bytes", len(uploadData),
 		"key", key,
 		"expires_at", expiresAt,
 		"url_length", len(url),
@@ -171,10 +185,29 @@ func buildAvatarKey(accountID string, fileName string) string {
 	return fmt.Sprintf("avatars/%s/%s%s", accountID, uuid.NewString(), extension)
 }
 
-func buildMessageMediaKey(accountID string, fileName string) string {
+func parseChatMediaMeta(fileName string) (kind string, conversationID string, originalFileName string) {
+	payload := strings.TrimPrefix(fileName, chatMediaFileNamePrefix)
+	parts := strings.SplitN(payload, "::", 3)
+
+	if len(parts) == 3 {
+		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), strings.TrimSpace(parts[2])
+	}
+
+	return "", "", payload
+}
+
+func buildMessageMediaKey(accountID string, kind string, conversationID string, fileName string) string {
 	extension := strings.ToLower(filepath.Ext(fileName))
 	if extension == "" || len(extension) > 8 {
 		extension = ".bin"
+	}
+
+	if kind == chatMediaKindVoice || kind == chatMediaKindRing {
+		ownerScope := conversationID
+		if ownerScope == "" {
+			ownerScope = accountID
+		}
+		return fmt.Sprintf("media/%s/%s/%s%s", kind, ownerScope, uuid.NewString(), extension)
 	}
 
 	return fmt.Sprintf("media/messages/%s/%s%s", accountID, uuid.NewString(), extension)

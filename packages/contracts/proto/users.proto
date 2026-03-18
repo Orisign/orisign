@@ -24,6 +24,16 @@ service UsersService {
   rpc DeleteChatFolder (DeleteChatFolderRequest) returns (PatchResponse);
   // Reorders chat folders for current user.
   rpc ReorderChatFolders (ReorderChatFoldersRequest) returns (PatchResponse);
+  // Returns recent search history for current user.
+  rpc ListSearchHistory (ListSearchHistoryRequest) returns (ListSearchHistoryResponse);
+  // Adds (or bumps) single search query in history.
+  rpc UpsertSearchHistory (UpsertSearchHistoryRequest) returns (SearchHistoryResponse);
+  // Deletes one search history entry for current user.
+  rpc DeleteSearchHistoryEntry (DeleteSearchHistoryEntryRequest) returns (PatchResponse);
+  // Clears all search history entries for current user.
+  rpc ClearSearchHistory (ClearSearchHistoryRequest) returns (PatchResponse);
+  // Updates user's last seen timestamp.
+  rpc PatchLastSeenAt (PatchLastSeenAtRequest) returns (PatchResponse);
 }
 
 // Request to fetch user by exactly one identifier.
@@ -172,6 +182,46 @@ message ChatFolder {
   int64 updated_at = 11;
 }
 
+message ListSearchHistoryRequest {
+  string user_id = 1;
+  optional int32 limit = 2;
+}
+
+message ListSearchHistoryResponse {
+  repeated SearchHistoryEntry entries = 1;
+}
+
+message UpsertSearchHistoryRequest {
+  string user_id = 1;
+  string query = 2;
+}
+
+message SearchHistoryResponse {
+  SearchHistoryEntry entry = 1;
+}
+
+message DeleteSearchHistoryEntryRequest {
+  string user_id = 1;
+  string entry_id = 2;
+}
+
+message ClearSearchHistoryRequest {
+  string user_id = 1;
+}
+
+message PatchLastSeenAtRequest {
+  string user_id = 1;
+  int64 last_seen_at = 2;
+}
+
+message SearchHistoryEntry {
+  string id = 1;
+  string user_id = 2;
+  string query = 3;
+  int64 created_at = 4;
+  int64 updated_at = 5;
+}
+
 // Generic patch status response.
 message PatchResponse {
   bool ok = 1;
@@ -189,6 +239,7 @@ message User {
   int64           created_at       = 8;
   int64           updated_at       = 9;
   optional string bio              = 10;
+  optional int64  last_seen_at     = 11;
 }
 
 // User privacy settings.

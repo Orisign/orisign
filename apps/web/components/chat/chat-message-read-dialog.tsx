@@ -50,7 +50,7 @@ export function ChatMessageReadDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[28rem] gap-0 overflow-hidden border-border/60 bg-background/95 p-0 shadow-2xl backdrop-blur-xl">
+      <DialogContent className="max-w-[28rem] gap-0 overflow-hidden border-border/60 bg-background/95 p-0 shadow-2xl">
         <DialogHeader className="border-b border-border/60 px-5 py-4">
           <div className="flex items-center gap-3">
             <div className="inline-flex min-w-10 items-center justify-center gap-1 rounded-full bg-primary px-3 py-1 text-sm font-semibold text-primary-foreground">

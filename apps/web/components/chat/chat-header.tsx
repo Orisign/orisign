@@ -29,6 +29,7 @@ interface ChatHeaderProps {
   onEndCall?: () => void;
   callActive?: boolean;
   callDisabled?: boolean;
+  onToggleRightSidebar?: () => void;
 }
 
 export function ChatHeader({
@@ -48,16 +49,20 @@ export function ChatHeader({
   onEndCall,
   callActive = false,
   callDisabled = false,
+  onToggleRightSidebar,
 }: ChatHeaderProps) {
   const t = useTranslations("chat.header");
   const [searching, setSearching] = useState(false);
   const panelVariants = fadeY(8);
+  const groupSubtitle = subtitle?.trim().length
+    ? subtitle
+    : t("members", { count: members });
 
   return (
     <motion.div
       layout
       transition={SPRING_LAYOUT}
-      className="z-20 shrink-0 flex w-full items-center gap-2 border-b border-border/60 bg-muted/60 px-4 py-2 backdrop-blur-sm"
+      className="z-20 shrink-0 flex w-full items-center gap-2 border-b border-border bg-sidebar px-4 py-2"
     >
       <AnimatePresence mode="wait" initial={false}>
         {searching ? (
@@ -97,7 +102,12 @@ export function ChatHeader({
             exit="exit"
             className="flex w-full items-center gap-2"
           >
-            <div className="flex min-w-0 flex-1 items-center gap-3">
+            <button
+              type="button"
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 text-left transition-colors hover:bg-accent/60"
+              onClick={onToggleRightSidebar}
+              disabled={!onToggleRightSidebar}
+            >
               <Avatar
                 size="lg"
                 className={cn(
@@ -118,10 +128,10 @@ export function ChatHeader({
                 <p className="truncate text-sm text-muted-foreground">
                   {isDirect
                     ? (subtitle || t("directFallback"))
-                    : t("members", { count: members })}
+                    : groupSubtitle}
                 </p>
               </div>
-            </div>
+            </button>
             <div className="flex items-center justify-center gap-2">
               {isDirect ? (
                 <Button

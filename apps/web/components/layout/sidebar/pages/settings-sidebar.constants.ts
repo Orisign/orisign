@@ -10,10 +10,10 @@ import {
   Lock,
   Phone,
   Settings,
+  Smartphone,
   SmilePlus,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { IoLanguageSharp } from "react-icons/io5";
 
 export const SETTINGS_HEADER_TRANSFORM_RANGE: number[] = [0, 260];
 export const SETTINGS_COLLAPSED_AVATAR_SIZE = 86;
@@ -30,6 +30,7 @@ type SectionItem = {
     | "notificationsAndSound"
     | "dataAndStorage"
     | "privacyAndSecurity"
+    | "devices"
     | "generalSettings"
     | "chatFolders"
     | "stickersAndEmoji"
@@ -53,6 +54,11 @@ export const SETTINGS_SECTION_ITEMS: SectionItem[] = [
     key: "privacyAndSecurity",
     icon: Lock,
     route: { screen: "privacy-and-security" },
+  },
+  {
+    key: "devices",
+    icon: Smartphone,
+    route: { screen: "sessions" },
   },
   {
     key: "generalSettings",

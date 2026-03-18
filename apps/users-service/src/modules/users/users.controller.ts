@@ -2,20 +2,27 @@ import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import type {
   ChatFolderResponse,
+  ClearSearchHistoryRequest,
   CreateChatFolderRequest,
   CreateUserRequest,
+  DeleteSearchHistoryEntryRequest,
   DeleteChatFolderRequest,
   CreateUserResponse,
   GetUserRequest,
   GetUserResponse,
   ListChatFoldersRequest,
   ListChatFoldersResponse,
+  ListSearchHistoryRequest,
+  ListSearchHistoryResponse,
   ListUsersRequest,
   ListUsersResponse,
+  PatchLastSeenAtRequest,
   PatchPrivacySettingsRequest,
   PatchResponse,
   PatchUserRequest,
   ReorderChatFoldersRequest,
+  SearchHistoryResponse,
+  UpsertSearchHistoryRequest,
   UpdateChatFolderRequest,
 } from '@repo/contracts/gen/ts/users';
 import { UsersService } from './users.service';
@@ -84,5 +91,40 @@ export class UsersController {
     data: ReorderChatFoldersRequest,
   ): Promise<PatchResponse> {
     return await this.usersService.reorderChatFolders(data);
+  }
+
+  @GrpcMethod('UsersService', 'ListSearchHistory')
+  public async listSearchHistory(
+    data: ListSearchHistoryRequest,
+  ): Promise<ListSearchHistoryResponse> {
+    return await this.usersService.listSearchHistory(data);
+  }
+
+  @GrpcMethod('UsersService', 'UpsertSearchHistory')
+  public async upsertSearchHistory(
+    data: UpsertSearchHistoryRequest,
+  ): Promise<SearchHistoryResponse> {
+    return await this.usersService.upsertSearchHistory(data);
+  }
+
+  @GrpcMethod('UsersService', 'DeleteSearchHistoryEntry')
+  public async deleteSearchHistoryEntry(
+    data: DeleteSearchHistoryEntryRequest,
+  ): Promise<PatchResponse> {
+    return await this.usersService.deleteSearchHistoryEntry(data);
+  }
+
+  @GrpcMethod('UsersService', 'ClearSearchHistory')
+  public async clearSearchHistory(
+    data: ClearSearchHistoryRequest,
+  ): Promise<PatchResponse> {
+    return await this.usersService.clearSearchHistory(data);
+  }
+
+  @GrpcMethod('UsersService', 'PatchLastSeenAt')
+  public async patchLastSeenAt(
+    data: PatchLastSeenAtRequest,
+  ): Promise<PatchResponse> {
+    return await this.usersService.patchLastSeenAt(data);
   }
 }

@@ -4,6 +4,7 @@ import type { TimeFormatMode } from "@/store/settings/general-settings.store";
 import { buildStorageFileUrl } from "./app-config";
 import { coerceProtobufNumber } from "./protobuf";
 import { formatCallDurationLabel, parseCallLogMessageText } from "./call-log-message";
+import { stripMessageFormatting } from "./chat-message-format";
 
 const CHAT_VISUAL_PALETTE = [
   {
@@ -215,6 +216,34 @@ const IMAGE_MEDIA_EXTENSIONS = [
   ".svg",
 ] as const;
 
+const VIDEO_MEDIA_EXTENSIONS = [
+  ".mp4",
+  ".webm",
+  ".mov",
+  ".m4v",
+  ".mkv",
+] as const;
+
+const AUDIO_MEDIA_EXTENSIONS = [
+  ".mp3",
+  ".wav",
+  ".ogg",
+  ".m4a",
+  ".aac",
+  ".webm",
+  ".opus",
+] as const;
+
+export const CHAT_MEDIA_KIND = {
+  IMAGE: "image",
+  VIDEO: "video",
+  VOICE: "voice",
+  RING: "ring",
+  FILE: "file",
+} as const;
+
+export type ChatMediaKind = (typeof CHAT_MEDIA_KIND)[keyof typeof CHAT_MEDIA_KIND];
+
 export const CHAT_CONVERSATION_TYPE = {
   DM: 1,
   GROUP: 2,
@@ -249,6 +278,52 @@ export function isImageMediaKey(value: string | null | undefined) {
   return IMAGE_MEDIA_EXTENSIONS.some((extension) => normalized.endsWith(extension));
 }
 
+export function isVideoMediaKey(value: string | null | undefined) {
+  if (!value) return false;
+
+  const normalized = value.toLowerCase().split("?")[0];
+  return VIDEO_MEDIA_EXTENSIONS.some((extension) => normalized.endsWith(extension));
+}
+
+export function isAudioMediaKey(value: string | null | undefined) {
+  if (!value) return false;
+
+  const normalized = value.toLowerCase().split("?")[0];
+  return AUDIO_MEDIA_EXTENSIONS.some((extension) => normalized.endsWith(extension));
+}
+
+export function isVoiceMediaKey(value: string | null | undefined) {
+  if (!value) return false;
+
+  const normalized = value.toLowerCase().split("?")[0];
+  return (
+    normalized.includes("media/voice/") ||
+    normalized.includes("/media/voice/") ||
+    normalized.includes("\\media\\voice\\")
+  );
+}
+
+export function isRingMediaKey(value: string | null | undefined) {
+  if (!value) return false;
+
+  const normalized = value.toLowerCase().split("?")[0];
+  return (
+    normalized.includes("media/ring/") ||
+    normalized.includes("/media/ring/") ||
+    normalized.includes("\\media\\ring\\")
+  );
+}
+
+export function resolveChatMediaKind(value: string | null | undefined): ChatMediaKind {
+  if (!value) return CHAT_MEDIA_KIND.FILE;
+  if (isVoiceMediaKey(value)) return CHAT_MEDIA_KIND.VOICE;
+  if (isRingMediaKey(value)) return CHAT_MEDIA_KIND.RING;
+  if (isImageMediaKey(value)) return CHAT_MEDIA_KIND.IMAGE;
+  if (isVideoMediaKey(value)) return CHAT_MEDIA_KIND.VIDEO;
+  if (isAudioMediaKey(value)) return CHAT_MEDIA_KIND.VOICE;
+  return CHAT_MEDIA_KIND.FILE;
+}
+
 export function getMediaLabel(value: string | null | undefined) {
   if (!value) return "";
 
@@ -280,7 +355,7 @@ export function formatChatListMessagePreview(
     return "";
   }
 
-  const trimmedText = message.text.replace(/\s+/g, " ").trim();
+  const trimmedText = stripMessageFormatting(message.text).replace(/\s+/g, " ").trim();
   const callLogPayload = parseCallLogMessageText(trimmedText);
   if (callLogPayload) {
     const statusLabel = options.callLabels.status[callLogPayload.status];

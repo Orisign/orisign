@@ -1,14 +1,17 @@
 .button-ripple {
   position: absolute;
   border-radius: 9999px;
-  background: color-mix(in oklab, currentColor 32%, transparent);
-  transform: scale(0);
-  animation: button-ripple 550ms ease-out forwards;
+  background: currentColor;
+  opacity: 0.22;
+  transform: translate3d(0, 0, 0) scale(0);
+  will-change: transform, opacity;
+  contain: paint;
+  animation: button-ripple 380ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
 }
 
 @keyframes button-ripple {
   to {
-    transform: scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
     opacity: 0;
   }
 }
@@ -16,13 +19,11 @@
 @keyframes dropdown-in {
   0% {
     opacity: 0;
-    transform: translateY(10px) scale(0.965);
-    filter: blur(6px);
+    transform: translateY(8px) scale(0.98);
   }
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
-    filter: blur(0);
   }
 }
 
@@ -30,25 +31,21 @@
   0% {
     opacity: 1;
     transform: translateY(0) scale(1);
-    filter: blur(0);
   }
   100% {
     opacity: 0;
-    transform: translateY(6px) scale(0.985);
-    filter: blur(4px);
+    transform: translateY(5px) scale(0.99);
   }
 }
 
 @keyframes dropdown-sub-in {
   0% {
     opacity: 0;
-    transform: translateX(-8px) scale(0.97);
-    filter: blur(5px);
+    transform: translateX(-6px) scale(0.98);
   }
   100% {
     opacity: 1;
     transform: translateX(0) scale(1);
-    filter: blur(0);
   }
 }
 
@@ -56,12 +53,10 @@
   0% {
     opacity: 1;
     transform: translateX(0) scale(1);
-    filter: blur(0);
   }
   100% {
     opacity: 0;
-    transform: translateX(-6px) scale(0.985);
-    filter: blur(4px);
+    transform: translateX(-5px) scale(0.99);
   }
 }
 
@@ -177,7 +172,7 @@
 @keyframes ui-emoji-picker-in {
   0% {
     opacity: 0;
-    transform: translate3d(0, 10px, 0) scale(0.985);
+    transform: translate3d(0, 0, 0) scale(0.86);
   }
   100% {
     opacity: 1;
@@ -192,7 +187,7 @@
   }
   100% {
     opacity: 0;
-    transform: translate3d(0, 6px, 0) scale(0.992);
+    transform: translate3d(0, 0, 0) scale(0.86);
   }
 }
 
@@ -240,11 +235,11 @@
     var(--background) 86%,
     transparent
   ) !important;
-  backdrop-filter: saturate(145%) blur(16px);
+  backdrop-filter: saturate(132%) blur(8px);
   padding: 12px 14px;
   transition:
-    background 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    background 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .sonner-thread-toast:hover {

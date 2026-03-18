@@ -7,3 +7,5 @@ export const CHAT_REALTIME_RECONNECT_BASE_DELAY_MS = 1_000;
 export const CHAT_REALTIME_RECONNECT_MAX_DELAY_MS = 5_000;
 
 export const CHAT_FOCUS_STORAGE_KEY_PREFIX = "chat:focus-message";
+export const CHAT_SELECT_STORAGE_KEY_PREFIX = "chat:select-message";
+export const CHAT_SELECT_EVENT = "chat:select-message";

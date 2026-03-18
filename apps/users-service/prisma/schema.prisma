@@ -15,8 +15,10 @@ model User {
   bio             String?          @map("bio")
   avatars         String[]
   birthDate       DateTime?        @map("birth_date")
+  lastSeenAt      DateTime?        @map("last_seen_at")
   privacySettings PrivacySettings?
   chatFolders     ChatFolder[]
+  searchHistory   SearchHistory[]
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
 
@@ -57,6 +59,20 @@ model PrivacySettings {
   birthDate    PrivacyType @default(PRIVACY_TYPE_UNSPECIFIED) @map("birth_date")
 
   @@map("privacy_settings")
+}
+
+model SearchHistory {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  query           String
+  normalizedQuery String   @map("normalized_query")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, normalizedQuery])
+  @@index([userId, updatedAt])
+  @@map("search_history")
 }
 
 enum PrivacyType {

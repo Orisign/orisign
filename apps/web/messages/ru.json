@@ -62,7 +62,116 @@
     "dismissAriaLabel": "Закрыть поиск",
     "placeholder": "Поиск по названию чата",
     "startTyping": "Введите название чата для поиска.",
-    "empty": "Чаты не найдены"
+    "empty": "Чаты не найдены",
+    "resultsTitle": "Результаты",
+    "historyTitle": "Недавние чаты",
+    "clearAll": "Очистить все",
+    "deleteHistoryItemAriaLabel": "Удалить чат из истории поиска",
+    "emptyRecentTitle": "История поиска пуста",
+    "emptyRecentDescription": "Открывайте чаты из поиска, и они появятся здесь.",
+    "clearDialogTitle": "Очистить историю поиска?",
+    "clearDialogDescription": "Все недавно открытые из поиска чаты будут удалены из истории.",
+    "clearDialogCancel": "Отмена",
+    "clearDialogConfirm": "Очистить"
+  },
+  "rightSidebar": {
+    "title": "Информация о чате",
+    "backAriaLabel": "Закрыть панель",
+    "goBackAriaLabel": "Назад",
+    "directFallback": "Личный чат",
+    "unknownUser": "Пользователь",
+    "header": {
+      "tabCounter": "{tab}, {count}",
+      "membersCounter": "{count} участников",
+      "selectedCounter": "Выбрано: {count}"
+    },
+    "members": {
+      "title": "Участники",
+      "addTitle": "Добавить участников",
+      "notifications": "Уведомления",
+      "searchPlaceholder": "Поиск участников",
+      "searchUsersPlaceholder": "Поиск пользователей",
+      "addSelected": "Добавить ({count})",
+      "adding": "Добавление...",
+      "added": "Участники добавлены",
+      "addError": "Не удалось добавить участников",
+      "adminGranted": "Права администратора обновлены",
+      "rightsRestricted": "Права участника ограничены",
+      "removed": "Участник удалён",
+      "roleUpdateError": "Не удалось обновить роль участника",
+      "removeError": "Не удалось удалить участника",
+      "writeError": "Не удалось открыть чат",
+      "editAriaLabel": "Редактировать информацию о чате",
+      "editUnavailable": "Редактирование для этого типа чата пока недоступно",
+      "addAriaLabel": "Добавить участников",
+      "emptySearch": "Ничего не найдено"
+    },
+    "sections": {
+      "type": "Тип",
+      "username": "Юзернейм",
+      "about": "Описание",
+      "direct": "Личный чат",
+      "group": "Группа",
+      "channel": "Канал",
+      "subscribers": "Подписчики",
+      "chat": "Чат",
+      "enabled": "Включено",
+      "disabled": "Выключено"
+    },
+    "tabs": {
+      "media": "Медиа",
+      "files": "Файлы",
+      "links": "Ссылки",
+      "voice": "Голосовые",
+      "members": "Участники"
+    },
+    "empty": {
+      "media": "Пока нет медиа",
+      "files": "Пока нет файлов",
+      "links": "Пока нет ссылок",
+      "voice": "Пока нет голосовых",
+      "members": "Участники не найдены"
+    },
+    "loadMore": "Показать ещё",
+    "loadingMore": "Загрузка...",
+    "context": {
+      "goToMessage": "Перейти к сообщению",
+      "select": "Выбрать",
+      "delete": "Удалить",
+      "openLink": "Открыть ссылку",
+      "copyLink": "Скопировать ссылку",
+      "copyUser": "Скопировать пользователя",
+      "write": "Написать",
+      "makeAdmin": "Сделать администратором",
+      "restrictRights": "Ограничить права",
+      "removeMember": "Удалить из группы",
+      "download": "Скачать",
+      "downloaded": "Скачано",
+      "downloadError": "Не удалось скачать",
+      "linkCopied": "Ссылка скопирована",
+      "userCopied": "Пользователь скопирован",
+      "copyError": "Не удалось скопировать",
+      "deleteError": "Не удалось удалить сообщение"
+    },
+    "preview": {
+      "close": "Закрыть",
+      "zoomIn": "Увеличить",
+      "zoomOut": "Уменьшить",
+      "download": "Скачать",
+      "delete": "Удалить",
+      "seekVideo": "Перемотать видео",
+      "pauseVideo": "Пауза",
+      "playVideo": "Воспроизвести",
+      "muteVideo": "Выключить звук",
+      "unmuteVideo": "Включить звук"
+    },
+    "memberRole": {
+      "owner": "Владелец",
+      "admin": "Админ",
+      "moderator": "Модератор",
+      "member": "Участник",
+      "subscriber": "Подписчик"
+    }
   },
   "chat": {
     "list": {
@@ -88,7 +197,14 @@
       "searchPlaceholder": "Поиск",
       "members": "{count, plural, one {# участник} few {# участника} many {# участников} other {# участника}}",
       "directFallback": "Личный чат",
-      "incomingCall": "Входящий звонок"
+      "unknownUser": "Пользователь",
+      "incomingCall": "Входящий звонок",
+      "online": "в сети",
+      "lastSeenAt": "был(а) в {time}",
+      "typing": "печатает...",
+      "typingByUser": "{name} печатает...",
+      "uploadingMedia": "отправляет медиа файл...",
+      "uploadingMediaByUser": "{name} отправляет медиа файл..."
     },
     "callWindow": {
       "secured": "Защищено сквозным шифрованием",
@@ -131,7 +247,20 @@
       "blockedByPeerHint": "Вы не можете отправлять сообщения: пользователь вас заблокировал.",
       "unblockAction": "Разблокировать",
       "unblockError": "Не удалось разблокировать пользователя",
-      "sendError": "Не удалось отправить сообщение"
+      "sendError": "Не удалось отправить сообщение",
+      "dragToPin": "Потяните вверх, чтобы закрепить запись",
+      "releaseToPin": "Отпустите, чтобы закрепить",
+      "recordingSavedHint": "Черновик записи сохранён",
+      "recordUnsupported": "Запись голосовых не поддерживается в этом браузере",
+      "recordPermissionError": "Разрешите доступ к микрофону, чтобы отправлять голосовые",
+      "recordingTooShort": "Запись слишком короткая",
+      "circleLabel": "Кружок",
+      "recordingPinned": "Запись закреплена",
+      "recordUploading": "Загрузка медиа... {progress}%",
+      "recordButtonHintVoice": "Нажмите для переключения на видеокружок. Потяните вверх, чтобы начать и закрепить голосовое",
+      "recordButtonHintRing": "Нажмите для переключения на голосовое. Потяните вверх, чтобы начать и закрепить видеокружок",
+      "recordingRingLabel": "Запись видеокружка",
+      "recordingRingLimit": "Макс. 60 сек"
     },
     "messages": {
       "empty": "Пока нет сообщений",
@@ -158,6 +287,17 @@
         "close": "Закрыть",
         "zoomIn": "Увеличить",
         "zoomOut": "Уменьшить",
+        "download": "Скачать",
+        "downloadError": "Не удалось скачать файл",
+        "seekVideo": "Перемотать видео",
+        "pauseVideo": "Пауза",
+        "playVideo": "Воспроизвести",
+        "muteVideo": "Выключить звук",
+        "unmuteVideo": "Включить звук",
+        "pauseVoice": "Пауза голосового",
+        "playVoice": "Воспроизвести голосовое",
+        "pauseCircle": "Пауза видеокружка",
+        "playCircle": "Воспроизвести видеокружок",
         "delete": "Удалить сообщение",
         "deleteError": "Не удалось удалить сообщение"
       },
@@ -171,10 +311,13 @@
         "copyLink": "Скопировать ссылку",
         "edit": "Изменить",
         "select": "Выбрать",
+        "download": "Скачать",
         "readBy": "{count, plural, one {# просмотр} few {# просмотра} many {# просмотров} other {# просмотра}}",
         "delete": "Удалить",
         "copied": "Сообщение скопировано",
-        "linkCopied": "Ссылка скопирована"
+        "linkCopied": "Ссылка скопирована",
+        "downloaded": "Файл загружен",
+        "downloadError": "Не удалось скачать файл"
       },
       "readDialog": {
         "title": "{count, plural, one {# просмотр} few {# просмотра} many {# просмотров} other {# просмотра}}",
@@ -256,10 +399,45 @@
       "notificationsAndSound": "Уведомления и звук",
       "dataAndStorage": "Данные и память",
       "privacyAndSecurity": "Конфиденциальность",
+      "devices": "Устройства",
       "generalSettings": "Общие настройки",
       "chatFolders": "Папки с чатами",
       "stickersAndEmoji": "Стикеры и эмодзи",
       "language": "Язык"
+    }
+  },
+  "sessionsSidebar": {
+    "title": "Устройства",
+    "subtitle": "Управляйте активными сессиями Orisign на ваших устройствах.",
+    "currentSession": "Это устройство",
+    "otherSessions": "Другие устройства",
+    "empty": "Других активных сессий нет",
+    "unknownClient": "Неизвестный клиент",
+    "labels": {
+      "desktop": "Компьютер",
+      "mobile": "Телефон",
+      "tablet": "Планшет",
+      "browser": "Браузер"
+    },
+    "meta": {
+      "ip": "IP: {value}",
+      "lastSeen": "Последняя активность: {value}",
+      "createdAt": "Вход: {value}"
+    },
+    "actions": {
+      "backAriaLabel": "Назад",
+      "refresh": "Обновить",
+      "current": "Текущая",
+      "terminate": "Завершить",
+      "terminating": "Завершение...",
+      "terminateAllOthers": "Завершить все остальные"
+    },
+    "states": {
+      "loadError": "Не удалось загрузить список сессий",
+      "revokeError": "Не удалось завершить сессию",
+      "revokeSuccess": "Сессия завершена",
+      "revokeAllSuccess": "Все остальные сессии завершены",
+      "revokeAllError": "Не удалось завершить часть сессий"
     }
   },
   "languageSidebar": {

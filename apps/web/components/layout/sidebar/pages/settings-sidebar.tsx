@@ -28,7 +28,6 @@ import {
   SETTINGS_SECTION_ITEMS,
 } from "./settings-sidebar.constants";
 import { ProfileDropdown } from "@/components/user/profile-dropdown";
-import { SPRING_SOFT } from "@/lib/animations";
 
 export const SettingsSidebar = () => {
   const t = useTranslations("settingsSidebar");
@@ -48,7 +47,8 @@ export const SettingsSidebar = () => {
   const scrollY = useMotionValue(0);
   const [heroWidth, setHeroWidth] = useState(0);
   const [nameWidth, setNameWidth] = useState(0);
-  const [scrollTop, setScrollTop] = useState(0);
+  const [isAvatarExpanded, setIsAvatarExpanded] = useState(true);
+  const isAvatarExpandedRef = useRef(true);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -60,8 +60,14 @@ export const SettingsSidebar = () => {
     if (!viewport) return;
 
     const onScroll = () => {
-      scrollY.set(viewport.scrollTop);
-      setScrollTop(viewport.scrollTop);
+      const nextScrollTop = viewport.scrollTop;
+      scrollY.set(nextScrollTop);
+
+      const nextIsExpanded = nextScrollTop < 36;
+      if (nextIsExpanded !== isAvatarExpandedRef.current) {
+        isAvatarExpandedRef.current = nextIsExpanded;
+        setIsAvatarExpanded(nextIsExpanded);
+      }
     };
     onScroll();
 
@@ -98,10 +104,11 @@ export const SettingsSidebar = () => {
     [0, 1],
   );
   const progress = useSpring(progressRaw, {
-    ...SPRING_SOFT,
     stiffness: 180,
     damping: 28,
     mass: 0.6,
+    restDelta: 0.001,
+    restSpeed: 0.001,
   });
 
   const initialSize = heroWidth || 280;
@@ -149,7 +156,6 @@ export const SettingsSidebar = () => {
       other: t("profile.ageYears.other"),
     },
   );
-  const isAvatarExpanded = scrollTop < 36;
   const profileValues = {
     phone: accountData?.phone ?? auth?.phone ?? "",
     username: user?.username ?? "",
