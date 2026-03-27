@@ -10,7 +10,7 @@ const SidebarPage = React.forwardRef<
     ref={ref}
     data-slot="sidebar-page"
     className={cn(
-      "relative flex min-h-full w-full min-w-0 flex-col gap-6 bg-background",
+      "relative flex min-h-full w-full min-w-0 flex-col gap-6 bg-sidebar",
       className,
     )}
     {...props}
@@ -26,7 +26,7 @@ function SidebarPageHeader({
     <div
       data-slot="sidebar-page-header"
       className={cn(
-        "sticky top-0 z-30 flex w-full min-w-0 items-center justify-between bg-background px-5 py-4",
+        "sticky top-0 z-30 flex w-full min-w-0 items-center justify-between bg-sidebar px-5 py-4",
         className,
       )}
       {...props}

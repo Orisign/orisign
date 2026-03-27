@@ -1,0 +1,457 @@
+syntax = "proto3";
+
+package bots.v1;
+
+service BotsService {
+  rpc CreateBot (CreateBotRequest) returns (CreateBotResponse);
+  rpc ListBots (ListBotsRequest) returns (ListBotsResponse);
+  rpc GetBot (GetBotRequest) returns (GetBotResponse);
+  rpc GetBotByUserId (GetBotByUserIdRequest) returns (GetBotResponse);
+  rpc UpdateBot (UpdateBotRequest) returns (MutationResponse);
+  rpc DeleteBot (DeleteBotRequest) returns (MutationResponse);
+  rpc GetBotStats (BotMutationRequest) returns (GetBotStatsResponse);
+  rpc ListBotAuditLogs (ListBotAuditLogsRequest) returns (ListBotAuditLogsResponse);
+
+  rpc RegenerateBotToken (RotateBotTokenRequest) returns (RotateBotTokenResponse);
+  rpc RevokeBotToken (RevokeBotTokenRequest) returns (MutationResponse);
+  rpc EnableBot (BotMutationRequest) returns (MutationResponse);
+  rpc DisableBot (BotMutationRequest) returns (MutationResponse);
+
+  rpc SetBotWebhook (SetBotWebhookRequest) returns (MutationResponse);
+  rpc DeleteBotWebhook (BotMutationRequest) returns (MutationResponse);
+  rpc GetBotWebhookInfo (BotMutationRequest) returns (GetBotWebhookInfoResponse);
+
+  rpc SetBotCommands (SetBotCommandsRequest) returns (MutationResponse);
+  rpc GetBotCommands (GetBotCommandsRequest) returns (GetBotCommandsResponse);
+
+  rpc ListBotChats (ListBotChatsRequest) returns (ListBotChatsResponse);
+  rpc AllowBotChat (BotChatMutationRequest) returns (MutationResponse);
+  rpc DenyBotChat (BotChatMutationRequest) returns (MutationResponse);
+
+  rpc AuthenticateBotToken (AuthenticateBotTokenRequest) returns (AuthenticateBotTokenResponse);
+  rpc GetBotMe (GetBotMeRequest) returns (GetBotMeResponse);
+  rpc SendMessage (SendBotMessageRequest) returns (SendBotMessageResponse);
+  rpc EditMessageText (EditBotMessageTextRequest) returns (MutationResponse);
+  rpc EditMessageReplyMarkup (EditBotMessageReplyMarkupRequest) returns (MutationResponse);
+  rpc DeleteMessage (DeleteBotMessageRequest) returns (MutationResponse);
+  rpc AnswerCallbackQuery (AnswerCallbackQueryRequest) returns (MutationResponse);
+  rpc GetUpdates (GetUpdatesRequest) returns (GetUpdatesResponse);
+  rpc ConsumeExternalEvent (ConsumeExternalEventRequest) returns (MutationResponse);
+}
+
+enum BotStatus {
+  BOT_STATUS_UNSPECIFIED = 0;
+  ACTIVE = 1;
+  DISABLED = 2;
+  REVOKED = 3;
+  DELETED = 4;
+}
+
+enum BotDeliveryMode {
+  BOT_DELIVERY_MODE_UNSPECIFIED = 0;
+  WEBHOOK = 1;
+  POLLING = 2;
+}
+
+enum BotPrivacyMode {
+  BOT_PRIVACY_MODE_UNSPECIFIED = 0;
+  PRIVACY_ENABLED = 1;
+  PRIVACY_DISABLED = 2;
+}
+
+enum BotCreatedVia {
+  BOT_CREATED_VIA_UNSPECIFIED = 0;
+  BOT_FATHER = 1;
+  INTERNAL_API = 2;
+  SEED = 3;
+}
+
+enum BotCredentialStatus {
+  BOT_CREDENTIAL_STATUS_UNSPECIFIED = 0;
+  CREDENTIAL_ACTIVE = 1;
+  CREDENTIAL_REVOKED = 2;
+}
+
+enum BotChatBindingStatus {
+  BOT_CHAT_BINDING_STATUS_UNSPECIFIED = 0;
+  ALLOWED = 1;
+  DENIED = 2;
+  LEFT = 3;
+  BANNED = 4;
+}
+
+message Bot {
+  string id = 1;
+  string owner_user_id = 2;
+  string bot_user_id = 3;
+  string handle_id = 4;
+  BotStatus status = 5;
+  BotDeliveryMode delivery_mode = 6;
+  BotPrivacyMode privacy_mode = 7;
+  BotCreatedVia created_via = 8;
+  int64 created_at = 9;
+  int64 updated_at = 10;
+  int64 deleted_at = 11;
+  int32 version = 12;
+  BotProfile profile = 13;
+  BotWebhook webhook = 14;
+}
+
+message BotProfile {
+  string bot_id = 1;
+  string display_name = 2;
+  string username = 3;
+  string description = 4;
+  string about = 5;
+  string short_description = 6;
+  string avatar_file_id = 7;
+  string avatar_url = 8;
+  string locale_default = 9;
+  repeated string allowed_chat_types = 10;
+  string metadata_json = 11;
+}
+
+message BotCredential {
+  string id = 1;
+  string bot_id = 2;
+  string secret_preview = 3;
+  BotCredentialStatus status = 4;
+  int64 created_at = 5;
+  int64 revoked_at = 6;
+  string created_by_user_id = 7;
+  int64 last_used_at = 8;
+}
+
+message BotCommand {
+  string id = 1;
+  string bot_id = 2;
+  string scope = 3;
+  string chat_id = 4;
+  string command = 5;
+  string description = 6;
+  string locale = 7;
+  int64 created_at = 8;
+  int64 updated_at = 9;
+}
+
+message BotWebhook {
+  string bot_id = 1;
+  string url = 2;
+  repeated string allowed_updates = 3;
+  int32 max_connections = 4;
+  repeated string ip_allowlist = 5;
+  bool is_enabled = 6;
+  int64 last_error_at = 7;
+  string last_error_message = 8;
+  int64 last_success_at = 9;
+  int64 created_at = 10;
+  int64 updated_at = 11;
+}
+
+message BotChatBinding {
+  string id = 1;
+  string bot_id = 2;
+  string chat_id = 3;
+  BotChatBindingStatus status = 4;
+  int64 joined_at = 5;
+  int64 left_at = 6;
+  string permissions_json = 7;
+  bool is_explicit_allow = 8;
+  bool is_explicit_deny = 9;
+  int32 version = 10;
+}
+
+message BotToken {
+  string value = 1;
+  string bot_id = 2;
+  string secret_preview = 3;
+}
+
+message BotUpdateEnvelope {
+  string id = 1;
+  string bot_id = 2;
+  int64 update_id = 3;
+  string event_type = 4;
+  string source_event_key = 5;
+  string trace_id = 6;
+  string payload_json = 7;
+  int32 delivery_attempt = 8;
+  int64 created_at = 9;
+}
+
+message BotStats {
+  string bot_id = 1;
+  int32 total_updates = 2;
+  int32 pending_updates = 3;
+  int32 webhook_success_count = 4;
+  int32 webhook_failure_count = 5;
+  int32 allowed_chat_count = 6;
+  int32 denied_chat_count = 7;
+  int64 last_update_at = 8;
+  int64 last_delivery_at = 9;
+}
+
+message BotAuditLog {
+  string id = 1;
+  string bot_id = 2;
+  string owner_user_id = 3;
+  string actor_type = 4;
+  string actor_id = 5;
+  string action = 6;
+  string target_type = 7;
+  string target_id = 8;
+  string payload_json = 9;
+  string trace_id = 10;
+  int64 created_at = 11;
+}
+
+message CreateBotRequest {
+  string owner_user_id = 1;
+  string display_name = 2;
+  string username = 3;
+  string description = 4;
+  string about = 5;
+  string short_description = 6;
+  string locale_default = 7;
+  string trace_id = 8;
+  BotCreatedVia created_via = 9;
+}
+
+message CreateBotResponse {
+  bool ok = 1;
+  Bot bot = 2;
+  BotToken token = 3;
+}
+
+message ListBotsRequest {
+  string owner_user_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+  repeated BotStatus statuses = 4;
+}
+
+message ListBotsResponse {
+  repeated Bot bots = 1;
+}
+
+message GetBotRequest {
+  string bot_id = 1;
+  string owner_user_id = 2;
+}
+
+message GetBotByUserIdRequest {
+  string bot_user_id = 1;
+}
+
+message GetBotResponse {
+  Bot bot = 1;
+}
+
+message UpdateBotRequest {
+  string bot_id = 1;
+  string owner_user_id = 2;
+  string display_name = 3;
+  string username = 4;
+  string description = 5;
+  string about = 6;
+  string short_description = 7;
+  string avatar_file_id = 8;
+  string avatar_url = 9;
+  string locale_default = 10;
+  BotDeliveryMode delivery_mode = 11;
+  BotPrivacyMode privacy_mode = 12;
+  string trace_id = 13;
+}
+
+message DeleteBotRequest {
+  string bot_id = 1;
+  string owner_user_id = 2;
+  string trace_id = 3;
+}
+
+message RotateBotTokenRequest {
+  string bot_id = 1;
+  string owner_user_id = 2;
+  string trace_id = 3;
+}
+
+message RotateBotTokenResponse {
+  bool ok = 1;
+  BotToken token = 2;
+}
+
+message RevokeBotTokenRequest {
+  string bot_id = 1;
+  string owner_user_id = 2;
+  string trace_id = 3;
+}
+
+message BotMutationRequest {
+  string bot_id = 1;
+  string owner_user_id = 2;
+  string trace_id = 3;
+}
+
+message GetBotStatsResponse {
+  BotStats stats = 1;
+}
+
+message SetBotWebhookRequest {
+  string bot_id = 1;
+  string owner_user_id = 2;
+  string url = 3;
+  repeated string allowed_updates = 4;
+  int32 max_connections = 5;
+  repeated string ip_allowlist = 6;
+  bool is_enabled = 7;
+  string trace_id = 8;
+}
+
+message GetBotWebhookInfoResponse {
+  BotWebhook webhook = 1;
+}
+
+message SetBotCommandsRequest {
+  string bot_id = 1;
+  string owner_user_id = 2;
+  repeated BotCommand commands = 3;
+  string trace_id = 4;
+}
+
+message GetBotCommandsRequest {
+  string bot_id = 1;
+  string owner_user_id = 2;
+}
+
+message GetBotCommandsResponse {
+  repeated BotCommand commands = 1;
+}
+
+message ListBotChatsRequest {
+  string bot_id = 1;
+  string owner_user_id = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ListBotChatsResponse {
+  repeated BotChatBinding chats = 1;
+}
+
+message ListBotAuditLogsRequest {
+  string bot_id = 1;
+  string owner_user_id = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ListBotAuditLogsResponse {
+  repeated BotAuditLog logs = 1;
+}
+
+message BotChatMutationRequest {
+  string bot_id = 1;
+  string owner_user_id = 2;
+  string chat_id = 3;
+  string trace_id = 4;
+}
+
+message AuthenticateBotTokenRequest {
+  string token = 1;
+}
+
+message AuthenticateBotTokenResponse {
+  bool ok = 1;
+  Bot bot = 2;
+  BotCredential credential = 3;
+}
+
+message GetBotMeRequest {
+  string token = 1;
+}
+
+message GetBotMeResponse {
+  Bot bot = 1;
+}
+
+message SendBotMessageRequest {
+  string token = 1;
+  string chat_id = 2;
+  string text = 3;
+  string parse_mode = 4;
+  string entities_json = 5;
+  string reply_to_message_id = 6;
+  string reply_markup_json = 7;
+  repeated string media_keys = 8;
+  string idempotency_key = 9;
+  bool disable_notification = 10;
+  bool protect_content = 11;
+  string trace_id = 12;
+}
+
+message SendBotMessageResponse {
+  bool ok = 1;
+  string message_id = 2;
+  string conversation_id = 3;
+}
+
+message EditBotMessageTextRequest {
+  string token = 1;
+  string chat_id = 2;
+  string message_id = 3;
+  string text = 4;
+  string parse_mode = 5;
+  string entities_json = 6;
+  string reply_markup_json = 7;
+  string idempotency_key = 8;
+  string trace_id = 9;
+}
+
+message EditBotMessageReplyMarkupRequest {
+  string token = 1;
+  string chat_id = 2;
+  string message_id = 3;
+  string reply_markup_json = 4;
+  string idempotency_key = 5;
+  string trace_id = 6;
+}
+
+message DeleteBotMessageRequest {
+  string token = 1;
+  string chat_id = 2;
+  string message_id = 3;
+  string idempotency_key = 4;
+  string trace_id = 5;
+}
+
+message AnswerCallbackQueryRequest {
+  string token = 1;
+  string callback_query_id = 2;
+  string text = 3;
+  bool show_alert = 4;
+  string url = 5;
+  int32 cache_time = 6;
+  string trace_id = 7;
+}
+
+message GetUpdatesRequest {
+  string token = 1;
+  int64 offset = 2;
+  int32 limit = 3;
+  int32 timeout = 4;
+  repeated string allowed_updates = 5;
+}
+
+message GetUpdatesResponse {
+  repeated BotUpdateEnvelope updates = 1;
+}
+
+message ConsumeExternalEventRequest {
+  string event_name = 1;
+  string trace_id = 2;
+  string payload_json = 3;
+}
+
+message MutationResponse {
+  bool ok = 1;
+}

@@ -57,6 +57,15 @@ async function bootstrap() {
 			},
 			'refresh-token'
 		)
+		.addApiKey(
+			{
+				type: 'apiKey',
+				in: 'header',
+				name: 'Authorization',
+				description: 'Bot token в формате `Bot <botId>:<secretKey>`'
+			},
+			'bot-token'
+		)
 		.build()
 
 	const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig)

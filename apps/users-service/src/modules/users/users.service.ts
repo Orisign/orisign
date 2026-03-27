@@ -26,12 +26,21 @@ import type {
   UpsertSearchHistoryRequest,
   UpdateChatFolderRequest,
 } from '@repo/contracts/gen/ts/users';
+import { HandleKind } from '@repo/contracts/gen/ts/handles';
 
 import { UsersRepository } from './users.repository';
+import { HandlesClientService } from '@/infra/grpc/handles-client.service';
+
+function isBotProjectionUserId(userId: string) {
+  return userId.startsWith('botusr_');
+}
 
 @Injectable()
 export class UsersService {
-  public constructor(private readonly usersRepository: UsersRepository) {}
+  public constructor(
+    private readonly usersRepository: UsersRepository,
+    private readonly handlesClient: HandlesClientService,
+  ) {}
 
   public async getUser(data: GetUserRequest): Promise<GetUserResponse> {
     const { id, username } = data;
@@ -94,7 +103,54 @@ export class UsersService {
       });
     }
 
-    await this.usersRepository.patchUser(data);
+    const nextUsername =
+      data.username !== undefined
+        ? (data.username ?? '').trim().replace(/^@+/, '').toLowerCase()
+        : undefined;
+    const currentUsername = (user.username ?? '').trim().replace(/^@+/, '').toLowerCase();
+    const usernameChanged =
+      nextUsername !== undefined && nextUsername !== currentUsername;
+    const shouldManageUserHandle = usernameChanged && !isBotProjectionUserId(userId);
+
+    if (shouldManageUserHandle && nextUsername) {
+      await this.handlesClient.reserveHandle({
+        username: nextUsername,
+        kind: HandleKind.USER,
+        targetId: userId,
+        actorId: userId,
+        traceId: '',
+        allowReplaceSameTarget: true,
+      });
+    }
+
+    try {
+      await this.usersRepository.patchUser({
+        ...data,
+        username: nextUsername,
+      });
+    } catch (error) {
+      if (shouldManageUserHandle && nextUsername) {
+        await this.handlesClient.releaseHandle({
+          username: nextUsername,
+          targetId: userId,
+          kind: HandleKind.USER,
+          actorId: userId,
+          traceId: '',
+        });
+      }
+
+      throw error;
+    }
+
+    if (shouldManageUserHandle && currentUsername) {
+      await this.handlesClient.releaseHandle({
+        username: currentUsername,
+        targetId: userId,
+        kind: HandleKind.USER,
+        actorId: userId,
+        traceId: '',
+      });
+    }
 
     return { ok: true };
   }

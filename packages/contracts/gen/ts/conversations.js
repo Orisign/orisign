@@ -12,31 +12,32 @@ const microservices_1 = require("@nestjs/microservices");
 exports.protobufPackage = "conversations.v1";
 var ConversationType;
 (function (ConversationType) {
-    ConversationType[ConversationType["CONVERSATION_TYPE_UNSPECIFIED"] = 0] = "CONVERSATION_TYPE_UNSPECIFIED";
-    ConversationType[ConversationType["DM"] = 1] = "DM";
-    ConversationType[ConversationType["GROUP"] = 2] = "GROUP";
-    ConversationType[ConversationType["CHANNEL"] = 3] = "CHANNEL";
-    ConversationType[ConversationType["UNRECOGNIZED"] = -1] = "UNRECOGNIZED";
+    ConversationType["CONVERSATION_TYPE_UNSPECIFIED"] = "CONVERSATION_TYPE_UNSPECIFIED";
+    ConversationType["DM"] = "DM";
+    ConversationType["GROUP"] = "GROUP";
+    ConversationType["CHANNEL"] = "CHANNEL";
+    ConversationType["SUPERGROUP"] = "SUPERGROUP";
+    ConversationType["UNRECOGNIZED"] = "UNRECOGNIZED";
 })(ConversationType || (exports.ConversationType = ConversationType = {}));
 var MemberRole;
 (function (MemberRole) {
-    MemberRole[MemberRole["MEMBER_ROLE_UNSPECIFIED"] = 0] = "MEMBER_ROLE_UNSPECIFIED";
-    MemberRole[MemberRole["OWNER"] = 1] = "OWNER";
-    MemberRole[MemberRole["ADMIN"] = 2] = "ADMIN";
-    MemberRole[MemberRole["MODERATOR"] = 3] = "MODERATOR";
-    MemberRole[MemberRole["MEMBER"] = 4] = "MEMBER";
-    MemberRole[MemberRole["SUBSCRIBER"] = 5] = "SUBSCRIBER";
-    MemberRole[MemberRole["UNRECOGNIZED"] = -1] = "UNRECOGNIZED";
+    MemberRole["MEMBER_ROLE_UNSPECIFIED"] = "MEMBER_ROLE_UNSPECIFIED";
+    MemberRole["OWNER"] = "OWNER";
+    MemberRole["ADMIN"] = "ADMIN";
+    MemberRole["MODERATOR"] = "MODERATOR";
+    MemberRole["MEMBER"] = "MEMBER";
+    MemberRole["SUBSCRIBER"] = "SUBSCRIBER";
+    MemberRole["UNRECOGNIZED"] = "UNRECOGNIZED";
 })(MemberRole || (exports.MemberRole = MemberRole = {}));
 var MemberState;
 (function (MemberState) {
-    MemberState[MemberState["MEMBER_STATE_UNSPECIFIED"] = 0] = "MEMBER_STATE_UNSPECIFIED";
-    MemberState[MemberState["ACTIVE"] = 1] = "ACTIVE";
-    MemberState[MemberState["LEFT"] = 2] = "LEFT";
-    MemberState[MemberState["KICKED"] = 3] = "KICKED";
-    MemberState[MemberState["BANNED"] = 4] = "BANNED";
-    MemberState[MemberState["INVITED"] = 5] = "INVITED";
-    MemberState[MemberState["UNRECOGNIZED"] = -1] = "UNRECOGNIZED";
+    MemberState["MEMBER_STATE_UNSPECIFIED"] = "MEMBER_STATE_UNSPECIFIED";
+    MemberState["ACTIVE"] = "ACTIVE";
+    MemberState["LEFT"] = "LEFT";
+    MemberState["KICKED"] = "KICKED";
+    MemberState["BANNED"] = "BANNED";
+    MemberState["INVITED"] = "INVITED";
+    MemberState["UNRECOGNIZED"] = "UNRECOGNIZED";
 })(MemberState || (exports.MemberState = MemberState = {}));
 exports.CONVERSATIONS_V1_PACKAGE_NAME = "conversations.v1";
 function ConversationsServiceControllerMethods() {
@@ -48,6 +49,9 @@ function ConversationsServiceControllerMethods() {
             "addMembers",
             "removeMember",
             "updateMemberRole",
+            "updateConversation",
+            "deleteConversation",
+            "updateNotifications",
             "joinConversation",
             "leaveConversation",
             "canRead",

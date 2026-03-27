@@ -7,6 +7,7 @@ import {
 } from "@/api/generated";
 import { getCookie } from "@/lib/cookies";
 import { buildWebSocketUrl } from "@/lib/app-config";
+import { parseChatReplyMarkup } from "@/lib/bot-reply-markup";
 import {
   CHAT_REALTIME_RECONNECT_BASE_DELAY_MS,
   CHAT_REALTIME_RECONNECT_MAX_DELAY_MS,
@@ -14,8 +15,9 @@ import {
 import { playChatSound } from "@/lib/chat-sound-manager";
 import { parseJsonWithProtobufSupport } from "@/lib/protobuf";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  type ChatMessagesFilter,
   type ChatLastMessagePreviewData,
   type ChatReadCursorDto,
   type ChatReadStateQueryData,
@@ -43,6 +45,7 @@ interface ChatRealtimeEvent {
   message?: unknown;
   messageId?: string;
   text?: string;
+  replyMarkupJson?: string;
   editedAt?: number;
   deletedAt?: number;
   cursor?: Partial<ChatReadCursorDto> | null;
@@ -92,6 +95,7 @@ export function useChatRealtime(
   conversationId: string,
   currentUserId?: string,
   peerUserId?: string | null,
+  messageFilter?: ChatMessagesFilter,
 ) {
   const queryClient = useQueryClient();
   const reconnectTimeoutRef = useRef<number | null>(null);
@@ -107,6 +111,10 @@ export function useChatRealtime(
   );
   const [groupState, setGroupState] = useState<ChatGroupRealtimeState>(
     DEFAULT_CHAT_GROUP_STATE,
+  );
+  const messagesQueryKey = useMemo(
+    () => getChatMessagesQueryKey(conversationId, messageFilter),
+    [conversationId, messageFilter],
   );
 
   const recomputeGroupState = useCallback(() => {
@@ -441,7 +449,7 @@ export function useChatRealtime(
 
             const hasMessageInCache = (
               queryClient.getQueryData<ChatMessagesQueryData>(
-                getChatMessagesQueryKey(conversationId),
+                messagesQueryKey,
               )?.messages ?? []
             ).some((entry) => entry.id === message.id);
 
@@ -449,8 +457,21 @@ export function useChatRealtime(
               playChatSound("receive");
             }
 
+            const filterReplyToId = messageFilter?.replyToId?.trim() ?? "";
+            const filterMessageId = messageFilter?.messageId?.trim() ?? "";
+            const matchesMessageFilter =
+              !filterReplyToId && !filterMessageId
+                ? true
+                : filterMessageId
+                  ? message.id === filterMessageId
+                  : message.replyToId === filterReplyToId;
+
+            if (!matchesMessageFilter) {
+              return;
+            }
+
             queryClient.setQueryData<ChatMessagesQueryData>(
-              getChatMessagesQueryKey(conversationId),
+              messagesQueryKey,
               (currentData) => appendChatMessageToData(currentData, message),
             );
             queryClient.setQueryData<ChatLastMessagePreviewData>(
@@ -492,10 +513,13 @@ export function useChatRealtime(
               typeof payload.editedAt === "number" && Number.isFinite(payload.editedAt)
                 ? payload.editedAt
                 : Date.now();
-            const nextText = typeof payload.text === "string" ? payload.text : "";
+            const hasNextText = typeof payload.text === "string";
+            const nextText = hasNextText ? payload.text : "";
+            const hasReplyMarkupJson = typeof payload.replyMarkupJson === "string";
+            const nextReplyMarkupJson = hasReplyMarkupJson ? payload.replyMarkupJson : "";
 
             queryClient.setQueryData<ChatMessagesQueryData>(
-              getChatMessagesQueryKey(conversationId),
+              messagesQueryKey,
               (currentData) => {
                 if (!currentData) return currentData;
 
@@ -504,7 +528,13 @@ export function useChatRealtime(
                     message.id === payload.messageId
                       ? {
                           ...message,
-                          text: nextText,
+                          ...(hasNextText ? { text: nextText } : {}),
+                          ...(hasReplyMarkupJson
+                            ? {
+                                replyMarkupJson: nextReplyMarkupJson,
+                                replyMarkup: parseChatReplyMarkup(nextReplyMarkupJson),
+                              }
+                            : {}),
                           editedAt: nextEditedAt,
                         }
                       : message,
@@ -532,7 +562,7 @@ export function useChatRealtime(
                 : Date.now();
 
             queryClient.setQueryData<ChatMessagesQueryData>(
-              getChatMessagesQueryKey(conversationId),
+              messagesQueryKey,
               (currentData) =>
                 removeChatMessageFromData(currentData, payload.messageId ?? ""),
             );
@@ -566,7 +596,8 @@ export function useChatRealtime(
         reconnectAttemptRef.current += 1;
         const delayMs = Math.min(
           CHAT_REALTIME_RECONNECT_MAX_DELAY_MS,
-          CHAT_REALTIME_RECONNECT_BASE_DELAY_MS * reconnectAttemptRef.current,
+          CHAT_REALTIME_RECONNECT_BASE_DELAY_MS *
+            2 ** Math.max(0, reconnectAttemptRef.current - 1),
         );
 
         reconnectTimeoutRef.current = window.setTimeout(connect, delayMs);
@@ -613,6 +644,9 @@ export function useChatRealtime(
     clearGroupUserActivity,
     conversationId,
     currentUserId,
+    messagesQueryKey,
+    messageFilter?.messageId,
+    messageFilter?.replyToId,
     peerUserId,
     queryClient,
     resetGroupActivityState,

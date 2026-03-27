@@ -32,7 +32,7 @@ export function useChatListRealtime(currentUserId?: string) {
 
   useEffect(() => {
     const token = getCookie("accessToken");
-    if (!token) return;
+    if (!token || !currentUserId) return;
 
     closedByUserRef.current = false;
     reconnectAttemptRef.current = 0;
@@ -123,7 +123,8 @@ export function useChatListRealtime(currentUserId?: string) {
         reconnectAttemptRef.current += 1;
         const delayMs = Math.min(
           CHAT_REALTIME_RECONNECT_MAX_DELAY_MS,
-          CHAT_REALTIME_RECONNECT_BASE_DELAY_MS * reconnectAttemptRef.current,
+          CHAT_REALTIME_RECONNECT_BASE_DELAY_MS *
+            2 ** Math.max(0, reconnectAttemptRef.current - 1),
         );
 
         reconnectTimeoutRef.current = window.setTimeout(connect, delayMs);

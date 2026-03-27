@@ -5,7 +5,9 @@ import { APP_GUARD, Reflector } from '@nestjs/core'
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
 import { AccountModule } from 'src/modules/account/account.module'
 import { AuthModule } from 'src/modules/auth/auth.module'
+import { BotsModule } from 'src/modules/bots/bots.module'
 import { ConversationsModule } from 'src/modules/conversations/conversations.module'
+import { HandlesModule } from 'src/modules/handles/handles.module'
 import { MessagesModule } from 'src/modules/messages/messages.module'
 import { UsersModule } from 'src/modules/users/users.module'
 
@@ -38,7 +40,9 @@ import { UsersModule } from 'src/modules/users/users.module'
 		}),
 		AccountModule,
 		AuthModule,
+		BotsModule,
 		ConversationsModule,
+		HandlesModule,
 		MessagesModule,
 		UsersModule
 	],

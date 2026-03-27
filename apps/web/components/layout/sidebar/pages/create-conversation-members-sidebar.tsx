@@ -98,7 +98,7 @@ export function CreateConversationMembersSidebar({
     if (isDirect) {
       createConversation({
         data: {
-          type: CreateConversationRequestDtoType.NUMBER_1,
+          type: CreateConversationRequestDtoType.DM,
           memberIds: [...selectedUserIds],
         },
       });

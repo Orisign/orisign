@@ -306,6 +306,48 @@ interface EmojiPickerProps {
   className?: string;
 }
 
+const RECENT_EMOJI_STORAGE_KEY = "ui.recent-emojis";
+const RECENT_EMOJI_LIMIT = 32;
+
+function readRecentEmojiItems() {
+  if (typeof window === "undefined") {
+    return [] as EmojiItem[];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(RECENT_EMOJI_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map((emoji) => (typeof emoji === "string" ? EMOJI_BY_VALUE.get(emoji) : null))
+      .filter(Boolean) as EmojiItem[];
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentEmojiItems(items: EmojiItem[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      RECENT_EMOJI_STORAGE_KEY,
+      JSON.stringify(items.slice(0, RECENT_EMOJI_LIMIT).map((item) => item.emoji)),
+    );
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
 function EmojiAsset({
   item,
   className,
@@ -516,7 +558,9 @@ export function EmojiPicker({
 }: EmojiPickerProps) {
   const t = useUITranslations("emojiPicker");
   const [open, setOpen] = React.useState(false);
+  const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
+  const [recentItems, setRecentItems] = React.useState<EmojiItem[]>([]);
   const deferredQuery = React.useDeferredValue(query);
   const hasSearchQuery = deferredQuery.trim().length > 0;
   const queryTokens = React.useMemo(
@@ -526,8 +570,15 @@ export function EmojiPicker({
   const sectionRefs = React.useRef(
     new Map<EmojiCategoryId, HTMLElement | null>(),
   );
+  const viewportRef = React.useRef<HTMLDivElement | null>(null);
+  const searchInputRef = React.useRef<HTMLInputElement | null>(null);
   const pendingScrollRef = React.useRef<EmojiCategoryId | null>(null);
   const preventCloseRef = React.useRef(false);
+  const [activeCategoryId, setActiveCategoryId] = React.useState<EmojiCategoryId>("frequent");
+
+  React.useEffect(() => {
+    setRecentItems(readRecentEmojiItems());
+  }, []);
 
   const handleContentMouseDown = React.useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
@@ -575,11 +626,12 @@ export function EmojiPicker({
   const sections = React.useMemo(() => {
     const mappedSections = EMOJI_CATEGORIES.map((category) => {
       if (category.id === "frequent") {
+        const sourceItems = recentItems.length > 0 ? recentItems : FREQUENT_ITEMS;
         const items = hasSearchQuery
-          ? FREQUENT_ITEMS.filter((item) =>
+          ? sourceItems.filter((item) =>
               matchesEmojiQuery(item, deferredQuery, queryTokens),
             )
-          : FREQUENT_ITEMS;
+          : sourceItems;
 
         return {
           id: category.id,
@@ -598,7 +650,7 @@ export function EmojiPicker({
     });
 
     return mappedSections.filter((section) => section.items.length > 0);
-  }, [deferredQuery, filteredByCategory, hasSearchQuery, queryTokens, t]);
+  }, [deferredQuery, filteredByCategory, hasSearchQuery, queryTokens, recentItems, t]);
 
   const categoryIcons = React.useMemo(
     () =>
@@ -663,6 +715,17 @@ export function EmojiPicker({
   const handleSelect = React.useCallback(
     (emoji: string) => {
       preventCloseRef.current = true;
+      const selectedItem = EMOJI_BY_VALUE.get(emoji);
+      if (selectedItem) {
+        setRecentItems((currentItems) => {
+          const nextItems = [
+            selectedItem,
+            ...currentItems.filter((item) => item.emoji !== selectedItem.emoji),
+          ].slice(0, RECENT_EMOJI_LIMIT);
+          writeRecentEmojiItems(nextItems);
+          return nextItems;
+        });
+      }
       onSelect(emoji);
 
       window.requestAnimationFrame(() => {
@@ -672,6 +735,63 @@ export function EmojiPicker({
     [onSelect],
   );
 
+  React.useEffect(() => {
+    if (!open || !isSearchOpen) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [isSearchOpen, open]);
+
+  const syncActiveCategory = React.useCallback(() => {
+    const viewport = viewportRef.current;
+    if (!viewport || hasSearchQuery) {
+      return;
+    }
+
+    let nextActiveCategory = sections[0]?.id ?? "frequent";
+    let minDistance = Number.POSITIVE_INFINITY;
+
+    for (const section of sections) {
+      const node = sectionRefs.current.get(section.id);
+      if (!node) continue;
+
+      const distance = Math.abs(node.offsetTop - viewport.scrollTop - 12);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nextActiveCategory = section.id;
+      }
+    }
+
+    setActiveCategoryId(nextActiveCategory);
+  }, [hasSearchQuery, sections]);
+
+  React.useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      syncActiveCategory();
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [open, sections, syncActiveCategory]);
+
+  const handleSearchToggle = React.useCallback(() => {
+    setIsSearchOpen((currentValue) => {
+      if (currentValue) {
+        setQuery("");
+      }
+
+      return !currentValue;
+    });
+  }, []);
+
   return (
     <Popover.Root
       modal={false}
@@ -679,6 +799,11 @@ export function EmojiPicker({
       onOpenChange={(nextOpen) => {
         if (!nextOpen && preventCloseRef.current) {
           return;
+        }
+
+        if (!nextOpen) {
+          setIsSearchOpen(false);
+          setQuery("");
         }
 
         setOpen(nextOpen);
@@ -706,8 +831,8 @@ export function EmojiPicker({
           align="start"
           sideOffset={10}
           className={cn(
-            "z-50 w-[22rem] transform-gpu overflow-hidden rounded-2xl border border-white/10 bg-accent/78 p-2 text-foreground shadow-2xl backdrop-blur-2xl [backface-visibility:hidden]",
-            "origin-bottom-left [will-change:transform,opacity] data-[state=open]:animate-[ui-emoji-picker-in_200ms_cubic-bezier(.4,0,.2,1)] data-[state=closed]:animate-[ui-emoji-picker-out_180ms_cubic-bezier(.4,0,.2,1)]",
+            "z-50 flex h-[26.25rem] w-[23.875rem] max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-[1.25rem] border border-border/70 bg-popover text-popover-foreground shadow-[0_5px_18px_rgba(16,35,47,0.16)]",
+            "origin-bottom-left [will-change:transform,opacity] data-[state=open]:animate-[ui-emoji-picker-in_180ms_cubic-bezier(.42,0,.58,1)] data-[state=closed]:animate-[ui-emoji-picker-out_140ms_cubic-bezier(.4,0,.2,1)]",
           )}
           onOpenAutoFocus={(event) => event.preventDefault()}
           onFocusOutside={(event) => {
@@ -717,59 +842,50 @@ export function EmojiPicker({
           }}
           data-no-twemoji
         >
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/8 via-white/4 to-transparent" />
-            <div className="absolute -left-10 top-10 size-28 rounded-full bg-primary/18 blur-3xl" />
-            <div className="absolute right-0 top-24 size-24 rounded-full bg-sky-400/12 blur-3xl" />
-            <div className="absolute -right-8 bottom-0 size-32 rounded-full bg-amber-300/10 blur-3xl" />
-          </div>
-          <div className="relative space-y-2" onMouseDown={handleContentMouseDown}>
-            <div className="flex h-10 items-center rounded-xl border border-white/10 bg-black/28 pr-1.5 backdrop-blur-xl">
-              <label className="relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder={t("searchPlaceholder")}
-                  className="h-10 w-full bg-transparent pl-9 pr-9 text-sm text-foreground outline-none placeholder:text-muted-foreground"
-                />
-                {query.length > 0 ? (
-                  <button
-                    type="button"
-                    className="absolute right-1.5 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => setQuery("")}
-                    aria-label={t("clearSearchAriaLabel")}
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                ) : null}
-              </label>
-              <div className="mx-1 h-5 w-px shrink-0 bg-white/10" />
-              <div className="flex h-full w-[7.5rem] shrink-0 items-center overflow-x-auto pl-1 [&::-webkit-scrollbar]:hidden">
-                <div className="flex items-center gap-1">
-                  {categoryIcons.map((category) => (
+          <div className="flex min-h-0 flex-1 flex-col" onMouseDown={handleContentMouseDown}>
+            <div
+              className={cn(
+                "overflow-hidden border-b border-border/70 transition-[max-height,opacity,margin] duration-200 ease-[cubic-bezier(.42,0,.58,1)]",
+                isSearchOpen || hasSearchQuery
+                  ? "max-h-16 opacity-100"
+                  : "max-h-0 opacity-0",
+              )}
+            >
+              <div className="p-2">
+                <label className="relative block">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    ref={searchInputRef}
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder={t("searchPlaceholder")}
+                    className="h-10 w-full rounded-xl bg-muted/55 pl-9 pr-9 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                  />
+                  {query.length > 0 ? (
                     <button
-                      key={category.id}
                       type="button"
-                      title={category.label}
-                      className="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-white/10 focus-visible:bg-white/10"
+                      className="absolute right-1.5 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/8 hover:text-foreground"
                       onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => handleJumpToSection(category.id)}
+                      onClick={() => setQuery("")}
+                      aria-label={t("clearSearchAriaLabel")}
                     >
-                      <EmojiAsset
-                        item={category.item}
-                        className="size-5"
-                        loading="eager"
-                      />
+                      <X className="size-3.5" />
                     </button>
-                  ))}
-                </div>
+                  ) : null}
+                </label>
               </div>
             </div>
 
-            <ScrollArea className={cn("h-[20rem]", onDeleteLast && "pb-0")}>
-              <div className="space-y-5 pr-2 pb-2">
+            <div className="min-h-0 flex-1">
+              <ScrollArea
+                className="h-full"
+                viewportRef={viewportRef}
+                viewportClassName="pr-2"
+                onViewportScroll={() => {
+                  syncActiveCategory();
+                }}
+              >
+                <div className="space-y-5 px-2 py-3">
                 {sections.map((section) => (
                   <EmojiSectionBlock
                     key={section.id}
@@ -785,22 +901,62 @@ export function EmojiPicker({
                     {t("empty")}
                   </div>
                 ) : null}
-              </div>
-            </ScrollArea>
+                </div>
+              </ScrollArea>
+            </div>
 
-            {onDeleteLast ? (
-              <div className="sticky bottom-0 -mx-2 -mb-2 mt-2 flex justify-end border-t border-white/10 bg-black/26 px-2 py-2 backdrop-blur-xl">
+            <div className="relative flex h-[3.0625rem] min-h-[3.0625rem] items-center border-t border-border/70 px-2">
+              <button
+                type="button"
+                className={cn(
+                  "absolute left-2 inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors",
+                  (isSearchOpen || hasSearchQuery) && "bg-foreground/8 text-foreground",
+                )}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={handleSearchToggle}
+                aria-label={t("searchPlaceholder")}
+              >
+                <Search className="size-4.5" />
+              </button>
+
+              <div className="mx-auto flex max-w-[16rem] items-center overflow-x-auto px-9 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex items-center gap-2">
+                  {categoryIcons.map((category) => (
+                    <button
+                      key={category.id}
+                      type="button"
+                      title={category.label}
+                      className={cn(
+                        "inline-flex size-[1.875rem] shrink-0 items-center justify-center rounded-full transition-colors",
+                        !hasSearchQuery && activeCategoryId === category.id
+                          ? "bg-foreground/8"
+                          : "hover:bg-foreground/6",
+                      )}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => handleJumpToSection(category.id)}
+                    >
+                      <EmojiAsset
+                        item={category.item}
+                        className="size-5"
+                        loading="eager"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {onDeleteLast ? (
                 <button
                   type="button"
-                  className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+                  className="absolute right-2 inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/6 hover:text-foreground"
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={onDeleteLast}
                   aria-label={t("deleteLastAriaLabel")}
                 >
                   <FiDelete className="size-4" />
                 </button>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </div>
         </Popover.Content>
       </Popover.Portal>

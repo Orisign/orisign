@@ -2,6 +2,7 @@ import { ConversationsClientService } from '@/infra/grpc/conversations-client.se
 import { Injectable } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { RpcStatus } from '@repo/common';
+import { randomUUID } from 'crypto';
 import type {
   GetUnreadCountRequest,
   GetUnreadCountResponse,
@@ -9,6 +10,8 @@ import type {
   GetReadStateResponse,
   DeleteMessageRequest,
   EditMessageRequest,
+  InvokeMessageCallbackRequest,
+  InvokeMessageCallbackResponse,
   ListMessagesRequest,
   ListMessagesResponse,
   MarkReadRequest,
@@ -38,7 +41,12 @@ export class MessagesService {
       });
     }
 
-    const messageKind = this.normalizeMessageKind(data.kind);
+    const messageKind =
+      data.kind &&
+      data.kind !== MessageKind.MESSAGE_KIND_UNSPECIFIED &&
+      data.kind !== MessageKind.UNRECOGNIZED
+        ? data.kind
+        : null;
 
     if (!messageKind) {
       throw new RpcException({
@@ -59,11 +67,13 @@ export class MessagesService {
       });
     }
 
-    const conversation = await this.conversationsClient.getConversation({
+    const conversationResponse = await this.conversationsClient.getConversation({
       conversationId: data.conversationId,
       requesterId: data.authorId,
+      username: '',
     });
-    const peerId = this.resolveDirectPeerId(conversation.conversation ?? null, data.authorId);
+    const conversation = conversationResponse.conversation ?? null;
+    const peerId = this.resolveDirectPeerId(conversation, data.authorId);
 
     if (peerId) {
       const blocked = await this.repository.isBlockedEitherWay(data.authorId, peerId);
@@ -86,10 +96,50 @@ export class MessagesService {
       }
 
       if (replyTarget.conversationId !== data.conversationId) {
-        throw new RpcException({
-          code: RpcStatus.INVALID_ARGUMENT,
-          details: 'Reply target must belong to the same conversation',
-        });
+        const linkedDiscussionChannelId =
+          conversation?.discussionChannelId?.trim() || '';
+        let isLinkedDiscussionReply =
+          conversation?.type === ConversationType.GROUP &&
+          linkedDiscussionChannelId === replyTarget.conversationId;
+
+        if (isLinkedDiscussionReply) {
+          const linkedChannelConversation =
+            await this.conversationsClient.getConversation({
+              conversationId: replyTarget.conversationId,
+              requesterId: data.authorId,
+              username: '',
+            });
+
+          if (!linkedChannelConversation.conversation) {
+            throw new RpcException({
+              code: RpcStatus.NOT_FOUND,
+              details: 'Linked channel not found',
+            });
+          }
+        }
+
+        if (!isLinkedDiscussionReply) {
+          const replyTargetConversation =
+            await this.conversationsClient.getConversation({
+              conversationId: replyTarget.conversationId,
+              requesterId: data.authorId,
+              username: '',
+            });
+          const replyConversation = replyTargetConversation.conversation ?? null;
+          const linkedDiscussionConversationId =
+            replyConversation?.discussionConversationId?.trim() || '';
+
+          isLinkedDiscussionReply =
+            replyConversation?.type === ConversationType.CHANNEL &&
+            linkedDiscussionConversationId === data.conversationId;
+        }
+
+        if (!isLinkedDiscussionReply) {
+          throw new RpcException({
+            code: RpcStatus.INVALID_ARGUMENT,
+            details: 'Reply target must belong to the same conversation',
+          });
+        }
       }
     }
 
@@ -100,10 +150,81 @@ export class MessagesService {
       text: data.text,
       replyToId: data.replyToId,
       mediaKeys: data.mediaKeys,
+      entitiesJson: data.entitiesJson,
+      replyMarkupJson: data.replyMarkupJson,
+      attachmentsJson: data.attachmentsJson,
+      sourceBotId: data.sourceBotId,
+      metadataJson: data.metadataJson,
     });
 
     return {
       ok: true,
+      message,
+    };
+  }
+
+  public async invokeMessageCallback(
+    data: InvokeMessageCallbackRequest,
+  ): Promise<InvokeMessageCallbackResponse> {
+    if (!data.conversationId || !data.actorId || !data.messageId || !data.callbackData) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'Conversation id, actor id, message id and callback data are required',
+      });
+    }
+
+    if (Buffer.byteLength(data.callbackData, 'utf8') > 256) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'Callback data must be 256 bytes or less',
+      });
+    }
+
+    const permission = await this.conversationsClient.canRead({
+      conversationId: data.conversationId,
+      userId: data.actorId,
+    });
+
+    if (!permission.allowed) {
+      throw new RpcException({
+        code: RpcStatus.PERMISSION_DENIED,
+        details: 'No permission to interact with this conversation',
+      });
+    }
+
+    const message = await this.repository.getMessageById(data.messageId);
+
+    if (!message) {
+      throw new RpcException({
+        code: RpcStatus.NOT_FOUND,
+        details: 'Message not found',
+      });
+    }
+
+    if (message.conversationId !== data.conversationId) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'Message does not belong to the provided conversation',
+      });
+    }
+
+    if (!message.sourceBotId) {
+      throw new RpcException({
+        code: RpcStatus.FAILED_PRECONDITION,
+        details: 'Target message is not interactive',
+      });
+    }
+
+    if (!this.containsCallbackData(message.replyMarkupJson, data.callbackData)) {
+      throw new RpcException({
+        code: RpcStatus.NOT_FOUND,
+        details: 'Callback button not found on this message',
+      });
+    }
+
+    return {
+      ok: true,
+      callbackQueryId: randomUUID(),
       message,
     };
   }
@@ -129,9 +250,13 @@ export class MessagesService {
     }
 
     const messages = await this.repository.listMessages(
-      data.conversationId,
-      data.limit > 0 ? data.limit : 30,
-      data.offset > 0 ? data.offset : 0,
+      {
+        conversationId: data.conversationId,
+        limit: data.limit > 0 ? data.limit : 30,
+        offset: data.offset > 0 ? data.offset : 0,
+        replyToId: data.replyToId?.trim() || undefined,
+        messageId: data.messageId?.trim() || undefined,
+      },
     );
 
     return { messages };
@@ -224,7 +349,12 @@ export class MessagesService {
       });
     }
 
-    await this.repository.editMessage(data.messageId, data.text);
+    await this.repository.editMessage(data.messageId, {
+      ...(data.text ? { text: data.text } : {}),
+      ...(data.replyMarkupJson ? { replyMarkupJson: data.replyMarkupJson } : {}),
+      ...(data.entitiesJson ? { entitiesJson: data.entitiesJson } : {}),
+      ...(data.metadataJson ? { metadataJson: data.metadataJson } : {}),
+    });
 
     return { ok: true };
   }
@@ -328,33 +458,10 @@ export class MessagesService {
     };
   }
 
-  private normalizeMessageKind(value: unknown): MessageKind | null {
-    const allowed = [MessageKind.TEXT, MessageKind.MEDIA, MessageKind.SYSTEM];
-
-    if (typeof value === 'number') {
-      return allowed.includes(value as MessageKind) ? (value as MessageKind) : null;
-    }
-
-    if (typeof value === 'string') {
-      const enumValue = (MessageKind as unknown as Record<string, unknown>)[value];
-
-      if (typeof enumValue === 'number') {
-        return allowed.includes(enumValue as MessageKind) ? (enumValue as MessageKind) : null;
-      }
-
-      const parsed = Number(value);
-      if (Number.isInteger(parsed) && allowed.includes(parsed as MessageKind)) {
-        return parsed as MessageKind;
-      }
-    }
-
-    return null;
-  }
-
   private resolveDirectPeerId(
     conversation: {
-      type?: number;
-      members?: Array<{ userId?: string; state?: number }>;
+      type?: ConversationType;
+      members?: Array<{ userId?: string; state?: MemberState }>;
     } | null,
     requesterId: string,
   ) {
@@ -370,5 +477,23 @@ export class MessagesService {
     );
 
     return peer?.userId ?? null;
+  }
+
+  private containsCallbackData(replyMarkupJson: string | undefined, callbackData: string) {
+    if (!replyMarkupJson?.trim()) {
+      return false;
+    }
+
+    try {
+      const markup = JSON.parse(replyMarkupJson) as {
+        inlineKeyboard?: Array<Array<{ callbackData?: string }>>;
+      };
+
+      return (markup.inlineKeyboard ?? []).some((row) =>
+        row.some((button) => button.callbackData === callbackData),
+      );
+    } catch {
+      return false;
+    }
   }
 }

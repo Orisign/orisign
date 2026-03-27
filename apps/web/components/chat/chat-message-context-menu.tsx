@@ -8,6 +8,7 @@ import {
 } from "@/api/generated";
 import { CHAT_MESSAGE_KIND, type ChatMessageDto } from "@/hooks/use-chat";
 import {
+  type ChatMessagesFilter,
   type ChatMessagesQueryData,
   bumpConversationQueryData,
   bumpConversationInListData,
@@ -102,6 +103,7 @@ interface ChatMessageContextMenuProps {
   onStartSelect?: (messageId: string) => void;
   replyAuthorName: string;
   mediaKeys?: string[];
+  messageFilter?: ChatMessagesFilter;
   children: ReactNode;
 }
 
@@ -120,6 +122,7 @@ export function ChatMessageContextMenu({
   onStartSelect,
   replyAuthorName,
   mediaKeys = [],
+  messageFilter,
 }: ChatMessageContextMenuProps) {
   const t = useTranslations("chat.messages.contextMenu");
   const queryClient = useQueryClient();
@@ -129,7 +132,7 @@ export function ChatMessageContextMenu({
     mutation: {
       onSuccess: async () => {
         queryClient.setQueryData<ChatMessagesQueryData>(
-          getChatMessagesQueryKey(conversationId),
+          getChatMessagesQueryKey(conversationId, messageFilter),
           (currentData) =>
             removeChatMessageFromData(currentData, message.id),
         );
@@ -155,7 +158,7 @@ export function ChatMessageContextMenu({
   );
   const canDownloadMedia = downloadableMediaKeys.length > 0;
   const canViewReadReceipts = readReceipts.length > 0;
-  const canReply = message.kind !== CHAT_MESSAGE_KIND.SYSTEM;
+  const canReply = Boolean(onReply) && message.kind !== CHAT_MESSAGE_KIND.SYSTEM;
   const previewReadReceipts = useMemo(
     () => readReceipts.slice(0, 2),
     [readReceipts],
@@ -197,9 +200,13 @@ export function ChatMessageContextMenu({
   function handleReply() {
     onReply?.({
       id: message.id,
+      conversationId,
       authorId: message.authorId,
       authorName: replyAuthorName,
       text: message.text,
+      kind: message.kind,
+      mediaKeys: message.mediaKeys ?? [],
+      createdAt: message.createdAt,
     });
   }
 

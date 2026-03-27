@@ -1,5 +1,6 @@
 import { type Transition, type Variants, useInView } from "motion/react";
 import { useRef } from "react";
+import { EASE, EASING, SPRING, TIMING } from "./animation-config";
 
 type InViewMotionOptions = Pick<
   NonNullable<Parameters<typeof useInView>[1]>,
@@ -11,15 +12,11 @@ type StaggerOptions = {
   staggerChildren?: number;
 };
 
-const EASE_SMOOTH_OUT = [0.22, 1, 0.36, 1] as const;
-const EASE_SMOOTH_IN = [0.4, 0, 1, 1] as const;
-const EASE_GENTLE = [0.16, 1, 0.3, 1] as const;
-const EASE_STANDARD = [0.4, 0, 0.2, 1] as const;
+const EASE_SMOOTH_OUT = EASING.spring;
+const EASE_SMOOTH_IN = EASING.exit;
 
 export const SPRING_SOFT: Transition = {
-  type: "tween",
-  duration: 0.24,
-  ease: EASE_GENTLE,
+  ...SPRING.bubble,
 };
 
 export const SPRING_SNAPPY: Transition = {
@@ -29,9 +26,7 @@ export const SPRING_SNAPPY: Transition = {
 };
 
 export const SPRING_LAYOUT: Transition = {
-  type: "tween",
-  duration: 0.2,
-  ease: EASE_SMOOTH_OUT,
+  ...SPRING.layout,
 };
 
 export const SPRING_SIDEBAR_SLIDE: Transition = {
@@ -53,9 +48,7 @@ export const SPRING_SIDEBAR_EXIT: Transition = {
 };
 
 export const SPRING_MICRO: Transition = {
-  type: "tween",
-  duration: 0.14,
-  ease: EASE_SMOOTH_OUT,
+  ...SPRING.micro,
 };
 
 export const SPRING_SHAKE: Transition = {
@@ -116,54 +109,237 @@ export const sidebarSlideVariants: Variants = {
 };
 
 export const messageListItemVariants: Variants = {
-  hidden: (isOwn: boolean) => ({
+  hidden: {
     opacity: 0,
-    scale: 0.8,
-    transformOrigin: isOwn ? "right center" : "left center",
-  }),
+    scale: 0.85,
+    y: 20,
+  },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: SPRING.bubble,
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.85,
+    transition: EASE.exit,
+  },
+};
+
+export const messageListLayoutTransition: Transition = {
+  ...SPRING.layout,
+};
+
+export const selectionToggleVariants: Variants = {
+  hidden: { opacity: 0, x: -20, scale: 0 },
+  visible: { opacity: 1, x: 0, scale: 1, transition: SPRING.micro },
+  exit: { opacity: 0, x: -20, scale: 0, transition: EASE.exit },
+};
+
+export const replyPanelVariants: Variants = {
+  hidden: { height: 0, opacity: 0, y: 8, clipPath: "inset(100% 0% 0% 100%)" },
+  visible: {
+    height: "auto",
+    opacity: 1,
+    y: 0,
+    clipPath: "inset(0% 0% 0% 0%)",
+    transition: {
+      height: SPRING.input,
+      opacity: { duration: TIMING.fast, ease: EASING.spring, delay: 0.06 },
+      y: { duration: TIMING.fast, ease: EASING.spring, delay: 0.04 },
+      clipPath: { duration: TIMING.layout, ease: EASING.spring },
+    },
+  },
+  exit: {
+    height: 0,
+    opacity: 0,
+    y: -6,
+    clipPath: "inset(100% 0% 0% 100%)",
+    transition: {
+      height: { type: "tween", duration: TIMING.fast, ease: EASING.exit },
+      opacity: { type: "tween", duration: TIMING.micro, ease: "easeIn" },
+      y: { type: "tween", duration: TIMING.fast, ease: EASING.exit },
+      clipPath: { type: "tween", duration: TIMING.normal, ease: EASING.exit },
+    },
+  },
+};
+
+export const replyKeyboardVariants: Variants = {
+  hidden: { height: 0, opacity: 0, y: 16 },
+  visible: {
+    height: "auto",
+    opacity: 1,
+    y: 0,
+    transition: {
+      height: SPRING.keyboard,
+      opacity: { duration: TIMING.fast, ease: EASING.spring, delay: 0.08 },
+      y: { duration: TIMING.keyboard, ease: EASING.spring },
+    },
+  },
+  exit: {
+    height: 0,
+    opacity: 0,
+    y: 16,
+    transition: {
+      height: { type: "tween", duration: TIMING.fast, ease: EASING.exit },
+      opacity: { type: "tween", duration: TIMING.fast, ease: "easeIn" },
+      y: { type: "tween", duration: TIMING.normal, ease: EASING.exit },
+    },
+  },
+};
+
+export const composerAttachmentsVariants: Variants = {
+  hidden: { opacity: 0, y: 16, height: 0 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    height: "auto",
+    transition: {
+      height: SPRING.input,
+      opacity: { duration: TIMING.fast, ease: EASING.spring },
+      y: { duration: TIMING.normal, ease: EASING.spring },
+      staggerChildren: 0.05,
+    },
+  },
+  exit: {
+    opacity: 0,
+    y: 12,
+    height: 0,
+    transition: {
+      height: { type: "tween", duration: TIMING.normal, ease: EASING.exit },
+      opacity: { duration: TIMING.fast, ease: EASING.exit },
+      y: { duration: TIMING.fast, ease: EASING.exit },
+    },
+  },
+};
+
+export const composerAttachmentItemVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.6 },
   visible: {
     opacity: 1,
     scale: 1,
     transition: {
-      type: "tween",
-      duration: 0.3,
-      ease: EASE_STANDARD,
+      duration: TIMING.normal,
+      ease: EASING.spring,
     },
   },
-  exit: (isOwn: boolean) => ({
+  exit: {
     opacity: 0,
-    scale: 0.88,
-    transformOrigin: isOwn ? "right center" : "left center",
+    scale: 0.6,
     transition: {
-      type: "tween",
-      duration: 0.25,
-      ease: EASE_STANDARD,
+      duration: TIMING.fast,
+      ease: EASING.exit,
     },
-  }),
+  },
 };
 
-export const messageListLayoutTransition: Transition = {
-  type: "tween",
-  duration: 0.25,
-  ease: EASE_STANDARD,
+export const composerInputRowVariants: Variants = {
+  hidden: { opacity: 0, x: -20 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: { duration: TIMING.normal, ease: EASING.spring },
+  },
+  exit: {
+    opacity: 0,
+    x: -20,
+    transition: { duration: TIMING.fast, ease: EASING.exit },
+  },
 };
 
-export const selectionToggleVariants: Variants = {
-  hidden: { opacity: 0, x: -8, scale: 0.92 },
-  visible: { opacity: 1, x: 0, scale: 1, transition: SPRING_MICRO },
-  exit: { opacity: 0, x: -8, scale: 0.92, transition: SPRING_MICRO },
+export const composerRecordingRowVariants: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: TIMING.normal, ease: EASING.spring },
+  },
+  exit: {
+    opacity: 0,
+    y: 8,
+    transition: { duration: TIMING.fast, ease: EASING.exit },
+  },
 };
 
-export const replyPanelVariants: Variants = {
-  hidden: { opacity: 0, y: 10, scale: 0.99 },
-  visible: { opacity: 1, y: 0, scale: 1, transition: SPRING_SOFT },
-  exit: { opacity: 0, y: 10, scale: 0.99, transition: SPRING_SNAPPY },
+export const composerActionButtonVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.92, y: 6 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: { duration: TIMING.fast, ease: EASING.spring },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.92,
+    y: -4,
+    transition: { duration: TIMING.fast, ease: EASING.exit },
+  },
+};
+
+export const composerRecordModeVariants: Variants = {
+  hidden: { opacity: 0, x: 12 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: { duration: TIMING.fast, ease: EASING.spring },
+  },
+  exit: {
+    opacity: 0,
+    x: 12,
+    transition: { duration: TIMING.fast, ease: EASING.exit },
+  },
+};
+
+export const composerLockIndicatorVariants: Variants = {
+  hidden: { opacity: 0, y: 20, scale: 0.9 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: TIMING.normal, ease: EASING.spring },
+  },
+  exit: {
+    opacity: 0,
+    y: 10,
+    scale: 0.9,
+    transition: { duration: TIMING.fast, ease: EASING.exit },
+  },
+};
+
+export const composerLockedControlsVariants: Variants = {
+  hidden: { opacity: 0, x: 10, scale: 0.5 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    scale: 1,
+    transition: { duration: TIMING.normal, ease: EASING.spring },
+  },
+  exit: {
+    opacity: 0,
+    x: 10,
+    scale: 0.8,
+    transition: { duration: TIMING.fast, ease: EASING.exit },
+  },
+};
+
+export const composerBlockedOverlayVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { duration: TIMING.normal, ease: EASING.spring },
+  },
+  exit: {
+    opacity: 0,
+    transition: { duration: TIMING.fast, ease: EASING.exit },
+  },
 };
 
 export const swapYVariants: Variants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0, transition: SPRING_MICRO },
-  exit: { opacity: 0, y: -10, transition: SPRING_MICRO },
+  hidden: { opacity: 0, scale: 0.5, rotate: -90 },
+  visible: { opacity: 1, scale: 1, rotate: 0, transition: SPRING.micro },
+  exit: { opacity: 0, scale: 0.5, rotate: 90, transition: EASE.exit },
 };
 
 export function createStaggerContainerVariants({

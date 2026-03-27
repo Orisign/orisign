@@ -7,7 +7,6 @@ export const RIGHT_SIDEBAR_TAB = {
   FILES: "files",
   LINKS: "links",
   VOICE: "voice",
-  MEMBERS: "members",
 } as const;
 
 export type RightSidebarTab =

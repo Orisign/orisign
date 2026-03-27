@@ -13,11 +13,11 @@ exports.protobufPackage = "users.v1";
 /** Visibility mode for profile fields. */
 var PrivacyType;
 (function (PrivacyType) {
-    PrivacyType[PrivacyType["PRIVACY_TYPE_UNSPECIFIED"] = 0] = "PRIVACY_TYPE_UNSPECIFIED";
-    PrivacyType[PrivacyType["ALL"] = 1] = "ALL";
-    PrivacyType[PrivacyType["CONTACTS"] = 2] = "CONTACTS";
-    PrivacyType[PrivacyType["NOBODY"] = 3] = "NOBODY";
-    PrivacyType[PrivacyType["UNRECOGNIZED"] = -1] = "UNRECOGNIZED";
+    PrivacyType["PRIVACY_TYPE_UNSPECIFIED"] = "PRIVACY_TYPE_UNSPECIFIED";
+    PrivacyType["ALL"] = "ALL";
+    PrivacyType["CONTACTS"] = "CONTACTS";
+    PrivacyType["NOBODY"] = "NOBODY";
+    PrivacyType["UNRECOGNIZED"] = "UNRECOGNIZED";
 })(PrivacyType || (exports.PrivacyType = PrivacyType = {}));
 exports.USERS_V1_PACKAGE_NAME = "users.v1";
 function UsersServiceControllerMethods() {

@@ -111,16 +111,7 @@ export function normalizeChatFolder(input: unknown): ChatFolder {
 }
 
 function toConversationType(value: unknown) {
-  if (typeof value === "number") {
-    return value;
-  }
-
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-
-  return 0;
+  return typeof value === "string" ? value : "";
 }
 
 function isDirectConversation(conversation: ConversationResponseDto) {

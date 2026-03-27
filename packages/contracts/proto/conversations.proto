@@ -10,6 +10,9 @@ service ConversationsService {
   rpc AddMembers (AddMembersRequest) returns (MutationResponse);
   rpc RemoveMember (RemoveMemberRequest) returns (MutationResponse);
   rpc UpdateMemberRole (UpdateMemberRoleRequest) returns (MutationResponse);
+  rpc UpdateConversation (UpdateConversationRequest) returns (MutationResponse);
+  rpc DeleteConversation (DeleteConversationRequest) returns (MutationResponse);
+  rpc UpdateNotifications (UpdateConversationNotificationsRequest) returns (MutationResponse);
 
   rpc JoinConversation (JoinConversationRequest) returns (MutationResponse);
   rpc LeaveConversation (LeaveConversationRequest) returns (MutationResponse);
@@ -23,6 +26,7 @@ enum ConversationType {
   DM = 1;
   GROUP = 2;
   CHANNEL = 3;
+  SUPERGROUP = 4;
 }
 
 enum MemberRole {
@@ -62,6 +66,7 @@ message CreateConversationResponse {
 message GetConversationRequest {
   string conversation_id = 1;
   string requester_id = 2;
+  string username = 3;
 }
 
 message GetConversationResponse {
@@ -97,9 +102,32 @@ message UpdateMemberRoleRequest {
   MemberRole role = 4;
 }
 
+message UpdateConversationRequest {
+  string conversation_id = 1;
+  string actor_id = 2;
+  string title = 3;
+  string about = 4;
+  bool is_public = 5;
+  string username = 6;
+  string avatar_key = 7;
+  string discussion_conversation_id = 8;
+}
+
+message DeleteConversationRequest {
+  string conversation_id = 1;
+  string actor_id = 2;
+}
+
+message UpdateConversationNotificationsRequest {
+  string conversation_id = 1;
+  string user_id = 2;
+  bool notifications_enabled = 3;
+}
+
 message JoinConversationRequest {
   string conversation_id = 1;
   string user_id = 2;
+  string username = 3;
 }
 
 message LeaveConversationRequest {
@@ -132,6 +160,9 @@ message Conversation {
   int64 created_at = 9;
   int64 updated_at = 10;
   string avatar_key = 11;
+  bool notifications_enabled = 12;
+  string discussion_conversation_id = 13;
+  string discussion_channel_id = 14;
 }
 
 message ConversationMember {

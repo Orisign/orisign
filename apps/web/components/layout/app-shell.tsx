@@ -2,6 +2,7 @@
 
 import { useSidebar } from "@/hooks/use-sidebar";
 import { useRightSidebar } from "@/hooks/use-right-sidebar";
+import { decodeConversationLocator } from "@/lib/chat-routes";
 import { cn } from "@/lib/utils";
 import { useGeneralSettingsStore } from "@/store/settings/general-settings.store";
 import {
@@ -67,10 +68,10 @@ function resolveConversationIdFromPathname(pathname: string) {
   }
 
   if (segments[0] === "c") {
-    return segments[1] ?? null;
+    return decodeConversationLocator(segments[1] ?? null) || null;
   }
 
-  return segments[0] ?? null;
+  return decodeConversationLocator(segments[0] ?? null) || null;
 }
 
 function renderSidebarPage(route: SidebarRoute) {
@@ -332,7 +333,7 @@ const SidebarViewport = memo(function SidebarViewport({
       <div
         key={baseScene.key}
         ref={baseLayerRef}
-        className="absolute inset-0 min-w-0 bg-background transform-gpu"
+        className="absolute inset-0 min-w-0 bg-sidebar transform-gpu"
         style={{
           backfaceVisibility: "hidden",
           pointerEvents: transition ? "none" : "auto",
@@ -348,7 +349,7 @@ const SidebarViewport = memo(function SidebarViewport({
         <div
           key={transition.to.key}
           ref={incomingLayerRef}
-          className="absolute inset-0 z-10 min-w-0 bg-background transform-gpu"
+          className="absolute inset-0 z-10 min-w-0 bg-sidebar transform-gpu"
           style={{
             backfaceVisibility: "hidden",
           }}
@@ -467,7 +468,7 @@ export const AppShell: FC<PropsWithChildren> = ({ children }) => {
   return (
     <div className="min-h-screen bg-background">
       <div className="grid h-screen" style={gridStyles}>
-        <aside className="relative min-w-0 border-r bg-background pb-4">
+        <aside className="relative min-w-0 border-r bg-sidebar pb-4">
           <SidebarViewport
             current={current}
             transitionKey={sidebarRouteKey}

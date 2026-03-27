@@ -33,7 +33,7 @@ function ScrollArea({
         id={viewportId}
         data-slot="scroll-area-viewport"
         className={cn(
-          "size-full rounded-[inherit] [&>div]:h-full",
+          "size-full rounded-[inherit] [&>div]:min-h-full",
           viewportClassName,
         )}
         onScroll={onViewportScroll}

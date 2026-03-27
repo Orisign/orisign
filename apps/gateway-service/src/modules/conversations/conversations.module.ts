@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { ClientsModule, Transport } from '@nestjs/microservices'
 import { PROTO_PATHS } from '@repo/contracts'
+import { GRPC_LOADER_OPTIONS } from 'src/shared/grpc-loader.options'
 
 import { ConversationsController } from './conversations.controller'
 import { ConversationsClientGrpc } from './conversations.grpc'
@@ -30,7 +31,8 @@ const ONE_GB_IN_BYTES = 1024 * 1024 * 1024
 						protoPath: [PROTO_PATHS.CONVERSATIONS],
 						url: configService.getOrThrow<string>(
 							'CONVERSATIONS_GRPC_URL'
-						)
+						),
+						loader: GRPC_LOADER_OPTIONS
 					}
 				}),
 				inject: [ConfigService]
@@ -43,6 +45,7 @@ const ONE_GB_IN_BYTES = 1024 * 1024 * 1024
 						package: ['media.v1'],
 						protoPath: [PROTO_PATHS.MEDIA],
 						url: configService.getOrThrow<string>('MEDIA_GRPC_URL'),
+						loader: GRPC_LOADER_OPTIONS,
 						maxReceiveMessageLength: ONE_GB_IN_BYTES,
 						maxSendMessageLength: ONE_GB_IN_BYTES,
 						channelOptions: {

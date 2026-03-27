@@ -4,7 +4,7 @@ import { Button, Input } from "@repo/ui";
 import { IoMdMore } from "react-icons/io";
 import { ChatDropdown } from "./chat-dropdown";
 import { useState } from "react";
-import { IoClose, IoSearch } from "react-icons/io5";
+import { IoArrowBack, IoClose, IoSearch } from "react-icons/io5";
 import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "next-intl";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -21,6 +21,7 @@ interface ChatHeaderProps {
   avatarFallback?: string;
   avatarSeed?: string;
   isDirect?: boolean;
+  showCallAction?: boolean;
   directPeerId?: string;
   isPeerBlockedByCurrentUser?: boolean;
   onTogglePeerBlock?: () => void;
@@ -30,6 +31,14 @@ interface ChatHeaderProps {
   callActive?: boolean;
   callDisabled?: boolean;
   onToggleRightSidebar?: () => void;
+  commentsMode?: boolean;
+  onBack?: () => void;
+  notificationsEnabled?: boolean;
+  onToggleNotifications?: () => void;
+  isTogglingNotifications?: boolean;
+  canToggleNotifications?: boolean;
+  canLeaveConversation?: boolean;
+  onViewDiscussion?: () => void;
 }
 
 export function ChatHeader({
@@ -41,6 +50,7 @@ export function ChatHeader({
   avatarFallback,
   avatarSeed,
   isDirect = false,
+  showCallAction = isDirect,
   directPeerId,
   isPeerBlockedByCurrentUser = false,
   onTogglePeerBlock,
@@ -50,6 +60,14 @@ export function ChatHeader({
   callActive = false,
   callDisabled = false,
   onToggleRightSidebar,
+  commentsMode = false,
+  onBack,
+  notificationsEnabled = true,
+  onToggleNotifications,
+  isTogglingNotifications = false,
+  canToggleNotifications = false,
+  canLeaveConversation = true,
+  onViewDiscussion,
 }: ChatHeaderProps) {
   const t = useTranslations("chat.header");
   const [searching, setSearching] = useState(false);
@@ -57,6 +75,28 @@ export function ChatHeader({
   const groupSubtitle = subtitle?.trim().length
     ? subtitle
     : t("members", { count: members });
+
+  if (commentsMode) {
+    return (
+      <motion.div
+        layout
+        transition={SPRING_LAYOUT}
+        className="z-20 flex w-full shrink-0 items-center gap-2 border-b border-border bg-sidebar px-3 py-2.5"
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-12 rounded-full [&>svg]:size-8"
+          onClick={onBack}
+          aria-label={t("backAriaLabel")}
+        >
+          <IoArrowBack />
+        </Button>
+        <p className="truncate text-lg font-semibold">{title}</p>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
@@ -133,7 +173,7 @@ export function ChatHeader({
               </div>
             </button>
             <div className="flex items-center justify-center gap-2">
-              {isDirect ? (
+              {showCallAction ? (
                 <Button
                   className="rounded-full size-10 [&_svg]:size-6"
                   variant={callActive ? "destructive" : "ghost"}
@@ -150,13 +190,20 @@ export function ChatHeader({
               >
                 <IoSearch strokeWidth={3} className="text-muted-foreground" />
               </Button>
-              <ChatDropdown
-                conversationId={conversationId}
-                isDirect={isDirect}
-                directPeerId={directPeerId}
+                <ChatDropdown
+                  conversationId={conversationId}
+                  isDirect={isDirect}
+                  showVideoCallAction={showCallAction}
+                  directPeerId={directPeerId}
                 isPeerBlockedByCurrentUser={isPeerBlockedByCurrentUser}
                 onTogglePeerBlock={onTogglePeerBlock}
                 isTogglingPeerBlock={isTogglingPeerBlock}
+                notificationsEnabled={notificationsEnabled}
+                onToggleNotifications={onToggleNotifications}
+                isTogglingNotifications={isTogglingNotifications}
+                canToggleNotifications={canToggleNotifications}
+                canLeaveConversation={canLeaveConversation}
+                onViewDiscussion={onViewDiscussion}
               >
                 <Button
                   className="rounded-full size-10 [&_svg]:size-6"

@@ -1,0 +1,93 @@
+syntax = "proto3";
+
+package handles.v1;
+
+service HandlesService {
+  rpc ReserveHandle (ReserveHandleRequest) returns (ReserveHandleResponse);
+  rpc ReleaseHandle (ReleaseHandleRequest) returns (MutationResponse);
+  rpc ResolveHandle (ResolveHandleRequest) returns (ResolveHandleResponse);
+  rpc CheckHandleAvailability (CheckHandleAvailabilityRequest) returns (CheckHandleAvailabilityResponse);
+  rpc GetHandleByTarget (GetHandleByTargetRequest) returns (GetHandleByTargetResponse);
+}
+
+enum HandleKind {
+  HANDLE_KIND_UNSPECIFIED = 0;
+  USER = 1;
+  CONVERSATION = 2;
+  BOT = 3;
+  SYSTEM_BOT = 4;
+}
+
+enum HandleStatus {
+  HANDLE_STATUS_UNSPECIFIED = 0;
+  ACTIVE = 1;
+  RELEASED = 2;
+  RESERVED = 3;
+}
+
+message Handle {
+  string id = 1;
+  string username = 2;
+  string normalized_username = 3;
+  HandleKind kind = 4;
+  string target_id = 5;
+  HandleStatus status = 6;
+  int64 created_at = 7;
+  int64 updated_at = 8;
+  int64 released_at = 9;
+  int32 version = 10;
+}
+
+message ReserveHandleRequest {
+  string username = 1;
+  HandleKind kind = 2;
+  string target_id = 3;
+  string actor_id = 4;
+  string trace_id = 5;
+  bool allow_replace_same_target = 6;
+}
+
+message ReserveHandleResponse {
+  bool ok = 1;
+  Handle handle = 2;
+}
+
+message ReleaseHandleRequest {
+  string username = 1;
+  string target_id = 2;
+  HandleKind kind = 3;
+  string actor_id = 4;
+  string trace_id = 5;
+}
+
+message ResolveHandleRequest {
+  string username = 1;
+}
+
+message ResolveHandleResponse {
+  Handle handle = 1;
+}
+
+message CheckHandleAvailabilityRequest {
+  string username = 1;
+  HandleKind kind = 2;
+}
+
+message CheckHandleAvailabilityResponse {
+  bool available = 1;
+  string normalized_username = 2;
+  string reason = 3;
+}
+
+message GetHandleByTargetRequest {
+  string target_id = 1;
+  HandleKind kind = 2;
+}
+
+message GetHandleByTargetResponse {
+  Handle handle = 1;
+}
+
+message MutationResponse {
+  bool ok = 1;
+}

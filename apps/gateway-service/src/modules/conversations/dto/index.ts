@@ -54,9 +54,17 @@ export class CreateConversationRequestDto {
 }
 
 export class ConversationByIdRequestDto {
-	@ApiProperty()
+	@ApiPropertyOptional()
+	@IsOptional()
 	@IsString()
-	conversationId: string
+	conversationId?: string
+
+	@ApiPropertyOptional({
+		description: 'Публичный username беседы без или с префиксом @'
+	})
+	@IsOptional()
+	@IsString()
+	username?: string
 }
 
 export class ListMyConversationsRequestDto {
@@ -111,6 +119,50 @@ export class UpdateMemberRoleRequestDto {
 	role: MemberRole
 }
 
+export class UpdateConversationRequestDto {
+	@ApiProperty()
+	@IsString()
+	conversationId: string
+
+	@ApiProperty()
+	@IsString()
+	title: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	about?: string
+
+	@ApiProperty({ default: false })
+	@IsBoolean()
+	isPublic: boolean
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	username?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	avatarKey?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	discussionConversationId?: string
+}
+
+export class UpdateConversationNotificationsRequestDto {
+	@ApiProperty()
+	@IsString()
+	conversationId: string
+
+	@ApiProperty()
+	@IsBoolean()
+	notificationsEnabled: boolean
+}
+
 export class ConversationMemberResponseDto {
 	@ApiProperty()
 	userId: string
@@ -149,6 +201,15 @@ export class ConversationResponseDto {
 
 	@ApiProperty()
 	avatarKey: string
+
+	@ApiProperty({ default: true })
+	notificationsEnabled: boolean
+
+	@ApiProperty()
+	discussionConversationId: string
+
+	@ApiProperty()
+	discussionChannelId: string
 
 	@ApiProperty({ type: [ConversationMemberResponseDto] })
 	members: ConversationMemberResponseDto[]

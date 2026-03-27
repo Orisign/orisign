@@ -9,6 +9,7 @@ service MessagesService {
   rpc GetUnreadCount (GetUnreadCountRequest) returns (GetUnreadCountResponse);
   rpc EditMessage (EditMessageRequest) returns (MutationResponse);
   rpc DeleteMessage (DeleteMessageRequest) returns (MutationResponse);
+  rpc InvokeMessageCallback (InvokeMessageCallbackRequest) returns (InvokeMessageCallbackResponse);
   rpc MarkRead (MarkReadRequest) returns (MutationResponse);
   rpc SetUserBlock (SetUserBlockRequest) returns (MutationResponse);
   rpc GetUserBlockStatus (GetUserBlockStatusRequest) returns (GetUserBlockStatusResponse);
@@ -28,6 +29,11 @@ message SendMessageRequest {
   string text = 4;
   string reply_to_id = 5;
   repeated string media_keys = 6;
+  string entities_json = 7;
+  string reply_markup_json = 8;
+  string attachments_json = 9;
+  string source_bot_id = 10;
+  string metadata_json = 11;
 }
 
 message SendMessageResponse {
@@ -40,6 +46,8 @@ message ListMessagesRequest {
   string requester_id = 2;
   int32 limit = 3;
   int32 offset = 4;
+  string reply_to_id = 5;
+  string message_id = 6;
 }
 
 message ListMessagesResponse {
@@ -74,11 +82,27 @@ message EditMessageRequest {
   string message_id = 1;
   string actor_id = 2;
   string text = 3;
+  string reply_markup_json = 4;
+  string entities_json = 5;
+  string metadata_json = 6;
 }
 
 message DeleteMessageRequest {
   string message_id = 1;
   string actor_id = 2;
+}
+
+message InvokeMessageCallbackRequest {
+  string conversation_id = 1;
+  string actor_id = 2;
+  string message_id = 3;
+  string callback_data = 4;
+}
+
+message InvokeMessageCallbackResponse {
+  bool ok = 1;
+  string callback_query_id = 2;
+  Message message = 3;
 }
 
 message MarkReadRequest {
@@ -117,4 +141,9 @@ message Message {
   int64 created_at = 8;
   int64 edited_at = 9;
   int64 deleted_at = 10;
+  string entities_json = 11;
+  string reply_markup_json = 12;
+  string attachments_json = 13;
+  string source_bot_id = 14;
+  string metadata_json = 15;
 }

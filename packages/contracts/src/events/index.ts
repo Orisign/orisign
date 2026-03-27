@@ -1,2 +1,4 @@
 export * from './account';
 export * from './auth';
+export * from './bots';
+export * from './handles';

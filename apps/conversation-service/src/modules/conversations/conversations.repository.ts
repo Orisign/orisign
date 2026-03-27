@@ -35,13 +35,15 @@ export class ConversationsRepository {
 
     const created = await this.prismaService.conversation.create({
       data: {
-        type,
+        type: type as any,
         ownerId: params.creatorId,
         title: params.title || null,
         about: params.about || null,
         avatarKey: params.avatarKey || null,
         isPublic: params.isPublic ?? false,
         username: params.username || null,
+        discussionConversationId: null,
+        discussionChannelId: null,
         members: {
           create: uniqueMembers.map((userId) => ({
             userId,
@@ -63,7 +65,62 @@ export class ConversationsRepository {
     return this.toProtoConversation(created);
   }
 
-  public async getConversationById(conversationId: string): Promise<Conversation | null> {
+  public async findDirectConversationByMembers(
+    leftUserId: string,
+    rightUserId: string,
+  ): Promise<Conversation | null> {
+    const conversation = await this.prismaService.conversation.findFirst({
+      where: {
+        type: 'DM',
+        deletedAt: null,
+        AND: [
+          {
+            members: {
+              some: {
+                userId: leftUserId,
+              },
+            },
+          },
+          {
+            members: {
+              some: {
+                userId: rightUserId,
+              },
+            },
+          },
+        ],
+      },
+      include: {
+        members: true,
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+    });
+
+    return conversation ? this.toProtoConversation(conversation) : null;
+  }
+
+  public async setPublicHandle(params: {
+    conversationId: string;
+    username: string;
+    isPublic: boolean;
+  }): Promise<void> {
+    await this.prismaService.conversation.update({
+      where: {
+        id: params.conversationId,
+      },
+      data: {
+        isPublic: params.isPublic,
+        username: params.username || null,
+      },
+    });
+  }
+
+  public async getConversationById(
+    conversationId: string,
+    viewerId?: string,
+  ): Promise<Conversation | null> {
     const conversation = await this.prismaService.conversation.findFirst({
       where: { id: conversationId, deletedAt: null },
       include: { members: true },
@@ -73,10 +130,38 @@ export class ConversationsRepository {
       return null;
     }
 
-    return this.toProtoConversation(conversation);
+    return this.toProtoConversation(conversation, viewerId);
   }
 
-  public async listByUserId(userId: string, limit: number, offset: number): Promise<Conversation[]> {
+  public async getConversationByUsername(
+    username: string,
+    viewerId?: string,
+  ): Promise<Conversation | null> {
+    const normalizedUsername = username.trim().replace(/^@+/, "");
+    if (!normalizedUsername) {
+      return null;
+    }
+
+    const conversation = await this.prismaService.conversation.findFirst({
+      where: {
+        username: normalizedUsername,
+        deletedAt: null,
+      },
+      include: { members: true },
+    });
+
+    if (!conversation) {
+      return null;
+    }
+
+    return this.toProtoConversation(conversation, viewerId);
+  }
+
+  public async listByUserId(
+    userId: string,
+    limit: number,
+    offset: number,
+  ): Promise<Conversation[]> {
     const entities = await this.prismaService.conversation.findMany({
       where: {
         deletedAt: null,
@@ -93,7 +178,7 @@ export class ConversationsRepository {
       skip: offset,
     });
 
-    return entities.map((entity) => this.toProtoConversation(entity));
+    return entities.map((entity) => this.toProtoConversation(entity, userId));
   }
 
   public async upsertMember(params: {
@@ -160,7 +245,187 @@ export class ConversationsRepository {
     });
   }
 
-  private toProtoConversation(entity: any): Conversation {
+  public async setMemberNotifications(params: {
+    conversationId: string;
+    userId: string;
+    notificationsEnabled: boolean;
+  }): Promise<void> {
+    await this.prismaService.conversationMember.update({
+      where: {
+        conversationId_userId: {
+          conversationId: params.conversationId,
+          userId: params.userId,
+        },
+      },
+      data: {
+        notificationsEnabled: params.notificationsEnabled,
+      },
+    });
+  }
+
+  public async updateConversation(params: {
+    conversationId: string;
+    title: string;
+    about: string;
+    isPublic: boolean;
+    username: string;
+    avatarKey: string;
+    discussionConversationId: string;
+  }): Promise<Conversation> {
+    const updated = await this.prismaService.$transaction(async (tx) => {
+      const existing = await tx.conversation.findFirst({
+        where: {
+          id: params.conversationId,
+          deletedAt: null,
+        },
+        include: {
+          members: true,
+        },
+      });
+
+      if (!existing) {
+        throw new RpcException({
+          code: RpcStatus.NOT_FOUND,
+          details: 'Conversation not found',
+        });
+      }
+
+      const nextDiscussionConversationId =
+        params.discussionConversationId.trim() || null;
+      const previousDiscussionConversationId =
+        existing.discussionConversationId?.trim() || null;
+
+      if (
+        previousDiscussionConversationId &&
+        previousDiscussionConversationId !== nextDiscussionConversationId
+      ) {
+        await tx.conversation.updateMany({
+          where: {
+            id: previousDiscussionConversationId,
+            deletedAt: null,
+          },
+          data: {
+            discussionChannelId: null,
+          },
+        });
+      }
+
+      if (nextDiscussionConversationId) {
+        await tx.conversation.updateMany({
+          where: {
+            discussionChannelId: params.conversationId,
+            id: {
+              not: nextDiscussionConversationId,
+            },
+          },
+          data: {
+            discussionChannelId: null,
+          },
+        });
+
+        await tx.conversation.update({
+          where: {
+            id: nextDiscussionConversationId,
+          },
+          data: {
+            discussionChannelId: params.conversationId,
+          },
+        });
+      }
+
+      return await tx.conversation.update({
+        where: {
+          id: params.conversationId,
+        },
+        data: {
+          title: params.title || null,
+          about: params.about || null,
+          isPublic: params.isPublic,
+          username: params.username || null,
+          avatarKey: params.avatarKey || null,
+          discussionConversationId: nextDiscussionConversationId,
+        },
+        include: {
+          members: true,
+        },
+      });
+    });
+
+    return this.toProtoConversation(updated);
+  }
+
+  public async deleteConversation(conversationId: string): Promise<void> {
+    await this.prismaService.$transaction(async (tx) => {
+      const existing = await tx.conversation.findFirst({
+        where: {
+          id: conversationId,
+          deletedAt: null,
+        },
+      });
+
+      if (!existing) {
+        return;
+      }
+
+      const linkedDiscussionConversationId =
+        existing.discussionConversationId?.trim() || null;
+      const linkedDiscussionChannelId =
+        existing.discussionChannelId?.trim() || null;
+
+      if (linkedDiscussionConversationId) {
+        await tx.conversation.updateMany({
+          where: {
+            id: linkedDiscussionConversationId,
+            deletedAt: null,
+          },
+          data: {
+            discussionChannelId: null,
+          },
+        });
+      }
+
+      if (linkedDiscussionChannelId) {
+        await tx.conversation.updateMany({
+          where: {
+            id: linkedDiscussionChannelId,
+            deletedAt: null,
+          },
+          data: {
+            discussionConversationId: null,
+          },
+        });
+      }
+
+      await tx.conversation.update({
+        where: {
+          id: conversationId,
+        },
+        data: {
+          deletedAt: new Date(),
+          username: null,
+          discussionConversationId: null,
+          discussionChannelId: null,
+        },
+      });
+
+      await tx.conversationMember.updateMany({
+        where: {
+          conversationId,
+          state: 'ACTIVE',
+        },
+        data: {
+          state: 'LEFT',
+          leftAt: new Date(),
+        },
+      });
+    });
+  }
+
+  private toProtoConversation(entity: any, viewerId?: string): Conversation {
+    const viewerMember = viewerId
+      ? (entity.members ?? []).find((member: any) => member.userId === viewerId)
+      : null;
+
     return {
       id: entity.id,
       type: this.toProtoType(entity.type),
@@ -170,6 +435,9 @@ export class ConversationsRepository {
       isPublic: entity.isPublic,
       username: entity.username ?? '',
       avatarKey: entity.avatarKey ?? '',
+      notificationsEnabled: viewerMember?.notificationsEnabled ?? true,
+      discussionConversationId: entity.discussionConversationId ?? '',
+      discussionChannelId: entity.discussionChannelId ?? '',
       members: (entity.members ?? []).map((member: any) => ({
         userId: member.userId,
         role: this.toProtoRole(member.role),
@@ -181,12 +449,14 @@ export class ConversationsRepository {
     };
   }
 
-  private toPrismaType(type: ConversationType): 'DM' | 'GROUP' | 'CHANNEL' {
+  private toPrismaType(type: ConversationType): 'DM' | 'GROUP' | 'CHANNEL' | 'SUPERGROUP' {
     switch (type) {
       case ConversationType.DM:
         return 'DM';
       case ConversationType.CHANNEL:
         return 'CHANNEL';
+      case ConversationType.SUPERGROUP:
+        return 'SUPERGROUP';
       case ConversationType.GROUP:
       default:
         return 'GROUP';
@@ -199,6 +469,8 @@ export class ConversationsRepository {
         return ConversationType.DM;
       case 'CHANNEL':
         return ConversationType.CHANNEL;
+      case 'SUPERGROUP':
+        return ConversationType.SUPERGROUP;
       case 'GROUP':
       default:
         return ConversationType.GROUP;
