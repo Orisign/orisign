@@ -280,9 +280,9 @@ export function ChatFolderChatsSidebar({
           const checked = selectedChatIds.includes(conversation.id);
           const avatarUrl = getConversationAvatarUrl(conversation);
           const subtitle =
-            Number(conversation.type) === CHAT_CONVERSATION_TYPE.DM
+            conversation.type === CHAT_CONVERSATION_TYPE.DM
               ? t("labels.private")
-              : Number(conversation.type) === CHAT_CONVERSATION_TYPE.GROUP
+              : conversation.type === CHAT_CONVERSATION_TYPE.GROUP
                 ? t("labels.groups")
                 : t("labels.channels");
 

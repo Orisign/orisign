@@ -4,12 +4,21 @@ import {
   type ConversationResponseDto,
   type GetConversationResponseDto,
   type ListMyConversationsResponseDto,
+  type RealtimeMessageDtoKind,
   type UserResponseDto,
+  RealtimeMessageDtoKind as RealtimeMessageKind,
   conversationsControllerGet,
   getMessagesControllerListUrl,
   usersControllerGet,
 } from "@/api/generated";
+import { normalizeConversationUsername } from "@/lib/chat-routes";
 import { buildApiUrl } from "@/lib/app-config";
+import {
+  parseChatReplyMarkup,
+  resolveActiveConversationInputMarkup,
+  type ActiveConversationInputMarkup,
+  type ChatReplyMarkup,
+} from "@/lib/bot-reply-markup";
 import {
   CHAT_MESSAGES_INITIAL_OFFSET,
   CHAT_MESSAGES_PAGE_SIZE,
@@ -23,13 +32,19 @@ export interface ChatMessageDto {
   id: string;
   conversationId: string;
   authorId: string;
-  kind: number;
+  kind: RealtimeMessageDtoKind;
   text: string;
   replyToId: string;
   mediaKeys: string[];
   createdAt: number;
   editedAt: number;
   deletedAt: number;
+  entitiesJson: string;
+  replyMarkupJson: string;
+  attachmentsJson: string;
+  sourceBotId: string;
+  metadataJson: string;
+  replyMarkup: ChatReplyMarkup | null;
 }
 
 interface RawListMessagesResponseDto {
@@ -40,6 +55,15 @@ interface FetchChatMessagesPageParams {
   conversationId: string;
   limit: number;
   offset: number;
+  replyToId?: string;
+  messageId?: string;
+  discussionChannelId?: string;
+}
+
+export interface ChatMessagesFilter {
+  replyToId?: string;
+  messageId?: string;
+  discussionChannelId?: string;
 }
 
 export interface ChatMessagesQueryData {
@@ -73,10 +97,10 @@ interface UseConversationQueryResult {
 }
 
 export const CHAT_MESSAGE_KIND = {
-  UNSPECIFIED: 0,
-  TEXT: 1,
-  MEDIA: 2,
-  SYSTEM: 3,
+  UNSPECIFIED: RealtimeMessageKind.MESSAGE_KIND_UNSPECIFIED,
+  TEXT: RealtimeMessageKind.TEXT,
+  MEDIA: RealtimeMessageKind.MEDIA,
+  SYSTEM: RealtimeMessageKind.SYSTEM,
 } as const;
 
 export function getConversationQueryKey(conversationId: string) {
@@ -92,8 +116,43 @@ export function useConversationQuery(conversationId: string) {
   });
 }
 
-export function getChatMessagesQueryKey(conversationId: string) {
-  return [CHAT_QUERY_SCOPE, "messages", conversationId] as const;
+export function getConversationUsernameQueryKey(username: string) {
+  return ["conversation-by-username", normalizeConversationUsername(username)] as const;
+}
+
+export function useConversationUsernameQuery(username: string) {
+  const normalizedUsername = normalizeConversationUsername(username);
+
+  return useQuery<UseConversationQueryResult>({
+    queryKey: getConversationUsernameQueryKey(normalizedUsername),
+    queryFn: () => conversationsControllerGet({ username: normalizedUsername }),
+    enabled: Boolean(normalizedUsername),
+    refetchOnWindowFocus: false,
+  });
+}
+
+function normalizeChatMessagesFilter(filter?: ChatMessagesFilter) {
+  return {
+    replyToId: filter?.replyToId?.trim() ?? "",
+    messageId: filter?.messageId?.trim() ?? "",
+    discussionChannelId: filter?.discussionChannelId?.trim() ?? "",
+  };
+}
+
+export function getChatMessagesQueryKey(
+  conversationId: string,
+  filter?: ChatMessagesFilter,
+) {
+  const normalizedFilter = normalizeChatMessagesFilter(filter);
+
+  return [
+    CHAT_QUERY_SCOPE,
+    "messages",
+    conversationId,
+    normalizedFilter.replyToId,
+    normalizedFilter.messageId,
+    normalizedFilter.discussionChannelId,
+  ] as const;
 }
 
 function toFiniteNumber(value: unknown) {
@@ -140,13 +199,26 @@ export function normalizeChatMessage(
     id: message.id,
     conversationId: message.conversationId,
     authorId: message.authorId,
-    kind: toFiniteNumber(message.kind) || CHAT_MESSAGE_KIND.UNSPECIFIED,
+    kind:
+      typeof message.kind === "string"
+        ? (message.kind as RealtimeMessageDtoKind)
+        : CHAT_MESSAGE_KIND.UNSPECIFIED,
     text: typeof message.text === "string" ? message.text : "",
     replyToId: typeof message.replyToId === "string" ? message.replyToId : "",
     mediaKeys: Array.isArray(message.mediaKeys) ? message.mediaKeys.filter(Boolean) : [],
     createdAt: toFiniteNumber(message.createdAt),
     editedAt: toFiniteNumber(message.editedAt),
     deletedAt,
+    entitiesJson: typeof message.entitiesJson === "string" ? message.entitiesJson : "",
+    replyMarkupJson:
+      typeof message.replyMarkupJson === "string" ? message.replyMarkupJson : "",
+    attachmentsJson:
+      typeof message.attachmentsJson === "string" ? message.attachmentsJson : "",
+    sourceBotId: typeof message.sourceBotId === "string" ? message.sourceBotId : "",
+    metadataJson: typeof message.metadataJson === "string" ? message.metadataJson : "",
+    replyMarkup: parseChatReplyMarkup(
+      typeof message.replyMarkupJson === "string" ? message.replyMarkupJson : "",
+    ),
   };
 }
 
@@ -248,6 +320,9 @@ export async function fetchChatMessagesPage({
   conversationId,
   limit,
   offset,
+  replyToId,
+  messageId,
+  discussionChannelId,
 }: FetchChatMessagesPageParams): Promise<ChatMessageDto[]> {
   const response = await customFetch<RawListMessagesResponseDto>(
     getMessagesControllerListUrl(),
@@ -260,6 +335,9 @@ export async function fetchChatMessagesPage({
         conversationId,
         limit,
         offset,
+        replyToId: replyToId?.trim() || undefined,
+        messageId: messageId?.trim() || undefined,
+        discussionChannelId: discussionChannelId?.trim() || undefined,
       }),
     },
   );
@@ -270,20 +348,61 @@ export async function fetchChatMessagesPage({
     .reverse();
 }
 
-export function useChatMessages(conversationId: string) {
+export function useChatMessages(
+  conversationId: string,
+  filter?: ChatMessagesFilter,
+) {
+  const normalizedFilter = normalizeChatMessagesFilter(filter);
+
   return useQuery<ChatMessagesQueryData>({
-    queryKey: getChatMessagesQueryKey(conversationId),
+    queryKey: getChatMessagesQueryKey(conversationId, normalizedFilter),
     queryFn: async () => {
       const messages = await fetchChatMessagesPage({
         conversationId,
         limit: CHAT_MESSAGES_PAGE_SIZE,
         offset: CHAT_MESSAGES_INITIAL_OFFSET,
+        replyToId: normalizedFilter.replyToId,
+        messageId: normalizedFilter.messageId,
+        discussionChannelId: normalizedFilter.discussionChannelId,
       });
 
       return {
         messages,
       };
     },
+    enabled: Boolean(conversationId),
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useChatInputMarkup(
+  conversationId: string,
+  filter?: ChatMessagesFilter,
+) {
+  const normalizedFilter = normalizeChatMessagesFilter(filter);
+
+  return useQuery<
+    ChatMessagesQueryData,
+    Error,
+    ActiveConversationInputMarkup<ChatMessageDto> | null
+  >({
+    queryKey: getChatMessagesQueryKey(conversationId, normalizedFilter),
+    queryFn: async () => {
+      const messages = await fetchChatMessagesPage({
+        conversationId,
+        limit: CHAT_MESSAGES_PAGE_SIZE,
+        offset: CHAT_MESSAGES_INITIAL_OFFSET,
+        replyToId: normalizedFilter.replyToId,
+        messageId: normalizedFilter.messageId,
+        discussionChannelId: normalizedFilter.discussionChannelId,
+      });
+
+      return {
+        messages,
+      };
+    },
+    select: (data) => resolveActiveConversationInputMarkup(data.messages),
     enabled: Boolean(conversationId),
     staleTime: Infinity,
     refetchOnWindowFocus: false,

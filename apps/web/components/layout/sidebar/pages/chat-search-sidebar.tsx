@@ -1,22 +1,30 @@
 "use client";
 
-import { useConversationsControllerMy } from "@/api/generated";
+import {
+  CreateConversationRequestDtoType,
+  getConversationsControllerMyQueryKey,
+  useConversationsControllerCreate,
+  useConversationsControllerMy,
+} from "@/api/generated";
 import { ChatItem } from "@/components/chat/chat-item";
+import { CreateConversationUserRow } from "@/components/chat/create-conversation-user-row";
 import {
   SidebarPage,
   SidebarPageContent,
   SidebarPageHeader,
 } from "@/components/ui/sidebar-page";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { useChatListRealtime } from "@/hooks/use-chat-list-realtime";
 import { useSidebar } from "@/hooks/use-sidebar";
+import { useUsersList } from "@/hooks/use-users-list";
 import { SPRING_MICRO } from "@/lib/animations";
 import { getConversationTitle } from "@/lib/chat";
-import { Button, Input, Skeleton, SkeletonGroup } from "@repo/ui";
+import { Button, Input, Skeleton, SkeletonGroup, toast } from "@repo/ui";
+import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { Search } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { FiArrowLeft } from "react-icons/fi";
 
 const SEARCH_ICON_VARIANTS = {
@@ -33,12 +41,16 @@ const SEARCH_ICON_VARIANTS = {
 export const ChatSearchSidebar = () => {
   const t = useTranslations("chatSearchSidebar");
   const { pop } = useSidebar();
-  const { user } = useCurrentUser();
-  useChatListRealtime(user?.id);
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { user: currentUser } = useCurrentUser();
   const { data, isLoading } = useConversationsControllerMy();
+  const { mutateAsync: createConversation, isPending: isCreatingConversation } =
+    useConversationsControllerCreate();
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
 
-  const normalizedQuery = query.trim().toLowerCase();
+  const normalizedQuery = deferredQuery.trim().toLowerCase();
   const conversations = useMemo(() => {
     if (!normalizedQuery) {
       return [];
@@ -46,9 +58,53 @@ export const ChatSearchSidebar = () => {
 
     const allConversations = data?.conversations ?? [];
     return allConversations.filter((conversation) =>
-      getConversationTitle(conversation).toLowerCase().includes(normalizedQuery),
+      [
+        getConversationTitle(conversation),
+        conversation.username ? `@${conversation.username}` : "",
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery),
     );
   }, [data?.conversations, normalizedQuery]);
+  const usersQuery = useUsersList({
+    query: deferredQuery,
+    excludeIds: currentUser?.id ? [currentUser.id] : [],
+    limit: 20,
+    enabled: Boolean(normalizedQuery),
+  });
+  const users = usersQuery.data?.users ?? [];
+
+  async function handleOpenDirectConversation(userId: string) {
+    if (!userId || isCreatingConversation) {
+      return;
+    }
+
+    try {
+      const response = await createConversation({
+        data: {
+          type: CreateConversationRequestDtoType.DM,
+          memberIds: [userId],
+        },
+      });
+
+      const conversationId = response.conversation?.id?.trim() ?? "";
+      if (!conversationId) {
+        throw new Error("Conversation was not created");
+      }
+
+      await queryClient.invalidateQueries({
+        queryKey: getConversationsControllerMyQueryKey(),
+      });
+      pop();
+      router.push(`/${conversationId}`);
+    } catch {
+      toast({
+        title: t("openChatError"),
+        type: "error",
+      });
+    }
+  }
 
   return (
     <SidebarPage className="h-full">
@@ -101,16 +157,52 @@ export const ChatSearchSidebar = () => {
           <p className="px-2 py-4 text-sm text-muted-foreground">{t("startTyping")}</p>
         ) : null}
 
-        {!isLoading && normalizedQuery && conversations.length === 0 ? (
+        {!isLoading && normalizedQuery && conversations.length === 0 && users.length === 0 && !usersQuery.isPending ? (
           <p className="px-2 py-4 text-sm text-muted-foreground">{t("empty")}</p>
         ) : null}
 
         {!isLoading && conversations.length > 0 ? (
           <div className="flex w-full flex-col gap-1">
+            <p className="px-2 pt-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              {t("chatsTitle")}
+            </p>
             {conversations.map((conversation) => (
               <div key={conversation.id}>
                 <ChatItem conversation={conversation} />
               </div>
+            ))}
+          </div>
+        ) : null}
+
+        {!isLoading && usersQuery.isPending ? (
+          <SkeletonGroup durationMs={1500} className="flex w-full flex-col gap-1">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Skeleton key={`search-user-sidebar-${index}`} className="h-14 w-full rounded-xl" />
+            ))}
+          </SkeletonGroup>
+        ) : null}
+
+        {!isLoading && users.length > 0 ? (
+          <div className="mt-3 flex w-full flex-col gap-1">
+            <p className="px-2 pt-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              {t("peopleTitle")}
+            </p>
+            {users.map((user) => (
+              <CreateConversationUserRow
+                key={`search-user-${user.id}`}
+                conversationSeed="chat-search"
+                user={user}
+                subtitle={
+                  user.username
+                    ? `@${user.username}${user.username.endsWith("bot") ? ` · ${t("botLabel")}` : ""}`
+                    : t("createDirect")
+                }
+                checked={false}
+                showCheckbox={false}
+                onToggle={() => {
+                  void handleOpenDirectConversation(user.id);
+                }}
+              />
             ))}
           </div>
         ) : null}

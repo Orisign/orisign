@@ -37,6 +37,8 @@ import {
 	ListMyConversationsResponseDto,
 	MutationResponseDto,
 	RemoveMemberRequestDto,
+	UpdateConversationRequestDto,
+	UpdateConversationNotificationsRequestDto,
 	UpdateMemberRoleRequestDto,
 	UploadConversationAvatarResponseDto,
 	UploadConversationMediaResponseDto
@@ -287,7 +289,7 @@ export class ConversationsController {
 		}
 	}
 
-	@ApiOperation({ summary: 'Получить беседу по id' })
+	@ApiOperation({ summary: 'Получить беседу по id или username' })
 	@ApiBody({ type: ConversationByIdRequestDto })
 	@ApiOkResponse({
 		type: GetConversationResponseDto,
@@ -301,8 +303,9 @@ export class ConversationsController {
 	) {
 		return await lastValueFrom(
 			this.conversationsClient.getConversation({
-				conversationId: dto.conversationId,
-				requesterId: id
+				conversationId: dto.conversationId ?? '',
+				requesterId: id,
+				username: dto.username ?? ''
 			})
 		)
 	}
@@ -385,6 +388,73 @@ export class ConversationsController {
 		)
 	}
 
+	@ApiOperation({ summary: 'Обновить параметры беседы' })
+	@ApiBody({ type: UpdateConversationRequestDto })
+	@ApiOkResponse({
+		type: MutationResponseDto,
+		description: 'Conversation updated'
+	})
+	@Patch()
+	@HttpCode(HttpStatus.OK)
+	public async update(
+		@CurrentUser() id: string,
+		@Body() dto: UpdateConversationRequestDto
+	) {
+		return await lastValueFrom(
+			this.conversationsClient.updateConversation({
+				conversationId: dto.conversationId,
+				actorId: id,
+				title: dto.title,
+				about: dto.about ?? '',
+				isPublic: dto.isPublic,
+				username: dto.username ?? '',
+				avatarKey: dto.avatarKey ?? '',
+				discussionConversationId: dto.discussionConversationId ?? ''
+			})
+		)
+	}
+
+	@ApiOperation({ summary: 'Удалить беседу' })
+	@ApiBody({ type: ConversationByIdRequestDto })
+	@ApiOkResponse({
+		type: MutationResponseDto,
+		description: 'Conversation deleted'
+	})
+	@Post('delete')
+	@HttpCode(HttpStatus.OK)
+	public async delete(
+		@CurrentUser() id: string,
+		@Body() dto: ConversationByIdRequestDto
+	) {
+		return await lastValueFrom(
+			this.conversationsClient.deleteConversation({
+				conversationId: dto.conversationId,
+				actorId: id
+			})
+		)
+	}
+
+	@ApiOperation({ summary: 'Обновить настройки уведомлений беседы' })
+	@ApiBody({ type: UpdateConversationNotificationsRequestDto })
+	@ApiOkResponse({
+		type: MutationResponseDto,
+		description: 'Conversation notifications updated'
+	})
+	@Patch('notifications')
+	@HttpCode(HttpStatus.OK)
+	public async updateNotifications(
+		@CurrentUser() id: string,
+		@Body() dto: UpdateConversationNotificationsRequestDto
+	) {
+		return await lastValueFrom(
+			this.conversationsClient.updateNotifications({
+				conversationId: dto.conversationId,
+				userId: id,
+				notificationsEnabled: dto.notificationsEnabled
+			})
+		)
+	}
+
 	@ApiOperation({ summary: 'Вступить в публичную беседу/канал' })
 	@ApiBody({ type: ConversationByIdRequestDto })
 	@ApiOkResponse({ type: MutationResponseDto, description: 'Joined' })
@@ -396,8 +466,9 @@ export class ConversationsController {
 	) {
 		return await lastValueFrom(
 			this.conversationsClient.joinConversation({
-				conversationId: dto.conversationId,
-				userId: id
+				conversationId: dto.conversationId ?? '',
+				userId: id,
+				username: dto.username ?? ''
 			})
 		)
 	}

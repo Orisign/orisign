@@ -9,6 +9,8 @@ import type {
   GetUserBlockStatusResponse,
   DeleteMessageRequest,
   EditMessageRequest,
+  InvokeMessageCallbackRequest,
+  InvokeMessageCallbackResponse,
   ListMessagesRequest,
   ListMessagesResponse,
   MarkReadRequest,
@@ -53,6 +55,13 @@ export class MessagesController {
   @GrpcMethod('MessagesService', 'DeleteMessage')
   public async deleteMessage(data: DeleteMessageRequest): Promise<MutationResponse> {
     return await this.messagesService.deleteMessage(data);
+  }
+
+  @GrpcMethod('MessagesService', 'InvokeMessageCallback')
+  public async invokeMessageCallback(
+    data: InvokeMessageCallbackRequest,
+  ): Promise<InvokeMessageCallbackResponse> {
+    return await this.messagesService.invokeMessageCallback(data);
   }
 
   @GrpcMethod('MessagesService', 'MarkRead')

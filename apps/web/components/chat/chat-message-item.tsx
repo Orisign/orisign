@@ -1,10 +1,21 @@
 "use client";
 
-import type { UserResponseDto } from "@/api/generated";
+import type {
+  ConversationResponseDto,
+  UserResponseDto,
+} from "@/api/generated";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { type ChatMessageDto, CHAT_MESSAGE_KIND } from "@/hooks/use-chat";
+import {
+  type ChatMessageDto,
+  type ChatMessagesFilter,
+  CHAT_MESSAGE_KIND,
+} from "@/hooks/use-chat";
 import { Checkbox } from "@repo/ui";
 import {
+  getAvatarGradient,
+  getConversationAvatarUrl,
+  getConversationInitial,
+  getConversationTitle,
   getConversationParticipantVisual,
   formatTimestampTime,
   getUserAvatarUrl,
@@ -21,11 +32,6 @@ import {
 } from "@/lib/call-log-message";
 import { cn } from "@/lib/utils";
 import { Check, CheckCheck } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
-import {
-  selectionToggleVariants,
-  SPRING_SOFT,
-} from "@/lib/animations";
 import { MdRemoveRedEye } from "react-icons/md";
 import {
   FiArrowDownLeft,
@@ -41,8 +47,11 @@ import type { ChatMessageReadReceipt } from "./chat-message-read-dialog";
 import type { ChatEditTarget, ChatReplyTarget } from "./chat.types";
 import { useGeneralSettingsStore } from "@/store/settings/general-settings.store";
 import { useTranslations } from "next-intl";
+import { memo } from "react";
+import { ChatMessageReplyMarkup } from "./chat-message-reply-markup";
 
 interface ChatMessageItemProps {
+  index?: number;
   conversationId: string;
   message: ChatMessageDto;
   previousMessage?: ChatMessageDto;
@@ -53,13 +62,24 @@ interface ChatMessageItemProps {
   readReceipts: ChatMessageReadReceipt[];
   isChannel?: boolean;
   channelViewCount?: number;
+  commentCount?: number;
   onReply?: (message: ChatReplyTarget) => void;
   onEdit?: (message: ChatEditTarget) => void;
   onStartSelect?: (messageId: string) => void;
   onToggleSelect?: (messageId: string) => void;
   onJumpToMessage?: (messageId: string) => void;
+  onOpenComments?: (message: ChatReplyTarget) => void;
   repliedMessage?: ChatMessageDto | null;
   repliedAuthorName?: string;
+  senderConversation?: ConversationResponseDto | null;
+  authorIdentityKeyOverride?: string;
+  startsGroupOverride?: boolean;
+  endsGroupOverride?: boolean;
+  forceShowAvatar?: boolean;
+  forceShowAuthorName?: boolean;
+  hideIncomingAvatar?: boolean;
+  messageFilter?: ChatMessagesFilter;
+  hideReplyPreview?: boolean;
   selectionMode?: boolean;
   isSelected?: boolean;
   isFocused?: boolean;
@@ -84,7 +104,8 @@ function getBubbleClassName({
   minimalMedia: boolean;
 }) {
   const classes = [
-    "relative w-fit max-w-[38rem] transition-[background-color,box-shadow,transform] duration-200",
+    "relative max-w-[38rem]",
+    "w-fit",
     selectionMode ? "cursor-pointer" : "cursor-context-menu",
   ];
 
@@ -133,7 +154,8 @@ function getBubbleClassName({
   return classes.join(" ");
 }
 
-export function ChatMessageItem({
+export const ChatMessageItem = memo(function ChatMessageItem({
+  index = 0,
   conversationId,
   message,
   previousMessage,
@@ -144,13 +166,24 @@ export function ChatMessageItem({
   readReceipts,
   isChannel = false,
   channelViewCount = 0,
+  commentCount = 0,
   onReply,
   onEdit,
   onStartSelect,
   onToggleSelect,
   onJumpToMessage,
+  onOpenComments,
   repliedMessage,
   repliedAuthorName,
+  senderConversation = null,
+  authorIdentityKeyOverride,
+  startsGroupOverride,
+  endsGroupOverride,
+  forceShowAvatar = false,
+  forceShowAuthorName = false,
+  hideIncomingAvatar = false,
+  messageFilter,
+  hideReplyPreview = false,
   selectionMode = false,
   isSelected = false,
   isFocused = false,
@@ -161,6 +194,7 @@ export function ChatMessageItem({
   replyUnavailableLabel,
 }: ChatMessageItemProps) {
   const tCallLog = useTranslations("chat.messages.callLog");
+  const tMessages = useTranslations("chat.messages");
   const timeFormat = useGeneralSettingsStore((state) => state.timeFormat);
   const mediaKeys = message.mediaKeys ?? [];
   const messageText = message.text ?? "";
@@ -184,30 +218,51 @@ export function ChatMessageItem({
     !isDeleted &&
     (normalizeTimestamp(message.editedAt) ?? 0) >
       (normalizeTimestamp(message.createdAt) ?? 0);
-  const authorName = getUserDisplayName(author, unknownAuthorLabel);
-  const avatarUrl = getUserAvatarUrl(author);
-  const authorInitial = getUserInitial(author, authorName || message.authorId);
+  const senderTitle = senderConversation
+    ? getConversationTitle(senderConversation)
+    : "";
+  const authorName = senderTitle || getUserDisplayName(author, unknownAuthorLabel);
+  const avatarUrl = senderConversation
+    ? getConversationAvatarUrl(senderConversation)
+    : getUserAvatarUrl(author);
+  const authorInitial = senderConversation
+    ? getConversationInitial(senderConversation)
+    : getUserInitial(author, authorName || message.authorId);
   const participantVisual = getConversationParticipantVisual(
     conversationId,
-    message.authorId,
+    authorIdentityKeyOverride || message.authorId,
   );
+  const senderNameClassName = senderConversation
+    ? "text-primary"
+    : participantVisual.nameClassName;
+  const senderAvatarClassName = senderConversation
+    ? `bg-linear-to-br ${getAvatarGradient(senderConversation.id)}`
+    : participantVisual.avatarClassName;
 
-  const startsGroup =
+  const startsGroup = startsGroupOverride ?? (
     !previousMessage ||
     previousMessage.kind === CHAT_MESSAGE_KIND.SYSTEM ||
     previousMessage.authorId !== message.authorId ||
-    !isSameCalendarDay(previousMessage.createdAt, message.createdAt);
+    !isSameCalendarDay(previousMessage.createdAt, message.createdAt)
+  );
 
-  const endsGroup =
+  const endsGroup = endsGroupOverride ?? (
     !nextMessage ||
     nextMessage.kind === CHAT_MESSAGE_KIND.SYSTEM ||
     nextMessage.authorId !== message.authorId ||
-    !isSameCalendarDay(nextMessage.createdAt, message.createdAt);
+    !isSameCalendarDay(nextMessage.createdAt, message.createdAt)
+  );
 
-  const showAuthorName = !isOwn && startsGroup && Boolean(authorName);
-  const showAvatar = !isOwn && !isChannel && endsGroup;
+  const showAuthorName =
+    !isOwn &&
+    Boolean(authorName) &&
+    (forceShowAuthorName || startsGroup);
+  const showAvatar =
+    !isOwn &&
+    !hideIncomingAvatar &&
+    (forceShowAvatar || (!isChannel && endsGroup));
   const replyPreviewText = stripMessageFormatting(repliedMessage?.text ?? "").trim() || replyUnavailableLabel;
-  const showReplyBlock = Boolean(message.replyToId);
+  const showReplyBlock = Boolean(message.replyToId) && !hideReplyPreview;
   const hasOnlyRingMedia =
     mediaKeys.length > 0 &&
     mediaKeys.every((mediaKey) => isRingMediaKey(mediaKey));
@@ -215,6 +270,8 @@ export function ChatMessageItem({
     mediaKeys.length > 0 &&
     mediaKeys.every((mediaKey) => isVoiceMediaKey(mediaKey) || isRingMediaKey(mediaKey));
   const showInlineMediaMeta = hasOnlyVoiceOrRingMedia && !messageText && !isCallLogMessage;
+  const inlineReplyMarkup =
+    message.replyMarkup?.type === "inline_keyboard" ? message.replyMarkup : null;
   const messageLinkUrls = !isCallLogMessage
     ? extractMessageUrls(messageText, 3)
     : [];
@@ -247,6 +304,72 @@ export function ChatMessageItem({
     onToggleSelect?.(message.id);
   }
 
+  const commentsVisual = commentCount <= 1 ? (
+    <Avatar
+      size="sm"
+      className={cn(
+        "size-6 shrink-0 border border-white/15 shadow-sm",
+        senderAvatarClassName,
+      )}
+    >
+      {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
+      <AvatarFallback className={!avatarUrl ? "bg-transparent text-[11px] text-white" : ""}>
+        {authorInitial}
+      </AvatarFallback>
+    </Avatar>
+  ) : (
+    <div className="relative mr-1 h-6 w-11 shrink-0">
+      {[
+        "from-sky-500 to-blue-600",
+        "from-emerald-500 to-green-600",
+        "from-fuchsia-500 to-pink-600",
+      ].map((gradient, index) => (
+        <span
+          key={`${message.id}-comments-avatar-${index}`}
+          className={cn(
+            "absolute top-0 inline-flex size-6 items-center justify-center rounded-full border border-white/20 bg-linear-to-br text-[10px] font-semibold text-white shadow-sm",
+            gradient,
+          )}
+          style={{ left: `${index * 0.85}rem` }}
+        >
+          {index === 0 ? authorInitial : authorInitial}
+        </span>
+      ))}
+    </div>
+  );
+
+  const commentsAction = isChannel && onOpenComments ? (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        if (selectionMode) {
+          return;
+        }
+
+        onOpenComments({
+          id: message.id,
+          conversationId,
+          authorId: message.authorId,
+          authorName,
+          text: messageText,
+          kind: message.kind,
+          mediaKeys: message.mediaKeys ?? [],
+          createdAt: message.createdAt,
+        });
+      }}
+      className={cn(
+        "-mx-2.5 mt-2.5 flex w-[calc(100%+1.25rem)] items-center gap-2.5 border-t px-2.5 pt-2.5 text-left text-sm font-semibold transition-colors",
+        isOwn
+          ? "border-primary-foreground/15 text-primary-foreground/85 hover:text-primary-foreground"
+          : "border-border/70 text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {commentsVisual}
+      <span className="leading-none">{tMessages("commentsButton", { count: commentCount })}</span>
+    </button>
+  ) : null;
+
   const bubble = (
     <div
       className={getBubbleClassName({
@@ -264,7 +387,7 @@ export function ChatMessageItem({
             <p
               className={cn(
                 "mb-px text-[12px] font-semibold leading-none",
-                participantVisual.nameClassName,
+                senderNameClassName,
               )}
             >
               {authorName}
@@ -344,7 +467,7 @@ export function ChatMessageItem({
               </div>
             </div>
           ) : (
-            <>
+            <div className="min-w-0">
               {showReplyBlock ? (
                 <button
                   type="button"
@@ -399,7 +522,9 @@ export function ChatMessageItem({
 
               {messageText ? (
                 <div className="min-w-0">
-                  <ChatFormattedMessage text={messageText} isOwn={isOwn} />
+                  <div className="chat-message-text">
+                      <ChatFormattedMessage text={messageText} isOwn={isOwn} />
+                  </div>
                   {messageLinkUrls.length > 0 ? (
                     <div className="mt-1.5 flex max-w-[28rem] flex-col gap-1.5">
                       {messageLinkUrls.map((url) => (
@@ -412,11 +537,35 @@ export function ChatMessageItem({
                     </div>
                   ) : null}
                   <div className="mt-1 flex justify-end">
-                    {messageMeta}
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-medium leading-none",
+                        isOwn ? "text-primary-foreground/70" : "text-muted-foreground",
+                      )}
+                    >
+                      {isEdited ? (
+                        <span className="overflow-hidden opacity-50">
+                          {editedLabel}
+                        </span>
+                      ) : null}
+                      <span>{formatTimestampTime(message.createdAt, locale, { timeFormat })}</span>
+                      {isChannel ? (
+                        <>
+                          <MdRemoveRedEye className="size-3.5 text-muted-foreground" />
+                          <span>{channelViewCount}</span>
+                        </>
+                      ) : isOwn ? (
+                        isReadByOthers ? (
+                          <CheckCheck className="size-4" strokeWidth={2.4} />
+                        ) : (
+                          <Check className="size-4" strokeWidth={2.4} />
+                        )
+                      ) : null}
+                    </span>
                   </div>
                 </div>
               ) : null}
-            </>
+            </div>
           )}
         </>
       ) : (
@@ -424,25 +573,68 @@ export function ChatMessageItem({
           {deletedLabel}
         </p>
       )}
-
       {!messageText && !isCallLogMessage && !showInlineMediaMeta ? (
         <div className="mt-px">{messageMeta}</div>
       ) : null}
+
+      {commentsAction}
+    </div>
+  );
+
+  const messageStack = (
+    <div
+      className={cn(
+        "inline-flex max-w-[38rem] min-w-0 flex-col",
+        inlineReplyMarkup ? "min-w-[18rem]" : "",
+        isOwn ? "items-end" : "items-start",
+      )}
+    >
+      <div className="w-full min-w-0">
+        {bubble}
+      </div>
+      {inlineReplyMarkup ? (
+        <div className="mt-2 w-full">
+          <ChatMessageReplyMarkup
+            conversationId={conversationId}
+            messageId={message.id}
+            markup={inlineReplyMarkup}
+            disabled={selectionMode}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const incomingMessageStack = (
+    <div className="relative inline-flex max-w-[38rem] min-w-0 flex-col items-start">
+      {showAvatar ? (
+        <Avatar
+          className={cn(
+            "absolute bottom-0 -left-10 size-8 ring-2 ring-background",
+            !avatarUrl && senderAvatarClassName,
+          )}
+        >
+          {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
+          <AvatarFallback
+            className={cn(
+              "font-semibold text-white",
+              !avatarUrl && !senderConversation && "bg-transparent text-white",
+            )}
+          >
+            {authorInitial}
+          </AvatarFallback>
+        </Avatar>
+      ) : null}
+      {messageStack}
     </div>
   );
 
   const selectionToggle = (
     className?: string,
   ) => (
-    <AnimatePresence initial={false}>
+    <>
       {selectionMode ? (
-        <motion.div
-          variants={selectionToggleVariants}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          className={cn("absolute top-1/2 -translate-y-1/2", className)}
-        >
+        <div className={cn("absolute top-1/2 -translate-y-1/2", className)}>
           <Checkbox
             checked={isSelected}
             onCheckedChange={() => handleToggleSelect()}
@@ -454,9 +646,9 @@ export function ChatMessageItem({
                 "cursor-not-allowed border-border/60 bg-background/40 text-muted-foreground/50 hover:bg-background/40",
             )}
           />
-        </motion.div>
+        </div>
       ) : null}
-    </AnimatePresence>
+    </>
   );
 
   const renderRowHighlight = () => {
@@ -464,57 +656,34 @@ export function ChatMessageItem({
     const isActive = selectionMode ? isSelected : isFocused;
 
     return (
-      <AnimatePresence initial={false}>
-        {shouldRender ? (
-          <motion.span
-            key="message-highlight"
-            initial={{ opacity: 0, scale: 0.985 }}
-            animate={{
-              opacity: isActive ? 1 : 0,
-              scale: isActive ? 1 : 0.992,
-            }}
-            exit={{ opacity: 0, scale: 0.985 }}
-            transition={SPRING_SOFT}
-            className="pointer-events-none absolute inset-0 rounded-md bg-primary/40"
-          />
-        ) : null}
-      </AnimatePresence>
+      shouldRender ? (
+        <span
+          data-active={isActive}
+          className="chat-message-highlight pointer-events-none absolute inset-0 rounded-md bg-primary/40"
+        />
+      ) : null
     );
   };
 
   const content = isOwn ? (
-    <div className="relative mt-0.5 flex w-full justify-end px-0">
+    <div className="relative flex w-full justify-end px-0">
       {renderRowHighlight()}
       {selectionToggle("left-0")}
       <div className="relative flex max-w-[85%] flex-col items-end">
-        {bubble}
+        {messageStack}
       </div>
     </div>
   ) : (
-    <div className="relative mt-0.5 flex w-full justify-start px-0 pl-10">
+    <div className="relative flex w-full justify-start px-0">
       {renderRowHighlight()}
       {selectionToggle(showAvatar ? "-left-8" : "left-0")}
-      {showAvatar ? (
-        <Avatar
-          className={cn(
-            "absolute bottom-0 size-8 ring-2 ring-background",
-            "left-0",
-            !avatarUrl && participantVisual.avatarClassName,
-          )}
-        >
-          {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
-          <AvatarFallback
-            className={cn(
-              "font-semibold text-white",
-              !avatarUrl && "bg-transparent text-white",
-            )}
-          >
-            {authorInitial}
-          </AvatarFallback>
-        </Avatar>
-      ) : null}
-      <div className="relative flex max-w-[85%] min-w-0 flex-col items-start">
-        {bubble}
+      <div
+        className={cn(
+          "relative flex max-w-[85%] min-w-0 flex-col items-start",
+          showAvatar ? "pl-10" : "",
+        )}
+      >
+        {incomingMessageStack}
       </div>
     </div>
   );
@@ -534,8 +703,9 @@ export function ChatMessageItem({
       onStartSelect={onStartSelect}
       replyAuthorName={authorName}
       mediaKeys={mediaKeys}
+      messageFilter={messageFilter}
     >
       {content}
     </ChatMessageContextMenu>
   );
-}
+});

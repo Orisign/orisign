@@ -110,6 +110,7 @@ export function stripMessageFormatting(text: string) {
     .replace(/\+\+([\s\S]+?)\+\+/g, "$1")
     .replace(/~~([\s\S]+?)~~/g, "$1")
     .replace(/\|\|([\s\S]+?)\|\|/g, "$1")
+    .replace(/>!([\s\S]+?)!</g, "$1")
     .replace(/`([^`\n]+)`/g, "$1")
     .replace(/^>\s?/gm, "");
 }

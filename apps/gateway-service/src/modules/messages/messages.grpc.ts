@@ -8,6 +8,7 @@ import type {
 	GetUnreadCountRequest,
 	GetUserBlockStatusRequest,
 	GetUserBlockStatusResponse,
+	InvokeMessageCallbackRequest,
 	ListMessagesRequest,
 	MarkReadRequest,
 	MessagesServiceClient,
@@ -52,6 +53,10 @@ export class MessagesClientGrpc implements OnModuleInit {
 
 	public deleteMessage(request: DeleteMessageRequest) {
 		return this.messagesClient.deleteMessage(request)
+	}
+
+	public invokeMessageCallback(request: InvokeMessageCallbackRequest) {
+		return this.messagesClient.invokeMessageCallback(request)
 	}
 
 	public markRead(request: MarkReadRequest) {

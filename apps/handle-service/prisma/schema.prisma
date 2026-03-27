@@ -1,0 +1,54 @@
+generator client {
+  provider = "prisma-client"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Handle {
+  id                 String            @id @default(cuid())
+  username           String
+  normalizedUsername String            @unique @map("normalized_username")
+  kind               HandleKind
+  targetId           String            @map("target_id")
+  status             HandleStatus      @default(ACTIVE)
+  releasedAt         DateTime?         @map("released_at")
+  version            Int               @default(1)
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  auditLogs          HandleAuditLog[]
+
+  @@index([kind, targetId])
+  @@index([status])
+  @@map("handles")
+}
+
+model HandleAuditLog {
+  id          String   @id @default(cuid())
+  handleId    String   @map("handle_id")
+  actorId     String   @map("actor_id")
+  action      String
+  traceId     String?  @map("trace_id")
+  payloadJson String?  @map("payload_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+  handle      Handle   @relation(fields: [handleId], references: [id], onDelete: Cascade)
+
+  @@index([handleId, createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+  @@map("handle_audit_logs")
+}
+
+enum HandleKind {
+  USER
+  CONVERSATION
+  BOT
+  SYSTEM_BOT
+}
+
+enum HandleStatus {
+  ACTIVE
+  RELEASED
+  RESERVED
+}

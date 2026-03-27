@@ -1,77 +1,55 @@
 import { ApiPropertyOptional } from '@nestjs/swagger'
-import { IsInt, IsOptional, Max, Min } from 'class-validator'
-
-const PRIVACY_MIN = 0
-const PRIVACY_MAX = 3
+import { PrivacyType } from '@repo/contracts/gen/ts/users'
+import { IsEnum, IsOptional } from 'class-validator'
 
 export class PatchPrivacyRequestDto {
-	@ApiPropertyOptional({ example: 2, minimum: 0, maximum: 3 })
+	@ApiPropertyOptional({ enum: PrivacyType })
 	@IsOptional()
-	@IsInt()
-	@Min(PRIVACY_MIN)
-	@Max(PRIVACY_MAX)
-	public phone?: number
+	@IsEnum(PrivacyType)
+	public phone?: PrivacyType
 
-	@ApiPropertyOptional({ example: 1, minimum: 0, maximum: 3 })
+	@ApiPropertyOptional({ enum: PrivacyType })
 	@IsOptional()
-	@IsInt()
-	@Min(PRIVACY_MIN)
-	@Max(PRIVACY_MAX)
-	public lastSeenTime?: number
+	@IsEnum(PrivacyType)
+	public lastSeenTime?: PrivacyType
 
-	@ApiPropertyOptional({ example: 1, minimum: 0, maximum: 3 })
+	@ApiPropertyOptional({ enum: PrivacyType })
 	@IsOptional()
-	@IsInt()
-	@Min(PRIVACY_MIN)
-	@Max(PRIVACY_MAX)
-	public photo?: number
+	@IsEnum(PrivacyType)
+	public photo?: PrivacyType
 
-	@ApiPropertyOptional({ example: 2, minimum: 0, maximum: 3 })
+	@ApiPropertyOptional({ enum: PrivacyType })
 	@IsOptional()
-	@IsInt()
-	@Min(PRIVACY_MIN)
-	@Max(PRIVACY_MAX)
-	public bio?: number
+	@IsEnum(PrivacyType)
+	public bio?: PrivacyType
 
-	@ApiPropertyOptional({ example: 2, minimum: 0, maximum: 3 })
+	@ApiPropertyOptional({ enum: PrivacyType })
 	@IsOptional()
-	@IsInt()
-	@Min(PRIVACY_MIN)
-	@Max(PRIVACY_MAX)
-	public call?: number
+	@IsEnum(PrivacyType)
+	public call?: PrivacyType
 
-	@ApiPropertyOptional({ example: 1, minimum: 0, maximum: 3 })
+	@ApiPropertyOptional({ enum: PrivacyType })
 	@IsOptional()
-	@IsInt()
-	@Min(PRIVACY_MIN)
-	@Max(PRIVACY_MAX)
-	public reply?: number
+	@IsEnum(PrivacyType)
+	public reply?: PrivacyType
 
-	@ApiPropertyOptional({ example: 2, minimum: 0, maximum: 3 })
+	@ApiPropertyOptional({ enum: PrivacyType })
 	@IsOptional()
-	@IsInt()
-	@Min(PRIVACY_MIN)
-	@Max(PRIVACY_MAX)
-	public invite?: number
+	@IsEnum(PrivacyType)
+	public invite?: PrivacyType
 
-	@ApiPropertyOptional({ example: 1, minimum: 0, maximum: 3 })
+	@ApiPropertyOptional({ enum: PrivacyType })
 	@IsOptional()
-	@IsInt()
-	@Min(PRIVACY_MIN)
-	@Max(PRIVACY_MAX)
-	public mediaMessage?: number
+	@IsEnum(PrivacyType)
+	public mediaMessage?: PrivacyType
 
-	@ApiPropertyOptional({ example: 2, minimum: 0, maximum: 3 })
+	@ApiPropertyOptional({ enum: PrivacyType })
 	@IsOptional()
-	@IsInt()
-	@Min(PRIVACY_MIN)
-	@Max(PRIVACY_MAX)
-	public message?: number
+	@IsEnum(PrivacyType)
+	public message?: PrivacyType
 
-	@ApiPropertyOptional({ example: 1, minimum: 0, maximum: 3 })
+	@ApiPropertyOptional({ enum: PrivacyType })
 	@IsOptional()
-	@IsInt()
-	@Min(PRIVACY_MIN)
-	@Max(PRIVACY_MAX)
-	public birthDate?: number
+	@IsEnum(PrivacyType)
+	public birthDate?: PrivacyType
 }

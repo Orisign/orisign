@@ -11,9 +11,9 @@ import { Observable } from "rxjs";
 export const protobufPackage = "account.v1";
 
 export enum Role {
-  USER = 0,
-  ADMIN = 1,
-  UNRECOGNIZED = -1,
+  USER = "USER",
+  ADMIN = "ADMIN",
+  UNRECOGNIZED = "UNRECOGNIZED",
 }
 
 export interface GetAccountRequest {

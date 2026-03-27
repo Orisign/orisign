@@ -1,5 +1,6 @@
 import { PrismaService } from '@/infra/prisma/prisma.service';
 import { Injectable } from '@nestjs/common';
+import type { Message as MessageEntity } from '@prisma/generated/client';
 import type { ConversationReadCursor, Message } from '@repo/contracts/gen/ts/messages';
 import { MessageKind } from '@repo/contracts/gen/ts/messages';
 
@@ -14,15 +15,25 @@ export class MessagesRepository {
     text?: string;
     replyToId?: string;
     mediaKeys?: string[];
+    entitiesJson?: string;
+    replyMarkupJson?: string;
+    attachmentsJson?: string;
+    sourceBotId?: string;
+    metadataJson?: string;
   }): Promise<Message> {
     const entity = await this.prismaService.message.create({
       data: {
         conversationId: params.conversationId,
         authorId: params.authorId,
-        kind: this.toPrismaKind(params.kind),
+        kind: params.kind as never,
         text: params.text || null,
         replyToId: params.replyToId || null,
         mediaKeys: params.mediaKeys ?? [],
+        entitiesJson: params.entitiesJson || null,
+        replyMarkupJson: params.replyMarkupJson || null,
+        attachmentsJson: params.attachmentsJson || null,
+        sourceBotId: params.sourceBotId || null,
+        metadataJson: params.metadataJson || null,
       },
     });
 
@@ -30,20 +41,30 @@ export class MessagesRepository {
   }
 
   public async listMessages(
-    conversationId: string,
-    limit: number,
-    offset: number,
+    params: {
+      conversationId: string;
+      limit: number;
+      offset: number;
+      replyToId?: string;
+      messageId?: string;
+    },
   ): Promise<Message[]> {
     const entities = await this.prismaService.message.findMany({
       where: {
-        conversationId,
+        conversationId: params.conversationId,
         deletedAt: null,
+        ...(params.replyToId?.trim()
+          ? { replyToId: params.replyToId.trim() }
+          : {}),
+        ...(params.messageId?.trim()
+          ? { id: params.messageId.trim() }
+          : {}),
       },
       orderBy: {
         createdAt: 'desc',
       },
-      take: limit,
-      skip: offset,
+      take: params.limit,
+      skip: params.offset,
     });
 
     return entities.map((entity) => this.toProtoMessage(entity));
@@ -99,11 +120,22 @@ export class MessagesRepository {
     return this.toProtoMessage(entity);
   }
 
-  public async editMessage(messageId: string, text: string): Promise<void> {
+  public async editMessage(
+    messageId: string,
+    data: {
+      text?: string;
+      replyMarkupJson?: string;
+      entitiesJson?: string;
+      metadataJson?: string;
+    },
+  ): Promise<void> {
     await this.prismaService.message.update({
       where: { id: messageId },
       data: {
-        text,
+        ...(data.text !== undefined ? { text: data.text } : {}),
+        ...(data.replyMarkupJson !== undefined ? { replyMarkupJson: data.replyMarkupJson || null } : {}),
+        ...(data.entitiesJson !== undefined ? { entitiesJson: data.entitiesJson || null } : {}),
+        ...(data.metadataJson !== undefined ? { metadataJson: data.metadataJson || null } : {}),
         editedAt: new Date(),
       },
     });
@@ -263,31 +295,11 @@ export class MessagesRepository {
     return Boolean(relation);
   }
 
-  private toPrismaKind(kind: MessageKind): 'TEXT' | 'MEDIA' | 'SYSTEM' {
-    switch (kind) {
-      case MessageKind.MEDIA:
-        return 'MEDIA';
-      case MessageKind.SYSTEM:
-        return 'SYSTEM';
-      case MessageKind.TEXT:
-      default:
-        return 'TEXT';
-    }
-  }
-
   private toProtoKind(kind: string): MessageKind {
-    switch (kind) {
-      case 'MEDIA':
-        return MessageKind.MEDIA;
-      case 'SYSTEM':
-        return MessageKind.SYSTEM;
-      case 'TEXT':
-      default:
-        return MessageKind.TEXT;
-    }
+    return kind as MessageKind;
   }
 
-  private toProtoMessage(entity: any): Message {
+  private toProtoMessage(entity: MessageEntity): Message {
     return {
       id: entity.id,
       conversationId: entity.conversationId,
@@ -299,6 +311,11 @@ export class MessagesRepository {
       createdAt: entity.createdAt.getTime(),
       editedAt: entity.editedAt ? entity.editedAt.getTime() : 0,
       deletedAt: entity.deletedAt ? entity.deletedAt.getTime() : 0,
+      entitiesJson: entity.entitiesJson ?? '',
+      replyMarkupJson: entity.replyMarkupJson ?? '',
+      attachmentsJson: entity.attachmentsJson ?? '',
+      sourceBotId: entity.sourceBotId ?? '',
+      metadataJson: entity.metadataJson ?? '',
     };
   }
 }

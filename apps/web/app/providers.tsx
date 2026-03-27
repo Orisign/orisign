@@ -3,15 +3,18 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useChatListRealtime } from "@/hooks/use-chat-list-realtime";
 import { useChatSound } from "@/hooks/use-chat-sound";
 import { useGeneralSettingsSync } from "@/hooks/use-general-settings-sync";
+import { ApiError } from "@/lib/fetcher";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { TwemojiProvider } from "@/components/providers/twemoji-provider";
 import { Toaster, UII18nProvider } from "@repo/ui";
 import { useMessages } from "next-intl";
 
 function AuthBootstrap() {
-  useAuth();
+  const { user } = useAuth();
+  useChatListRealtime(user?.id);
   return null;
 }
 
@@ -25,8 +28,33 @@ function GeneralSettingsBootstrap() {
   return null;
 }
 
+function shouldRetryQuery(failureCount: number, error: unknown) {
+  if (error instanceof ApiError) {
+    if (error.status === 408 || error.status === 429) {
+      return failureCount < 1;
+    }
+
+    return error.status >= 500 && failureCount < 1;
+  }
+
+  return false;
+}
+
 export function Providers({ children }: { children: ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: shouldRetryQuery,
+            refetchOnWindowFocus: false,
+          },
+          mutations: {
+            retry: false,
+          },
+        },
+      }),
+  );
   const messages = useMessages() as Record<string, unknown>;
   const uiMessages =
     messages.ui && typeof messages.ui === "object"

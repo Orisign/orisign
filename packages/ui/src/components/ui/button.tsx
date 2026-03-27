@@ -15,7 +15,8 @@ const buttonVariants = cva(
         destructive: "bg-destructive text-white hover:bg-destructive/90",
         outline:
           "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary: "text-secondary-foreground",
+        secondary:
+          "border border-white/10 bg-background/55 text-secondary-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md hover:bg-background/70",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },
@@ -43,10 +44,18 @@ export interface ButtonProps
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, children, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
+    const resolvedVariant = variant ?? "default";
+    const resolvedSize = size ?? "default";
+    const wantsFullWidth =
+      typeof className === "string" &&
+      /(^|\s)(w-full|min-w-full|max-w-full)(\s|$)/.test(className);
     const content = (
       <Ripple asChild disabled={asChild || props.disabled}>
         <Comp
           className={cn(buttonVariants({ variant, size, className }))}
+          data-slot="button"
+          data-variant={resolvedVariant}
+          data-size={resolvedSize}
           ref={ref}
           {...props}
         >
@@ -58,13 +67,17 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     if (variant === "secondary") {
       return (
         <LiquidGlass
-          borderRadius={6}
-          blur={1.65}
-          contrast={1.25}
-          brightness={1.05}
-          saturation={0.8}
-          shadowIntensity={0}
-          className="!inline-flex !h-fit !w-fit"
+          borderRadius={16}
+          blur={2.4}
+          contrast={1.3}
+          brightness={1.08}
+          saturation={0.9}
+          shadowIntensity={0.08}
+          className={cn(
+            wantsFullWidth
+              ? "!flex !h-fit !w-full !max-w-full"
+              : "!inline-flex !h-fit !w-fit",
+          )}
         >
           {content}
         </LiquidGlass>

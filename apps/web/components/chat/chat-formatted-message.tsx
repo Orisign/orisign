@@ -3,8 +3,8 @@
 import { normalizeMessageUrl } from "@/lib/chat-message-format";
 import { escapeHtml, parseTwemojiText } from "@/lib/twemoji";
 import { cn } from "@/lib/utils";
-import { motion } from "motion/react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode } from "react";
+import { ChatSpoilerText } from "./chat-spoiler-text";
 
 interface ChatFormattedMessageProps {
   text: string;
@@ -56,7 +56,7 @@ const INLINE_PATTERNS: Array<{
   },
   {
     type: "spoiler",
-    regex: /\|\|([\s\S]+?)\|\|/,
+    regex: /(?:\|\|([\s\S]+?)\|\|)|(?:>!([\s\S]+?)!<)/,
   },
   {
     type: "code",
@@ -81,69 +81,6 @@ function renderPlainSegment(segment: string, key: string) {
   );
 }
 
-function ChatSpoiler({
-  children,
-  isOwn,
-}: {
-  children: ReactNode;
-  isOwn: boolean;
-}) {
-  const [revealed, setRevealed] = useState(false);
-
-  return (
-    <button
-      type="button"
-      onClick={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        setRevealed((currentValue) => !currentValue);
-      }}
-      className="relative inline-flex max-w-full items-center overflow-hidden rounded-sm px-1 py-0.5 align-baseline"
-    >
-      <motion.span
-        initial={false}
-        animate={revealed
-          ? {
-              opacity: 1,
-              scale: 1,
-            }
-          : {
-              opacity: 0,
-              scale: 0.99,
-            }}
-        transition={{
-          duration: 0.2,
-          ease: [0.22, 1, 0.36, 1],
-        }}
-        className="relative z-10"
-      >
-        {children}
-      </motion.span>
-
-      {!revealed ? (
-        <motion.span
-          aria-hidden
-          initial={{ opacity: 0.85 }}
-          animate={{
-            opacity: [0.65, 0.85, 0.65],
-          }}
-          transition={{
-            duration: 1.4,
-            repeat: Number.POSITIVE_INFINITY,
-            ease: "easeInOut",
-          }}
-          className={cn(
-            "absolute inset-0 rounded-sm",
-            isOwn
-              ? "bg-primary-foreground/80"
-              : "bg-foreground/80",
-          )}
-        />
-      ) : null}
-    </button>
-  );
-}
-
 function findEarliestInlineMatch(text: string, startIndex: number): InlineMatch | null {
   const segment = text.slice(startIndex);
   let bestMatch: InlineMatch | null = null;
@@ -156,7 +93,7 @@ function findEarliestInlineMatch(text: string, startIndex: number): InlineMatch 
       type: pattern.type,
       index: startIndex + match.index,
       raw: match[0] ?? "",
-      content: match[1],
+      content: match[1] ?? match[2],
       url: pattern.type === "markdown-link" ? match[2] : match[0],
     };
 
@@ -297,9 +234,11 @@ function renderInlineFormatted(
       );
     } else if (match.type === "spoiler") {
       nodes.push(
-        <ChatSpoiler key={key} isOwn={isOwn}>
-          {nestedNodes}
-        </ChatSpoiler>,
+        <ChatSpoilerText
+          key={key}
+          text={match.content ?? ""}
+          isOwn={isOwn}
+        />,
       );
     } else {
       nodes.push(renderPlainSegment(match.raw, `${key}-fallback`));

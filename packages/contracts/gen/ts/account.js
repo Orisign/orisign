@@ -12,9 +12,9 @@ const microservices_1 = require("@nestjs/microservices");
 exports.protobufPackage = "account.v1";
 var Role;
 (function (Role) {
-    Role[Role["USER"] = 0] = "USER";
-    Role[Role["ADMIN"] = 1] = "ADMIN";
-    Role[Role["UNRECOGNIZED"] = -1] = "UNRECOGNIZED";
+    Role["USER"] = "USER";
+    Role["ADMIN"] = "ADMIN";
+    Role["UNRECOGNIZED"] = "UNRECOGNIZED";
 })(Role || (exports.Role = Role = {}));
 exports.ACCOUNT_V1_PACKAGE_NAME = "account.v1";
 function AccountServiceControllerMethods() {

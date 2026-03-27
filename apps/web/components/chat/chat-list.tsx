@@ -7,8 +7,6 @@ import { Skeleton, SkeletonGroup } from "@repo/ui";
 import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { ChatItem } from "./chat-item";
-import { useChatListRealtime } from "@/hooks/use-chat-list-realtime";
-import { useCurrentUser } from "@/hooks/use-current-user";
 
 interface ChatListProps {
   activeFolder?: ChatFolder | null;
@@ -17,8 +15,6 @@ interface ChatListProps {
 
 export const ChatList = ({ activeFolder = null, searchQuery = "" }: ChatListProps) => {
   const t = useTranslations("chat.list");
-  const { user } = useCurrentUser();
-  useChatListRealtime(user?.id);
   const { data, isLoading } = useConversationsControllerMy();
 
   const allConversations = useMemo(() => data?.conversations ?? [], [data?.conversations]);

@@ -13,13 +13,20 @@ import {
 	ApiOperation,
 	ApiTags
 } from '@nestjs/swagger'
+import { ConversationType } from '@repo/contracts/gen/ts/conversations'
 import { lastValueFrom } from 'rxjs'
 import { CurrentUser, Protected } from 'src/shared/decorators'
 
+import { BotsClientGrpc } from '../bots/bots.grpc'
 import { ChatRealtimeService } from './chat-realtime.service'
+import { ConversationsClientGrpc } from '../conversations/conversations.grpc'
 import {
+	CommentSummaryItemResponseDto,
 	DeleteMessageRequestDto,
 	EditMessageRequestDto,
+	GetCommentSummaryRequestDto,
+	GetCommentSummaryResponseDto,
+	InvokeMessageCallbackRequestDto,
 	GetReadStateRequestDto,
 	GetReadStateResponseDto,
 	ListSharedMediaRequestDto,
@@ -38,6 +45,10 @@ import { MessagesClientGrpc } from './messages.grpc'
 
 const MEDIA_SCAN_PAGE_SIZE = 120
 const MAX_MEDIA_SCAN_MESSAGES = 5000
+const COMMENT_SUMMARY_SCAN_PAGE_SIZE = 200
+const MAX_COMMENT_SUMMARY_MESSAGES = 5000
+const DISCUSSION_TIMELINE_SCAN_PAGE_SIZE = 200
+const MAX_DISCUSSION_TIMELINE_MESSAGES = 5000
 const IMAGE_MEDIA_EXTENSIONS = [
 	'.png',
 	'.jpg',
@@ -163,8 +174,244 @@ function toSharedMediaItem(message: SharedMediaMessage) {
 export class MessagesController {
 	public constructor(
 		private readonly messagesClient: MessagesClientGrpc,
-		private readonly chatRealtimeService: ChatRealtimeService
+		private readonly chatRealtimeService: ChatRealtimeService,
+		private readonly conversationsClient: ConversationsClientGrpc,
+		private readonly botsClient: BotsClientGrpc
 	) {}
+
+	private parseJsonValue(value?: string): unknown {
+		if (!value?.trim()) return undefined
+
+		try {
+			return JSON.parse(value)
+		} catch {
+			return undefined
+		}
+	}
+
+	private normalizeBotChatType(type?: ConversationType) {
+		switch (type) {
+			case ConversationType.GROUP:
+				return 'group'
+			case ConversationType.SUPERGROUP:
+				return 'supergroup'
+			case ConversationType.CHANNEL:
+				return 'channel'
+			case ConversationType.DM:
+			default:
+				return 'private'
+		}
+	}
+
+	private resolveDirectPeerUserId(
+		conversation:
+			| {
+					type?: ConversationType
+					members?: Array<{ userId?: string }>
+			  }
+			| null
+			| undefined,
+		requesterId: string
+	) {
+		if (!conversation || conversation.type !== ConversationType.DM) {
+			return ''
+		}
+
+		return (
+			conversation.members?.find(member => member.userId && member.userId !== requesterId)
+				?.userId ?? ''
+		)
+	}
+
+	private async emitBotExternalEvent(
+		eventName: string,
+		payload: Record<string, unknown>
+	) {
+		await lastValueFrom(
+			this.botsClient.consumeExternalEvent({
+				eventName,
+				traceId: '',
+				payloadJson: JSON.stringify(payload)
+			})
+		)
+	}
+
+	private async emitDirectBotMessageCreated(params: {
+		botUserId: string
+		conversationId: string
+		senderUserId: string
+		locale?: string
+		message: {
+			id?: string
+			text?: string
+			createdAt?: number
+			mediaKeys?: string[]
+			entitiesJson?: string
+			replyMarkupJson?: string
+			attachmentsJson?: string
+		}
+		conversation?: {
+			type?: ConversationType
+		} | null
+	}) {
+		if (!params.botUserId) {
+			return
+		}
+
+		const botResponse = await lastValueFrom(
+			this.botsClient.getBotByUserId({ botUserId: params.botUserId })
+		)
+		const bot = botResponse.bot
+		if (!bot) {
+			return
+		}
+
+		const chatType = this.normalizeBotChatType(params.conversation?.type)
+		const entities = this.parseJsonValue(params.message.entitiesJson)
+		const replyMarkup = this.parseJsonValue(params.message.replyMarkupJson)
+		const attachments = this.parseJsonValue(params.message.attachmentsJson)
+
+		await this.emitBotExternalEvent('message.created', {
+			botId: bot.id,
+			chatId: params.conversationId,
+			userId: params.senderUserId,
+			locale: params.locale ?? '',
+			messageId: params.message.id ?? '',
+			text: params.message.text ?? '',
+			mediaKeys: params.message.mediaKeys ?? [],
+			entities,
+			replyMarkup,
+			attachments,
+			chatType,
+			chat: {
+				id: params.conversationId,
+				type: chatType
+			},
+			from: {
+				id: params.senderUserId
+			},
+			message: {
+				id: params.message.id ?? '',
+				date: params.message.createdAt ?? 0,
+				text: params.message.text ?? '',
+				entities,
+				replyMarkup,
+				attachments,
+				chat: {
+					id: params.conversationId,
+					type: chatType
+				},
+				from: {
+					id: params.senderUserId
+				}
+			}
+		})
+	}
+
+	private async resolveDiscussionLink(
+		conversationId: string,
+		requesterId: string
+	) {
+		const response = await lastValueFrom(
+			this.conversationsClient.getConversation({
+				conversationId,
+				requesterId,
+				username: ''
+			})
+		)
+		const conversation = response.conversation
+		const discussionConversationId =
+			conversation?.type === ConversationType.CHANNEL
+				? conversation.discussionConversationId?.trim() ?? ''
+				: ''
+		const discussionChannelId =
+			conversation?.type === ConversationType.GROUP ||
+			conversation?.type === ConversationType.SUPERGROUP
+				? conversation.discussionChannelId?.trim() ?? ''
+				: ''
+
+		return {
+			conversation,
+			discussionConversationId,
+			discussionChannelId
+		}
+	}
+
+	private async loadTimelineWindow(
+		conversationId: string,
+		requesterId: string,
+		targetCount: number
+	) {
+		const messages: SharedMediaMessage[] = []
+		let offset = 0
+
+		while (
+			messages.length < targetCount &&
+			offset < MAX_DISCUSSION_TIMELINE_MESSAGES
+		) {
+			const response = await lastValueFrom(
+				this.messagesClient.listMessages({
+					conversationId,
+					requesterId,
+					limit: Math.min(
+						DISCUSSION_TIMELINE_SCAN_PAGE_SIZE,
+						targetCount - messages.length
+					),
+					offset,
+					replyToId: '',
+					messageId: ''
+				})
+			)
+			const pageMessages = response.messages ?? []
+
+			if (pageMessages.length === 0) {
+				break
+			}
+
+			messages.push(...pageMessages)
+			offset += pageMessages.length
+
+			if (pageMessages.length < DISCUSSION_TIMELINE_SCAN_PAGE_SIZE) {
+				break
+			}
+		}
+
+		return messages
+	}
+
+	private async listDiscussionTimeline(
+		discussionConversationId: string,
+		channelConversationId: string,
+		requesterId: string,
+		limit: number,
+		offset: number
+	) {
+		const targetCount = Math.max(limit + offset, limit)
+		const [discussionMessages, channelMessages] = await Promise.all([
+			this.loadTimelineWindow(
+				discussionConversationId,
+				requesterId,
+				targetCount
+			),
+			this.loadTimelineWindow(
+				channelConversationId,
+				requesterId,
+				targetCount
+			)
+		])
+
+		return [...discussionMessages, ...channelMessages]
+			.sort((left, right) => {
+				const leftCreatedAt = left.createdAt ?? 0
+				const rightCreatedAt = right.createdAt ?? 0
+				if (leftCreatedAt !== rightCreatedAt) {
+					return rightCreatedAt - leftCreatedAt
+				}
+
+				return String(right.id ?? '').localeCompare(String(left.id ?? ''))
+			})
+			.slice(offset, offset + limit)
+	}
 
 	@ApiOperation({ summary: 'Отправить сообщение' })
 	@ApiBody({ type: SendMessageRequestDto })
@@ -175,6 +422,10 @@ export class MessagesController {
 		@CurrentUser() id: string,
 		@Body() dto: SendMessageRequestDto
 	) {
+		const discussionLink = await this.resolveDiscussionLink(
+			dto.conversationId,
+			id
+		)
 		const response = await lastValueFrom(
 			this.messagesClient.sendMessage({
 				conversationId: dto.conversationId,
@@ -182,16 +433,109 @@ export class MessagesController {
 				kind: dto.kind,
 				text: dto.text ?? '',
 				replyToId: dto.replyToId ?? '',
-				mediaKeys: dto.mediaKeys ?? []
+				mediaKeys: dto.mediaKeys ?? [],
+				entitiesJson: dto.entitiesJson ?? '',
+				replyMarkupJson: dto.replyMarkupJson ?? '',
+				attachmentsJson: dto.attachmentsJson ?? '',
+				sourceBotId: dto.sourceBotId ?? '',
+				metadataJson: dto.metadataJson ?? ''
 			})
 		)
 
 		if (response?.ok && response.message) {
 			this.chatRealtimeService.emitMessageCreated(response.message)
+			if (discussionLink.discussionConversationId) {
+				this.chatRealtimeService.emitMessageCreatedToConversation(
+					discussionLink.discussionConversationId,
+					response.message
+				)
+			}
 			this.chatRealtimeService.emitChatListInvalidate({
 				conversationId: response.message.conversationId,
 				actorId: id,
 				reason: 'message.sent'
+			})
+			if (discussionLink.discussionConversationId) {
+				this.chatRealtimeService.emitChatListInvalidate({
+					conversationId: discussionLink.discussionConversationId,
+					actorId: id,
+					reason: 'discussion.message.mirrored'
+				})
+			}
+
+			const directPeerUserId = this.resolveDirectPeerUserId(
+				discussionLink.conversation,
+				id
+			)
+			if (directPeerUserId) {
+				await this.emitDirectBotMessageCreated({
+					botUserId: directPeerUserId,
+					conversationId: dto.conversationId,
+					senderUserId: id,
+					locale: dto.locale ?? '',
+					message: response.message,
+					conversation: discussionLink.conversation
+				})
+			}
+		}
+
+		return response
+	}
+
+	@ApiOperation({ summary: 'Invoke callback button on an interactive bot message' })
+	@ApiBody({ type: InvokeMessageCallbackRequestDto })
+	@ApiOkResponse({ description: 'Callback query created and dispatched' })
+	@Post('callback')
+	@HttpCode(HttpStatus.OK)
+	public async invokeCallback(
+		@CurrentUser() id: string,
+		@Body() dto: InvokeMessageCallbackRequestDto
+	) {
+		const discussionLink = await this.resolveDiscussionLink(dto.conversationId, id)
+		const response = await lastValueFrom(
+			this.messagesClient.invokeMessageCallback({
+				conversationId: dto.conversationId,
+				actorId: id,
+				messageId: dto.messageId,
+				callbackData: dto.callbackData
+			})
+		)
+
+		if (response.ok && response.message?.sourceBotId) {
+			const chatType = this.normalizeBotChatType(discussionLink.conversation?.type)
+			const message = response.message
+			const entities = this.parseJsonValue(message.entitiesJson)
+			const replyMarkup = this.parseJsonValue(message.replyMarkupJson)
+			const attachments = this.parseJsonValue(message.attachmentsJson)
+
+			await this.emitBotExternalEvent('message.callback_invoked', {
+				botId: message.sourceBotId,
+				callbackQueryId: response.callbackQueryId,
+				chatId: dto.conversationId,
+				userId: id,
+				locale: dto.locale ?? '',
+				messageId: dto.messageId,
+				data: dto.callbackData,
+				chatType,
+				chat: {
+					id: dto.conversationId,
+					type: chatType
+				},
+				from: {
+					id
+				},
+				message: {
+					id: message.id,
+					date: message.createdAt,
+					text: message.text,
+					entities,
+					replyMarkup,
+					attachments,
+					chat: {
+						id: dto.conversationId,
+						type: chatType
+					}
+				}
 			})
 		}
 
@@ -207,14 +551,98 @@ export class MessagesController {
 		@CurrentUser() id: string,
 		@Body() dto: ListMessagesRequestDto
 	) {
+		const replyToId = dto.replyToId?.trim() ?? ''
+		const messageId = dto.messageId?.trim() ?? ''
+		const discussionChannelId = dto.discussionChannelId?.trim() ?? ''
+
+		if (!replyToId && !messageId && discussionChannelId) {
+			return {
+				messages: await this.listDiscussionTimeline(
+					dto.conversationId,
+					discussionChannelId,
+					id,
+					dto.limit ?? 30,
+					dto.offset ?? 0
+				)
+			}
+		}
+
 		return await lastValueFrom(
 			this.messagesClient.listMessages({
 				conversationId: dto.conversationId,
 				requesterId: id,
 				limit: dto.limit ?? 30,
-				offset: dto.offset ?? 0
+				offset: dto.offset ?? 0,
+				replyToId,
+				messageId
 			})
 		)
+	}
+
+	@ApiOperation({ summary: 'Счётчики комментариев для постов канала' })
+	@ApiBody({ type: GetCommentSummaryRequestDto })
+	@ApiOkResponse({ type: GetCommentSummaryResponseDto })
+	@Post('comment-summary')
+	@HttpCode(HttpStatus.OK)
+	public async getCommentSummary(
+		@CurrentUser() id: string,
+		@Body() dto: GetCommentSummaryRequestDto
+	) {
+		const replyToIds = [...new Set((dto.replyToIds ?? []).filter(Boolean))]
+		const counts = new Map<string, number>(
+			replyToIds.map(replyToId => [replyToId, 0])
+		)
+
+		if (replyToIds.length === 0) {
+			return {
+				items: [] as CommentSummaryItemResponseDto[]
+			}
+		}
+
+		let offset = 0
+		let scanned = 0
+
+		while (scanned < MAX_COMMENT_SUMMARY_MESSAGES) {
+			const response = await lastValueFrom(
+				this.messagesClient.listMessages({
+					conversationId: dto.conversationId,
+					requesterId: id,
+					limit: COMMENT_SUMMARY_SCAN_PAGE_SIZE,
+					offset,
+					replyToId: '',
+					messageId: ''
+				})
+			)
+
+			const messages = response.messages ?? []
+			if (messages.length === 0) {
+				break
+			}
+
+			scanned += messages.length
+
+			for (const message of messages) {
+				const replyToId = message.replyToId ?? ''
+				if (!counts.has(replyToId)) {
+					continue
+				}
+
+				counts.set(replyToId, (counts.get(replyToId) ?? 0) + 1)
+			}
+
+			if (messages.length < COMMENT_SUMMARY_SCAN_PAGE_SIZE) {
+				break
+			}
+
+			offset += messages.length
+		}
+
+		return {
+			items: replyToIds.map(replyToId => ({
+				replyToId,
+				count: counts.get(replyToId) ?? 0
+			}))
+		}
 	}
 
 	@ApiOperation({
@@ -243,7 +671,9 @@ export class MessagesController {
 					conversationId: dto.conversationId,
 					requesterId: id,
 					limit: MEDIA_SCAN_PAGE_SIZE,
-					offset: scanOffset
+					offset: scanOffset,
+					replyToId: '',
+					messageId: ''
 				})
 			)
 			const pageMessages = response.messages ?? []
@@ -326,12 +756,19 @@ export class MessagesController {
 			this.messagesClient.editMessage({
 				messageId: dto.messageId,
 				actorId: id,
-				text: dto.text
+				text: dto.text,
+				replyMarkupJson: dto.replyMarkupJson ?? '',
+				entitiesJson: dto.entitiesJson ?? '',
+				metadataJson: dto.metadataJson ?? ''
 			})
 		)
 
 		if (response?.ok && dto.conversationId) {
 			const editedAt = Date.now()
+			const discussionLink = await this.resolveDiscussionLink(
+				dto.conversationId,
+				id
+			)
 
 			this.chatRealtimeService.emitMessageUpdated({
 				conversationId: dto.conversationId,
@@ -339,11 +776,26 @@ export class MessagesController {
 				text: dto.text,
 				editedAt
 			})
+			if (discussionLink.discussionConversationId) {
+				this.chatRealtimeService.emitMessageUpdatedToConversation({
+					targetConversationId: discussionLink.discussionConversationId,
+					messageId: dto.messageId,
+					text: dto.text,
+					editedAt
+				})
+			}
 			this.chatRealtimeService.emitChatListInvalidate({
 				conversationId: dto.conversationId,
 				actorId: id,
 				reason: 'message.edited'
 			})
+			if (discussionLink.discussionConversationId) {
+				this.chatRealtimeService.emitChatListInvalidate({
+					conversationId: discussionLink.discussionConversationId,
+					actorId: id,
+					reason: 'discussion.message.edited'
+				})
+			}
 		} else if (response?.ok) {
 			this.chatRealtimeService.emitChatListInvalidate({
 				actorId: id,
@@ -405,6 +857,10 @@ export class MessagesController {
 
 		if (dto.conversationId && deletedMessageIds.length > 0) {
 			const deletedAt = Date.now()
+			const discussionLink = await this.resolveDiscussionLink(
+				dto.conversationId,
+				id
+			)
 
 			deletedMessageIds.forEach(messageId => {
 				this.chatRealtimeService.emitMessageDeleted({
@@ -412,12 +868,27 @@ export class MessagesController {
 					messageId,
 					deletedAt
 				})
+				if (discussionLink.discussionConversationId) {
+					this.chatRealtimeService.emitMessageDeletedToConversation({
+						targetConversationId:
+							discussionLink.discussionConversationId,
+						messageId,
+						deletedAt
+					})
+				}
 			})
 			this.chatRealtimeService.emitChatListInvalidate({
 				conversationId: dto.conversationId,
 				actorId: id,
 				reason: 'message.deleted'
 			})
+			if (discussionLink.discussionConversationId) {
+				this.chatRealtimeService.emitChatListInvalidate({
+					conversationId: discussionLink.discussionConversationId,
+					actorId: id,
+					reason: 'discussion.message.deleted'
+				})
+			}
 		} else if (deletedMessageIds.length > 0) {
 			this.chatRealtimeService.emitChatListInvalidate({
 				actorId: id,

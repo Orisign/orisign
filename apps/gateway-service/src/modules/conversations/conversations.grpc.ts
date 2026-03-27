@@ -10,6 +10,9 @@ import type {
 	ListMyConversationsRequest,
 	PermissionRequest,
 	RemoveMemberRequest,
+	DeleteConversationRequest,
+	UpdateConversationRequest,
+	UpdateConversationNotificationsRequest,
 	UpdateMemberRoleRequest
 } from '@repo/contracts/gen/ts/conversations'
 
@@ -50,6 +53,18 @@ export class ConversationsClientGrpc implements OnModuleInit {
 
 	public updateMemberRole(request: UpdateMemberRoleRequest) {
 		return this.conversationsClient.updateMemberRole(request)
+	}
+
+	public updateConversation(request: UpdateConversationRequest) {
+		return this.conversationsClient.updateConversation(request)
+	}
+
+	public deleteConversation(request: DeleteConversationRequest) {
+		return this.conversationsClient.deleteConversation(request)
+	}
+
+	public updateNotifications(request: UpdateConversationNotificationsRequest) {
+		return this.conversationsClient.updateNotifications(request)
 	}
 
 	public joinConversation(request: JoinConversationRequest) {

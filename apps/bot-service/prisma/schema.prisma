@@ -1,0 +1,307 @@
+generator client {
+  provider = "prisma-client"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Bot {
+  id              String             @id
+  ownerUserId     String             @map("owner_user_id")
+  botUserId       String             @unique @map("bot_user_id")
+  handleId        String?            @unique @map("handle_id")
+  status          BotStatus          @default(ACTIVE)
+  deliveryMode    BotDeliveryMode    @default(POLLING) @map("delivery_mode")
+  privacyMode     BotPrivacyMode     @default(PRIVACY_ENABLED) @map("privacy_mode")
+  createdVia      BotCreatedVia      @default(INTERNAL_API) @map("created_via")
+  deletedAt       DateTime?          @map("deleted_at")
+  version         Int                @default(1)
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  profile         BotProfile?
+  credentials     BotCredential[]
+  webhook         BotWebhook?
+  commands        BotCommand[]
+  chats           BotChatBinding[]
+  updates         BotUpdateEnvelope[]
+  cursor          BotDeliveryCursor?
+  attempts        BotDeliveryAttempt[]
+  sessions        BotSession[]
+  callbackQueries BotCallbackQuery[]
+  auditLogs       BotAuditLog[]
+  permissions     BotPermission[]
+  mediaAssets     BotMediaAsset[]
+
+  @@index([ownerUserId, status])
+  @@index([status, deliveryMode])
+  @@map("bots")
+}
+
+model BotProfile {
+  botId             String   @id @map("bot_id")
+  displayName       String   @map("display_name")
+  username          String?
+  description       String?
+  about             String?
+  shortDescription  String?  @map("short_description")
+  avatarFileId      String?  @map("avatar_file_id")
+  avatarUrl         String?  @map("avatar_url")
+  localeDefault     String?  @map("locale_default")
+  allowedChatTypes  String[] @default([]) @map("allowed_chat_types")
+  metadataJson      String?  @map("metadata_json")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  bot               Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@map("bot_profiles")
+}
+
+model BotCredential {
+  id              String              @id @default(cuid())
+  botId           String              @map("bot_id")
+  secretHash      String              @map("secret_hash")
+  secretPreview   String              @map("secret_preview")
+  status          BotCredentialStatus @default(CREDENTIAL_ACTIVE)
+  createdByUserId String?             @map("created_by_user_id")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  revokedAt       DateTime?           @map("revoked_at")
+  lastUsedAt      DateTime?           @map("last_used_at")
+  bot             Bot                 @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@index([botId, status])
+  @@index([botId, createdAt(sort: Desc)])
+  @@map("bot_credentials")
+}
+
+model BotWebhook {
+  botId            String   @id @map("bot_id")
+  url              String?
+  secret           String?
+  allowedUpdates   String[] @default([]) @map("allowed_updates")
+  maxConnections   Int      @default(1) @map("max_connections")
+  ipAllowlist      String[] @default([]) @map("ip_allowlist")
+  isEnabled        Boolean  @default(false) @map("is_enabled")
+  lastErrorAt      DateTime? @map("last_error_at")
+  lastErrorMessage String?   @map("last_error_message")
+  lastSuccessAt    DateTime? @map("last_success_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  bot              Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@map("bot_webhooks")
+}
+
+model BotCommand {
+  id          String   @id @default(cuid())
+  botId       String   @map("bot_id")
+  scope       String
+  chatId      String?  @map("chat_id")
+  command     String
+  description String
+  locale      String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  bot         Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@unique([botId, scope, chatId, locale, command])
+  @@map("bot_commands")
+}
+
+model BotChatBinding {
+  id              String               @id @default(cuid())
+  botId           String               @map("bot_id")
+  chatId          String               @map("chat_id")
+  status          BotChatBindingStatus @default(ALLOWED)
+  joinedAt        DateTime?            @map("joined_at")
+  leftAt          DateTime?            @map("left_at")
+  permissionsJson String?              @map("permissions_json")
+  isExplicitAllow Boolean              @default(false) @map("is_explicit_allow")
+  isExplicitDeny  Boolean              @default(false) @map("is_explicit_deny")
+  version         Int                  @default(1)
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+  bot             Bot                  @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@unique([botId, chatId])
+  @@map("bot_chat_bindings")
+}
+
+model BotPermission {
+  id             String   @id @default(cuid())
+  botId          String   @map("bot_id")
+  chatId         String?  @map("chat_id")
+  permissionType String   @map("permission_type")
+  granted        Boolean  @default(true)
+  source         String
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  bot            Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@index([botId, chatId])
+  @@map("bot_permissions")
+}
+
+model BotUpdateEnvelope {
+  id               String   @id @default(cuid())
+  botId            String   @map("bot_id")
+  updateId         BigInt   @default(autoincrement()) @map("update_id")
+  eventType        String   @map("event_type")
+  sourceEventKey   String   @map("source_event_key")
+  traceId          String?  @map("trace_id")
+  payloadJson      String   @map("payload_json")
+  deliveryAttempt  Int      @default(0) @map("delivery_attempt")
+  allowedForWebhook Boolean @default(true) @map("allowed_for_webhook")
+  allowedForPolling Boolean @default(true) @map("allowed_for_polling")
+  createdAt        DateTime @default(now()) @map("created_at")
+  bot              Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@unique([botId, updateId])
+  @@unique([botId, sourceEventKey])
+  @@index([botId, createdAt])
+  @@index([botId, eventType, updateId])
+  @@map("bot_update_envelopes")
+}
+
+model BotDeliveryCursor {
+  botId                 String   @id @map("bot_id")
+  pollingAckUpdateId    BigInt   @default(0) @map("polling_ack_update_id")
+  webhookAckUpdateId    BigInt   @default(0) @map("webhook_ack_update_id")
+  webhookInFlightUpdateId BigInt? @map("webhook_in_flight_update_id")
+  lastDeliveredAt       DateTime? @map("last_delivered_at")
+  version               Int      @default(1)
+  updatedAt             DateTime @updatedAt @map("updated_at")
+  bot                   Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@map("bot_delivery_cursors")
+}
+
+model BotDeliveryAttempt {
+  id            String   @id @default(cuid())
+  botId         String   @map("bot_id")
+  updateId      BigInt   @map("update_id")
+  mode          String
+  attemptNo     Int      @default(1) @map("attempt_no")
+  status        String
+  responseCode  Int?     @map("response_code")
+  errorCode     String?  @map("error_code")
+  errorMessage  String?  @map("error_message")
+  scheduledAt   DateTime @default(now()) @map("scheduled_at")
+  startedAt     DateTime? @map("started_at")
+  finishedAt    DateTime? @map("finished_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  bot           Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@index([botId, updateId])
+  @@index([status, scheduledAt])
+  @@map("bot_delivery_attempts")
+}
+
+model BotSession {
+  id        String   @id @default(cuid())
+  botId     String   @map("bot_id")
+  chatId    String   @map("chat_id")
+  userId    String   @map("user_id")
+  scope     String
+  scene     String
+  step      String
+  stateJson String?  @map("state_json")
+  locale    String?
+  expiresAt DateTime @map("expires_at")
+  version   Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  bot       Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@unique([botId, chatId, userId, scope])
+  @@index([expiresAt])
+  @@map("bot_sessions")
+}
+
+model BotMediaAsset {
+  id           String   @id @default(cuid())
+  botId        String   @map("bot_id")
+  fileId       String   @map("file_id")
+  mediaKind    String   @map("media_kind")
+  source       String
+  mimeType     String?  @map("mime_type")
+  size         Int?
+  metadataJson String?  @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  bot          Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@index([botId, fileId])
+  @@map("bot_media_assets")
+}
+
+model BotCallbackQuery {
+  id              String   @id @default(cuid())
+  botId           String   @map("bot_id")
+  callbackQueryId String   @map("callback_query_id")
+  chatId          String   @map("chat_id")
+  messageId       String?  @map("message_id")
+  fromUserId      String   @map("from_user_id")
+  data            String
+  payloadJson     String?  @map("payload_json")
+  status          String   @default("PENDING")
+  createdAt       DateTime @default(now()) @map("created_at")
+  answeredAt      DateTime? @map("answered_at")
+  bot             Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@unique([botId, callbackQueryId])
+  @@map("bot_callback_queries")
+}
+
+model BotAuditLog {
+  id          String   @id @default(cuid())
+  botId       String?  @map("bot_id")
+  ownerUserId String?  @map("owner_user_id")
+  actorType   String   @map("actor_type")
+  actorId     String   @map("actor_id")
+  action      String
+  targetType  String   @map("target_type")
+  targetId    String   @map("target_id")
+  payloadJson String?  @map("payload_json")
+  traceId     String?  @map("trace_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  bot         Bot?     @relation(fields: [botId], references: [id], onDelete: SetNull)
+
+  @@index([botId, createdAt(sort: Desc)])
+  @@index([ownerUserId, createdAt(sort: Desc)])
+  @@map("bot_audit_logs")
+}
+
+enum BotStatus {
+  ACTIVE
+  DISABLED
+  REVOKED
+  DELETED
+}
+
+enum BotDeliveryMode {
+  WEBHOOK
+  POLLING
+}
+
+enum BotPrivacyMode {
+  PRIVACY_ENABLED
+  PRIVACY_DISABLED
+}
+
+enum BotCreatedVia {
+  BOT_FATHER
+  INTERNAL_API
+  SEED
+}
+
+enum BotCredentialStatus {
+  CREDENTIAL_ACTIVE
+  CREDENTIAL_REVOKED
+}
+
+enum BotChatBindingStatus {
+  ALLOWED
+  DENIED
+  LEFT
+  BANNED
+}

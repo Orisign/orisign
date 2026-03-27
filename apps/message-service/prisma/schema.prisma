@@ -15,6 +15,11 @@ model Message {
   text           String?
   replyToId      String?     @map("reply_to_id")
   mediaKeys      String[]    @map("media_keys")
+  entitiesJson   String?     @map("entities_json")
+  replyMarkupJson String?    @map("reply_markup_json")
+  attachmentsJson String?    @map("attachments_json")
+  sourceBotId    String?     @map("source_bot_id")
+  metadataJson   String?     @map("metadata_json")
   createdAt      DateTime    @default(now()) @map("created_at")
   editedAt       DateTime?   @map("edited_at")
   deletedAt      DateTime?   @map("deleted_at")

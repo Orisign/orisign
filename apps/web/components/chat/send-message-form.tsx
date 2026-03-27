@@ -17,51 +17,59 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Button,
   Field,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
   toast,
 } from "@repo/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import {
   type ChangeEvent,
-  type PointerEvent as ReactPointerEvent,
-  useDeferredValue,
+  useCallback,
   useEffect,
   useEffectEvent,
   useRef,
   useState,
 } from "react";
 import { HiPaperAirplane } from "react-icons/hi2";
+import { FaTrash } from "react-icons/fa";
 import { FiFileText, FiPaperclip, FiVideo, FiX } from "react-icons/fi";
 import { TiMicrophone } from "react-icons/ti";
 import { EmojiInput } from "@/components/ui/emoji-input";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
+  type ChatMessagesFilter,
   type ChatMessagesQueryData,
   bumpConversationInListData,
   bumpConversationQueryData,
   getChatMessagesQueryKey,
   getConversationQueryKey,
 } from "@/hooks/use-chat";
-import { playChatSound } from "@/lib/chat-sound-manager";
 import { cn } from "@/lib/utils";
 import {
+  composerActionButtonVariants,
+  composerAttachmentItemVariants,
+  composerAttachmentsVariants,
+  composerBlockedOverlayVariants,
+  composerInputRowVariants,
+  composerRecordingRowVariants,
+  replyKeyboardVariants,
   replyPanelVariants,
-  swapYVariants,
 } from "@/lib/animations";
 import { useGeneralSettingsStore } from "@/store/settings/general-settings.store";
 import { getMediaLabel } from "@/lib/chat";
+import { CHAT_FORCE_SCROLL_BOTTOM_EVENT } from "@/lib/chat.constants";
 import {
   deleteConversationMedia,
   uploadConversationMedia,
 } from "@/lib/upload-conversation-media";
+import { EASING, SPRING, TIMING } from "@/lib/animation-config";
 import { ApiError } from "@/lib/fetcher";
-
-import { AnimatePresence, motion } from "motion/react";
+import {
+  type ChatReplyMarkupCarrier,
+  type ChatReplyKeyboardMarkup,
+} from "@/lib/bot-reply-markup";
 import type { ChatEditTarget, ChatReplyTarget } from "./chat.types";
+import { ChatReplyKeyboard } from "./chat-reply-keyboard";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 type PendingAttachment = {
   id: string;
@@ -71,6 +79,11 @@ type PendingAttachment = {
   mediaKind: "messages" | "voice" | "ring";
   progress: number;
   status: "pending" | "uploading" | "uploaded" | "error";
+};
+
+type ActiveBotReplyKeyboard = {
+  message: ChatReplyMarkupCarrier;
+  markup: ChatReplyKeyboardMarkup;
 };
 
 function createAttachmentId() {
@@ -154,24 +167,36 @@ export function SendMessageForm({
   conversationId,
   isBlockedByCurrentUser = false,
   isBlockedByPeer = false,
+  botReplyKeyboard = null,
+  botInputPlaceholder = "",
   replyTarget,
+  implicitReplyTarget = null,
+  hideReplyPanel = false,
   editTarget,
   onCancelReply,
   onCancelEdit,
   onTypingStateChange,
   onUploadingMediaStateChange,
+  messageFilter,
 }: {
   conversationId: string;
   isBlockedByCurrentUser?: boolean;
   isBlockedByPeer?: boolean;
+  botReplyKeyboard?: ActiveBotReplyKeyboard | null;
+  botInputPlaceholder?: string;
   replyTarget: ChatReplyTarget | null;
+  implicitReplyTarget?: ChatReplyTarget | null;
+  hideReplyPanel?: boolean;
   editTarget: ChatEditTarget | null;
   onCancelReply: () => void;
   onCancelEdit: () => void;
   onTypingStateChange?: (active: boolean) => void;
   onUploadingMediaStateChange?: (active: boolean) => void;
+  messageFilter?: ChatMessagesFilter;
 }) {
   const t = useTranslations("chat.sendMessageForm");
+  const locale = useLocale();
+  const prefersReducedMotion = useReducedMotion();
   const form = useForm<TypeSendMessageSchema>({
     resolver: zodResolver(sendMessageSchema),
     defaultValues: {
@@ -186,9 +211,6 @@ export function SendMessageForm({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const activeRecordingModeRef = useRef<"voice" | "ring" | null>(null);
-  const holdToRecordTimeoutRef = useRef<number | null>(null);
-  const recordPointerStartYRef = useRef<number | null>(null);
-  const isRecordLockCandidateRef = useRef(false);
   const recordActionInFlightRef = useRef(false);
   const recordingChunksRef = useRef<Blob[]>([]);
   const recordingAnimationFrameRef = useRef<number | null>(null);
@@ -198,25 +220,35 @@ export function SendMessageForm({
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [isUploadingRecordedMedia, setIsUploadingRecordedMedia] = useState(false);
   const [recordedMediaUploadProgress, setRecordedMediaUploadProgress] = useState<number | null>(null);
-  const [recordMode, setRecordMode] = useState<"voice" | "ring">("voice");
+  const [recordMode] = useState<"voice" | "ring">("voice");
   const [activeRecordingMode, setActiveRecordingMode] = useState<"voice" | "ring" | null>(null);
-  const [recordGestureState, setRecordGestureState] = useState<
-    "idle" | "holding" | "recording"
-  >("idle");
-  const [isRecordLocked, setIsRecordLocked] = useState(false);
-  const [isRecordLockCandidate, setIsRecordLockCandidate] = useState(false);
+  const [recordGestureState, setRecordGestureState] = useState<"idle" | "recording">("idle");
   const [recordStartedAt, setRecordStartedAt] = useState<number | null>(null);
   const [recordElapsedSeconds, setRecordElapsedSeconds] = useState(0);
   const [recordLiveBars, setRecordLiveBars] = useState<number[]>(
     () => Array.from({ length: 24 }, () => 30),
   );
+  const [dismissedBotKeyboardMessageId, setDismissedBotKeyboardMessageId] = useState("");
+  const botKeyboardSessionRef = useRef({
+    conversationId: "",
+    initialized: false,
+    messageId: "",
+  });
 
   const { mutateAsync: sendMessage, isPending: isSendingMessage } = useMessagesControllerSend({
     mutation: {
       onSuccess: async () => {
-        form.reset();
+        const nextTimestamp = Date.now();
+
+        form.reset({
+          text: "",
+          replyToId: implicitReplyTarget?.id ?? "",
+        });
         onCancelReply();
         onCancelEdit();
+        if (activeReplyKeyboardMarkup?.oneTimeKeyboard && botReplyKeyboard) {
+          setDismissedBotKeyboardMessageId(botReplyKeyboard.message.id);
+        }
         setAttachments((currentAttachments) => {
           currentAttachments.forEach((attachment) => {
             if (attachment.previewUrl) {
@@ -226,18 +258,26 @@ export function SendMessageForm({
           return [];
         });
 
-        const nextTimestamp = Date.now();
+        queueMicrotask(() => {
+          queryClient.setQueryData<GetConversationResponseDto>(
+            getConversationQueryKey(conversationId),
+            (currentData) => bumpConversationQueryData(currentData, nextTimestamp),
+          );
 
-        queryClient.setQueryData<GetConversationResponseDto>(
-          getConversationQueryKey(conversationId),
-          (currentData) => bumpConversationQueryData(currentData, nextTimestamp),
-        );
+          queryClient.setQueriesData<ListMyConversationsResponseDto>(
+            { queryKey: getConversationsControllerMyQueryKey() },
+            (currentData) =>
+              bumpConversationInListData(currentData, conversationId, nextTimestamp),
+          );
+        });
 
-        queryClient.setQueriesData<ListMyConversationsResponseDto>(
-          { queryKey: getConversationsControllerMyQueryKey() },
-          (currentData) =>
-            bumpConversationInListData(currentData, conversationId, nextTimestamp),
-        );
+        window.requestAnimationFrame(() => {
+          window.dispatchEvent(
+            new CustomEvent(CHAT_FORCE_SCROLL_BOTTOM_EVENT, {
+              detail: { conversationId },
+            }),
+          );
+        });
       },
       onError: (error) => {
         const errorMessage =
@@ -267,7 +307,7 @@ export function SendMessageForm({
         const messageId = variables.data.messageId;
 
         queryClient.setQueryData<ChatMessagesQueryData>(
-          getChatMessagesQueryKey(conversationId),
+          getChatMessagesQueryKey(conversationId, messageFilter),
           (currentData) => {
             if (!currentData) return currentData;
 
@@ -298,7 +338,7 @@ export function SendMessageForm({
 
         form.reset({
           text: "",
-          replyToId: "",
+          replyToId: implicitReplyTarget?.id ?? "",
         });
         onCancelEdit();
       },
@@ -319,7 +359,10 @@ export function SendMessageForm({
 
   const isEditing = Boolean(editTarget);
   const sendShortcut = useGeneralSettingsStore((state) => state.sendShortcut);
-  const isReplying = !isEditing && Boolean(replyTarget && replyToIdValue);
+  const isReplying =
+    !isEditing &&
+    !hideReplyPanel &&
+    Boolean(replyTarget && replyToIdValue);
   const hasUploadingAttachments = attachments.some(
     (attachment) => attachment.status === "uploading",
   );
@@ -328,7 +371,6 @@ export function SendMessageForm({
   );
   const hasAttachedMedia = attachments.length > 0;
   const isBusyComposer = isSendingMessage || isUploadingRecordedMedia;
-  const isRecordHolding = recordGestureState === "holding";
   const isRecording = recordGestureState === "recording";
   const isVideoRecording = isRecording && activeRecordingMode === "ring";
   const isTypingStateActive =
@@ -360,11 +402,18 @@ export function SendMessageForm({
   const inputFocusToken = isEditing
     ? `edit:${editTarget?.id ?? ""}`
     : (replyTarget?.id ?? null);
-  const isLockZoneVisible = (isRecordHolding || isRecording) && !isRecordLocked;
   const recordBars = recordLiveBars.length > 0
     ? recordLiveBars
     : Array.from({ length: 24 }, () => 30);
-  const deferredRecordBars = useDeferredValue(recordBars);
+  const deferredRecordBars = recordBars;
+  const activeReplyKeyboardMarkup =
+    botReplyKeyboard &&
+    botReplyKeyboard.message.id !== dismissedBotKeyboardMessageId
+      ? botReplyKeyboard.markup
+      : null;
+  const shouldShowReplyKeyboard = Boolean(activeReplyKeyboardMarkup && !isRecording);
+  const showUploadRow = isUploadingRecordedMedia && !isRecording;
+  const hasBlockedOverlay = isBlockedByCurrentUser || isBlockedByPeer;
 
   useEffect(() => {
     onTypingStateChange?.(isTypingStateActive);
@@ -381,6 +430,10 @@ export function SendMessageForm({
     },
     [onTypingStateChange, onUploadingMediaStateChange],
   );
+
+  const handleBotReplyKeyboardPressStable = useCallback((text: string) => {
+    void handleBotReplyKeyboardPress(text);
+  }, [handleBotReplyKeyboardPress]);
 
   function resetRecordingVisuals() {
     setRecordLiveBars(Array.from({ length: 24 }, () => 30));
@@ -454,9 +507,6 @@ export function SendMessageForm({
 
   function resetRecordGestureState() {
     setRecordGestureState("idle");
-    setIsRecordLocked(false);
-    setIsRecordLockCandidate(false);
-    recordPointerStartYRef.current = null;
     activeRecordingModeRef.current = null;
     setActiveRecordingMode(null);
     setRecordStartedAt(null);
@@ -690,12 +740,16 @@ export function SendMessageForm({
   }, []);
 
   useEffect(() => {
-    form.setValue("replyToId", replyTarget?.id ?? "", {
+    if (editTarget) {
+      return;
+    }
+
+    form.setValue("replyToId", replyTarget?.id ?? implicitReplyTarget?.id ?? "", {
       shouldDirty: false,
       shouldTouch: false,
       shouldValidate: false,
     });
-  }, [form, replyTarget]);
+  }, [editTarget, form, implicitReplyTarget?.id, replyTarget?.id]);
 
   useEffect(() => {
     if (!editTarget) return;
@@ -714,12 +768,6 @@ export function SendMessageForm({
 
   useEffect(() => {
     return () => {
-      if (holdToRecordTimeoutRef.current !== null) {
-        window.clearTimeout(holdToRecordTimeoutRef.current);
-        holdToRecordTimeoutRef.current = null;
-      }
-      recordPointerStartYRef.current = null;
-
       const recorder = mediaRecorderRef.current;
       if (recorder && recorder.state !== "inactive") {
         recorder.stop();
@@ -775,13 +823,58 @@ export function SendMessageForm({
   }, [isVideoRecording]);
 
   useEffect(() => {
-    isRecordLockCandidateRef.current = isRecordLockCandidate;
-  }, [isRecordLockCandidate]);
+    const session = botKeyboardSessionRef.current;
+
+    if (session.conversationId !== conversationId) {
+      session.conversationId = conversationId;
+      session.initialized = false;
+      session.messageId = "";
+    }
+
+    if (!botReplyKeyboard) {
+      session.initialized = true;
+      session.messageId = "";
+      setDismissedBotKeyboardMessageId("");
+      return;
+    }
+
+    const nextMessageId = botReplyKeyboard.message.id;
+
+    if (!session.initialized) {
+      session.initialized = true;
+      session.messageId = nextMessageId;
+      setDismissedBotKeyboardMessageId(nextMessageId);
+      return;
+    }
+
+    if (session.messageId !== nextMessageId) {
+      session.messageId = nextMessageId;
+      setDismissedBotKeyboardMessageId("");
+    }
+  }, [botReplyKeyboard, conversationId]);
+
+  async function sendTextMessage(options: {
+    text: string;
+    replyToId?: string;
+  }) {
+    const trimmedText = options.text.trim();
+    if (!trimmedText || !conversationId) {
+      return;
+    }
+
+      await sendMessage({
+        data: {
+          conversationId,
+          kind: SendMessageRequestDtoKind.TEXT,
+          text: trimmedText,
+          replyToId: options.replyToId || undefined,
+          locale,
+        },
+      });
+  }
 
   async function handleRecordGestureCancel() {
     if (recordActionInFlightRef.current) return;
-
-    clearHoldToRecordTimeout();
 
     recordActionInFlightRef.current = true;
     try {
@@ -812,17 +905,16 @@ export function SendMessageForm({
       );
       uploadedKey = uploaded.key;
 
-      playChatSound("send");
-
-      await sendMessage({
-        data: {
-          conversationId,
-          kind: SendMessageRequestDtoKind.NUMBER_2,
-          text: undefined,
-          replyToId: form.getValues("replyToId") || undefined,
-          mediaKeys: [uploaded.key],
-        },
-      });
+        await sendMessage({
+          data: {
+            conversationId,
+            kind: SendMessageRequestDtoKind.MEDIA,
+            text: undefined,
+            replyToId: form.getValues("replyToId") || undefined,
+            mediaKeys: [uploaded.key],
+            locale,
+          },
+        });
     } catch {
       if (uploadedKey) {
         await deleteConversationMedia(uploadedKey).catch(() => undefined);
@@ -839,8 +931,6 @@ export function SendMessageForm({
 
   async function handleRecordGestureFinish() {
     if (recordActionInFlightRef.current) return;
-
-    clearHoldToRecordTimeout();
 
     recordActionInFlightRef.current = true;
     try {
@@ -866,117 +956,19 @@ export function SendMessageForm({
     }
   }
 
-  function clearHoldToRecordTimeout() {
-    if (holdToRecordTimeoutRef.current !== null) {
-      window.clearTimeout(holdToRecordTimeoutRef.current);
-      holdToRecordTimeoutRef.current = null;
-    }
-  }
-
-  function lockRecordingImmediately() {
-    if (isRecordLocked) {
-      return;
-    }
-
-    recordPointerStartYRef.current = null;
-    setIsRecordLockCandidate(false);
-    setIsRecordLocked(true);
-    toast({
-      title: t("recordingPinned"),
-      type: "info",
-    });
-  }
-
-  function handleRecordGestureStart(event: ReactPointerEvent<HTMLButtonElement>) {
+  async function handleRecordGestureStart() {
     if (!canShowRecordControl || isBusyComposer || recordGestureState !== "idle") return;
 
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    const recorderStarted = recordMode === "ring"
+      ? await ensureRingRecorderStarted()
+      : await ensureVoiceRecorderStarted();
 
-    setIsRecordLocked(false);
-    setRecordGestureState("holding");
-    setIsRecordLockCandidate(false);
-    recordPointerStartYRef.current = event.clientY;
-    clearHoldToRecordTimeout();
-
-    holdToRecordTimeoutRef.current = window.setTimeout(() => {
-      void (async () => {
-        const recorderStarted = recordMode === "ring"
-          ? await ensureRingRecorderStarted()
-          : await ensureVoiceRecorderStarted();
-        holdToRecordTimeoutRef.current = null;
-
-        if (!recorderStarted) {
-          resetRecordGestureState();
-          return;
-        }
-
-        setRecordGestureState("recording");
-        if (isRecordLockCandidateRef.current) {
-          lockRecordingImmediately();
-        }
-      })();
-    }, 170);
-  }
-
-  function handleRecordGestureMove(event: ReactPointerEvent<HTMLButtonElement>) {
-    if (!isLockZoneVisible || isRecordLocked) return;
-    if (recordPointerStartYRef.current === null) return;
-
-    const deltaY = event.clientY - recordPointerStartYRef.current;
-    const shouldLock = deltaY <= -96;
-    setIsRecordLockCandidate(shouldLock);
-
-    if (shouldLock && recordGestureState === "recording") {
-      lockRecordingImmediately();
-    }
-  }
-
-  function handleRecordGestureRelease() {
-    clearHoldToRecordTimeout();
-
-    if (recordGestureState === "holding") {
-      recordPointerStartYRef.current = null;
-      setIsRecordLockCandidate(false);
-      setRecordGestureState("idle");
-      setRecordMode((currentValue) =>
-        currentValue === "voice" ? "ring" : "voice"
-      );
+    if (!recorderStarted) {
+      resetRecordGestureState();
       return;
     }
 
-    if (recordGestureState !== "recording") {
-      recordPointerStartYRef.current = null;
-      setIsRecordLockCandidate(false);
-      return;
-    }
-
-    if (isRecordLockCandidate) {
-      lockRecordingImmediately();
-      return;
-    }
-
-    recordPointerStartYRef.current = null;
-    setIsRecordLockCandidate(false);
-    if (!isRecordLocked) {
-      void handleRecordGestureFinish();
-    }
-  }
-
-  function handleRecordGesturePointerCancel() {
-    clearHoldToRecordTimeout();
-    recordPointerStartYRef.current = null;
-    setIsRecordLockCandidate(false);
-
-    if (recordGestureState === "recording" && !isRecordLocked) {
-      void handleRecordGestureCancel();
-      return;
-    }
-
-    if (recordGestureState === "holding") {
-      setRecordGestureState("idle");
-    }
+    setRecordGestureState("recording");
   }
 
   const finishRecordGestureFromEffect = useEffectEvent(() => {
@@ -1035,19 +1027,18 @@ export function SendMessageForm({
         uploadedMediaKeys = await uploadPendingAttachments(attachments);
       }
 
-      playChatSound("send");
-
-      await sendMessage({
-        data: {
-          conversationId,
-          kind: uploadedMediaKeys.length > 0
-            ? SendMessageRequestDtoKind.NUMBER_2
-            : SendMessageRequestDtoKind.NUMBER_1,
-          text: text || undefined,
-          replyToId: data.replyToId || undefined,
-          mediaKeys: uploadedMediaKeys.length > 0 ? uploadedMediaKeys : undefined,
-        },
-      });
+        await sendMessage({
+          data: {
+            conversationId,
+            kind: uploadedMediaKeys.length > 0
+              ? SendMessageRequestDtoKind.MEDIA
+              : SendMessageRequestDtoKind.TEXT,
+            text: text || undefined,
+            replyToId: data.replyToId || undefined,
+            mediaKeys: uploadedMediaKeys.length > 0 ? uploadedMediaKeys : undefined,
+            locale,
+          },
+        });
     } catch {
       if (uploadedMediaKeys.length > 0) {
         await Promise.allSettled(
@@ -1072,6 +1063,36 @@ export function SendMessageForm({
     }
   }
 
+  async function handleBotReplyKeyboardPress(text: string) {
+    if (!conversationId || isBlockedByCurrentUser || isBlockedByPeer) return;
+    if (isBusyComposer || hasUploadingAttachments || hasErroredAttachments || isEditing) return;
+
+    const shouldDismissOneTimeKeyboard = Boolean(
+      activeReplyKeyboardMarkup?.oneTimeKeyboard && botReplyKeyboard,
+    );
+    const keyboardMessageId = botReplyKeyboard?.message.id ?? "";
+
+    try {
+      if (shouldDismissOneTimeKeyboard && keyboardMessageId) {
+        setDismissedBotKeyboardMessageId(keyboardMessageId);
+      }
+
+      await sendTextMessage({
+        text,
+        replyToId: form.getValues("replyToId") || undefined,
+      });
+    } catch {
+      if (shouldDismissOneTimeKeyboard) {
+        setDismissedBotKeyboardMessageId("");
+      }
+
+      toast({
+        title: t("sendError"),
+        type: "error",
+      });
+    }
+  }
+
   function handleCancelReply() {
     form.setValue("replyToId", "", {
       shouldDirty: false,
@@ -1084,7 +1105,7 @@ export function SendMessageForm({
   function handleCancelEdit() {
     form.reset({
       text: "",
-      replyToId: "",
+      replyToId: implicitReplyTarget?.id ?? "",
     });
     onCancelEdit();
   }
@@ -1200,192 +1221,460 @@ export function SendMessageForm({
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
-      className="flex items-end justify-center gap-2"
+      className="flex items-start justify-center gap-2"
     >
       <div className="flex-1">
-        {attachments.length > 0 ? (
-          <div className="mb-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {attachments.map((attachment) => {
-              return (
-                <div
-                  key={attachment.id}
-                  className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-background/85"
+        <div className="flex items-end gap-2">
+          <motion.div
+            layout
+            transition={prefersReducedMotion ? { duration: 0 } : SPRING.input}
+            className={cn(
+              "chat-composer-surface relative flex-1 overflow-hidden border-2 border-border/60 bg-sidebar",
+              shouldShowReplyKeyboard
+                ? "rounded-t-[20px] rounded-b-none border-b-0"
+                : "rounded-[20px]",
+            )}
+          >
+          <AnimatePresence initial={false}>
+            {hasAttachedMedia ? (
+              <motion.div
+                key="composer-attachments"
+                layout
+                variants={composerAttachmentsVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                style={{ overflow: "hidden" }}
+                className="border-b border-border/40 px-3 py-3"
+              >
+                <motion.div
+                  layout
+                  className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
-                  {attachment.previewUrl && isImageFile(attachment.file) ? (
-                    <img
-                      src={attachment.previewUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : null}
+                  <AnimatePresence initial={false}>
+                    {attachments.map((attachment) => (
+                      <motion.div
+                        key={attachment.id}
+                        layout
+                        initial="hidden"
+                        animate={attachment.status === "error" ? "error" : "visible"}
+                        exit="exit"
+                        variants={{
+                          ...composerAttachmentItemVariants,
+                          error: {
+                            opacity: 1,
+                            scale: 1,
+                            x: [0, -4, 4, -2, 2, 0],
+                            transition: {
+                              duration: prefersReducedMotion ? 0 : 0.3,
+                              ease: EASING.easeOut,
+                            },
+                          },
+                        }}
+                        className={cn(
+                          "relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl border bg-background/85",
+                          attachment.status === "error"
+                            ? "border-destructive/70"
+                            : "border-border/60",
+                        )}
+                      >
+                        {attachment.previewUrl && isImageFile(attachment.file) ? (
+                          <img
+                            src={attachment.previewUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : null}
 
-                  {attachment.previewUrl && isVideoFile(attachment.file) ? (
-                    <video
-                      src={attachment.previewUrl}
-                      muted
-                      preload="metadata"
-                      playsInline
-                      className="h-full w-full object-cover"
-                    />
-                  ) : null}
+                        {attachment.previewUrl && isVideoFile(attachment.file) ? (
+                          <video
+                            src={attachment.previewUrl}
+                            muted
+                            preload="metadata"
+                            playsInline
+                            className="h-full w-full object-cover"
+                          />
+                        ) : null}
 
-                  {!attachment.previewUrl ? (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-1.5 text-center">
-                      {attachment.file.type.startsWith("video/") ? (
-                        <FiVideo className="size-5 text-muted-foreground" />
-                      ) : (
-                        <FiFileText className="size-5 text-muted-foreground" />
-                      )}
-                      <p className="line-clamp-2 text-[10px] font-medium leading-tight text-muted-foreground">
-                        {getMediaLabel(attachment.file.name)}
-                      </p>
-                    </div>
-                  ) : null}
+                        {!attachment.previewUrl ? (
+                          <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-1.5 text-center">
+                            {attachment.file.type.startsWith("video/") ? (
+                              <FiVideo className="size-5 text-muted-foreground" />
+                            ) : (
+                              <FiFileText className="size-5 text-muted-foreground" />
+                            )}
+                            <p className="line-clamp-2 text-[10px] font-medium leading-tight text-muted-foreground">
+                              {getMediaLabel(attachment.file.name)}
+                            </p>
+                          </div>
+                        ) : null}
 
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    className="absolute right-1 top-1 size-6 rounded-full"
-                    onClick={() => handleRemoveAttachment(attachment.id)}
-                    disabled={attachment.status === "uploading" || isSendingMessage}
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="icon"
+                          className="absolute right-1 top-1 size-6 rounded-full"
+                          onClick={() => handleRemoveAttachment(attachment.id)}
+                          disabled={attachment.status === "uploading" || isSendingMessage}
+                        >
+                          <FiX className="size-3.5" />
+                        </Button>
+
+                        <div className="absolute inset-x-1.5 bottom-1.5 overflow-hidden rounded-full bg-background/70">
+                          <div
+                            className={cn(
+                              "h-1.5 transition-[width,background-color] ease-out",
+                              attachment.status === "error" ? "bg-destructive" : "bg-primary",
+                            )}
+                            style={{
+                              width: `${attachment.status === "error" ? 100 : attachment.progress}%`,
+                              transitionDuration: prefersReducedMotion ? "0ms" : "300ms",
+                            }}
+                          />
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
+          <AnimatePresence mode="wait" initial={false}>
+            {isReplying ? (
+              <motion.div
+                key="composer-reply-panel"
+                layout
+                variants={replyPanelVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                style={{ overflow: "hidden" }}
+                className="border-b border-border/40"
+              >
+                <div className="flex items-start gap-3 px-3 py-2.5">
+                  <div className="mt-0.5 h-9 w-0.5 shrink-0 bg-primary" />
+                  <div className="min-w-0 flex-1">
+                    <motion.p
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={prefersReducedMotion
+                        ? { duration: 0 }
+                        : { duration: TIMING.fast, ease: EASING.spring, delay: 0.06 }}
+                      className="truncate text-[12px] font-semibold leading-none text-primary"
+                    >
+                      {replyTarget?.authorName}
+                    </motion.p>
+                    <motion.p
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={prefersReducedMotion
+                        ? { duration: 0 }
+                        : { duration: TIMING.fast, ease: EASING.spring, delay: 0.1 }}
+                      className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-[14px] leading-[1.15] text-muted-foreground"
+                    >
+                      {replyTarget?.text || t("replyFallback")}
+                    </motion.p>
+                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.7 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.7 }}
+                    transition={prefersReducedMotion
+                      ? { duration: 0 }
+                      : { duration: TIMING.fast, ease: EASING.spring, delay: 0.12 }}
                   >
-                    <FiX className="size-3.5" />
-                  </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 shrink-0 rounded-full"
+                      onClick={handleCancelReply}
+                    >
+                      <FiX className="size-4" />
+                    </Button>
+                  </motion.div>
+                </div>
+              </motion.div>
+            ) : isEditing ? (
+              <motion.div
+                key="composer-edit-panel"
+                layout
+                variants={replyPanelVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                style={{ overflow: "hidden" }}
+                className="border-b border-border/40"
+              >
+                <div className="flex items-start gap-3 px-3 py-2.5">
+                  <motion.div
+                    initial={{ opacity: 0, rotate: -90 }}
+                    animate={{ opacity: 1, rotate: 0 }}
+                    exit={{ opacity: 0, rotate: -90 }}
+                    transition={prefersReducedMotion
+                      ? { duration: 0 }
+                      : { duration: TIMING.normal, ease: EASING.spring }}
+                    className="mt-0.5 flex h-9 w-5 shrink-0 items-start justify-center text-primary"
+                  >
+                    <FiFileText className="size-4" />
+                  </motion.div>
+                  <div className="min-w-0 flex-1">
+                    <motion.p
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={prefersReducedMotion
+                        ? { duration: 0 }
+                        : { duration: TIMING.fast, ease: EASING.spring, delay: 0.06 }}
+                      className="truncate text-[12px] font-semibold leading-none text-primary"
+                    >
+                      {t("editingLabel")}
+                    </motion.p>
+                    <motion.p
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={prefersReducedMotion
+                        ? { duration: 0 }
+                        : { duration: TIMING.fast, ease: EASING.spring, delay: 0.1 }}
+                      className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-[14px] leading-[1.15] text-muted-foreground"
+                    >
+                      {editTarget?.text || t("replyFallback")}
+                    </motion.p>
+                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.7 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.7 }}
+                    transition={prefersReducedMotion
+                      ? { duration: 0 }
+                      : { duration: TIMING.fast, ease: EASING.spring, delay: 0.12 }}
+                  >
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 shrink-0 rounded-full"
+                      onClick={handleCancelEdit}
+                    >
+                      <FiX className="size-4" />
+                    </Button>
+                  </motion.div>
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+          <motion.div
+            layout
+            transition={prefersReducedMotion ? { duration: 0 } : SPRING.input}
+            className="relative"
+          >
+            <AnimatePresence initial={false}>
+              {hasBlockedOverlay ? (
+                <motion.div
+                  key="composer-blocked-overlay"
+                  variants={composerBlockedOverlayVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-sidebar/65 backdrop-blur-[2px]"
+                >
+                  <span className="rounded-full border border-destructive/20 bg-background/90 px-3 py-1.5 text-xs font-semibold text-destructive/90">
+                    {isBlockedByCurrentUser ? t("blockedHint") : t("blockedByPeerHint")}
+                  </span>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
 
-                  <div className="absolute inset-x-1.5 bottom-1.5 overflow-hidden rounded-full bg-background/70">
+            <AnimatePresence mode="wait" initial={false}>
+              {isRecording ? (
+                <motion.div
+                  key="composer-recording-row"
+                  layout
+                  variants={composerRecordingRowVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  className="relative flex min-h-14 items-center gap-3 px-3 py-2"
+                >
+                  <span className="min-w-12 text-xs font-medium tabular-nums text-muted-foreground">
+                    {formatRecordDuration(recordElapsedSeconds)}
+                  </span>
+
+                  <div className="min-w-0 flex-1">
+                    {activeRecordingMode === "voice" ? (
+                      <div className="flex h-9 w-full items-center justify-between gap-0.5">
+                        {deferredRecordBars.map((size, index) => (
+                          <span
+                            key={`rec-bar-${index}`}
+                            className="flex h-full flex-1 items-center justify-center"
+                          >
+                            <span
+                              className="block w-[3.5px] rounded-full bg-primary/85"
+                              style={{
+                                height: `${Math.max(size, 12)}%`,
+                                transition: prefersReducedMotion
+                                  ? "none"
+                                  : `height ${Math.round(TIMING.instant * 1000)}ms linear`,
+                              }}
+                            />
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="inline-flex items-center rounded-full border border-primary/45 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                          {t("recordingRingLabel")}
+                        </div>
+                        <span className="text-[11px] text-muted-foreground/85">
+                          {t("recordingRingLimit")}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                </motion.div>
+              ) : showUploadRow ? (
+                <motion.div
+                  key="composer-upload-row"
+                  layout
+                  variants={composerRecordingRowVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  className="flex min-h-14 items-center px-3 py-2"
+                >
+                  <div className="w-full overflow-hidden rounded-full bg-muted/80">
                     <div
-                      className={cn(
-                        "h-1.5 transition-[width] duration-150",
-                        attachment.status === "error" ? "bg-destructive" : "bg-primary",
-                      )}
+                      className="h-1.5 rounded-full bg-primary transition-[width] ease-out"
                       style={{
-                        width: `${attachment.status === "error" ? 100 : attachment.progress}%`,
+                        width: `${Math.max(6, recordedMediaUploadProgress ?? 0)}%`,
+                        transitionDuration: prefersReducedMotion ? "0ms" : "300ms",
                       }}
                     />
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
-
-        <AnimatePresence initial={false}>
-          {isReplying ? (
-            <motion.div
-              layout
-              layoutId="composer-reply-panel"
-              variants={replyPanelVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              className="rounded-t-[20px] rounded-b-none border-2 border-border/60 border-b-0 bg-secondary/85 px-3 py-2.5"
-            >
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 h-9 w-0.5 shrink-0 bg-primary" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12px] font-semibold leading-none text-primary">
-                    {replyTarget?.authorName}
-                  </p>
-                  <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-[14px] leading-[1.15] text-muted-foreground">
-                    {replyTarget?.text || t("replyFallback")}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 shrink-0 rounded-full"
-                  onClick={handleCancelReply}
-                >
-                  <FiX className="size-4" />
-                </Button>
-              </div>
-            </motion.div>
-          ) : null}
-
-          {isEditing ? (
-            <motion.div
-              layout
-              layoutId="composer-reply-panel"
-              variants={replyPanelVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              className="rounded-t-[20px] rounded-b-none border-2 border-border/60 border-b-0 bg-secondary/85 px-3 py-2.5"
-            >
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 h-9 w-0.5 shrink-0 bg-primary" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12px] font-semibold leading-none text-primary">
-                    {t("editingLabel")}
-                  </p>
-                  <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-[14px] leading-[1.15] text-muted-foreground">
-                    {editTarget?.text || t("replyFallback")}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 shrink-0 rounded-full"
-                  onClick={handleCancelEdit}
-                >
-                  <FiX className="size-4" />
-                </Button>
-              </div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-
-        <div>
-          {isRecording ? (
-            <div className="flex min-h-14 items-center gap-3 rounded-[1.2rem] border border-border/70 bg-background/85 px-3">
-              {activeRecordingMode === "voice" ? (
-                <div className="flex h-8 items-end gap-1">
-                  {deferredRecordBars.map((size, index) => {
-                    return (
-                      <span
-                        key={`rec-bar-${index}`}
-                        className="w-[2px] rounded-full bg-primary/85 transition-[height] duration-100 ease-linear"
-                        style={{ height: `${size}%` }}
-                      />
-                    );
-                  })}
-                </div>
+                </motion.div>
               ) : (
-                <div className="inline-flex items-center rounded-full border border-primary/45 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
-                  {t("recordingRingLabel")}
-                </div>
+                <motion.div
+                  key="composer-main-row"
+                  layout
+                  variants={composerInputRowVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  className="input-wrapper"
+                >
+                  <Controller
+                    control={form.control}
+                    name="text"
+                    render={({ field }) => (
+                      <Field className="flex-1">
+                        <EmojiInput
+                          placeholder={botInputPlaceholder || t("placeholder")}
+                          className="max-w-none rounded-none border-0 bg-transparent shadow-none"
+                          disabled={isBlockedByCurrentUser || isBlockedByPeer}
+                          value={field.value ?? ""}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          autoComplete="off"
+                          autoCorrect="off"
+                          autoCapitalize="off"
+                          spellCheck={false}
+                          showEmojiPicker
+                          autoGrow
+                          focusToken={inputFocusToken}
+                          onSubmit={() => {
+                            void form.handleSubmit(onSubmit)();
+                          }}
+                          submitOnEnter={sendShortcut === "enter"}
+                          onKeyDown={(event) => {
+                            if (
+                              sendShortcut === "ctrl-enter" &&
+                              event.key === "Enter" &&
+                              event.ctrlKey
+                            ) {
+                              event.preventDefault();
+                              void form.handleSubmit(onSubmit)();
+                            }
+                          }}
+                          rightSlot={
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-10 rounded-full [&_svg]:size-5"
+                              onClick={() => attachmentInputRef.current?.click()}
+                              disabled={
+                                isEditing ||
+                                isBlockedByCurrentUser ||
+                                isBlockedByPeer ||
+                                isBusyComposer
+                              }
+                            >
+                              <FiPaperclip />
+                            </Button>
+                          }
+                        />
+                      </Field>
+                    )}
+                  />
+                </motion.div>
               )}
-              <div className="ml-auto flex items-center gap-2 text-xs font-medium tabular-nums text-muted-foreground">
-                {isRecordLocked ? (
-                  <span className="inline-flex items-center rounded-full border border-primary/50 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                    {t("recordingPinned")}
-                  </span>
-                ) : null}
-                <span>{formatRecordDuration(recordElapsedSeconds)}</span>
-                {isVideoRecording ? (
-                  <span className="text-[11px] text-muted-foreground/85">
-                    {t("recordingRingLimit")}
-                  </span>
-                ) : null}
+            </AnimatePresence>
+          </motion.div>
+        </motion.div>
+
+        <motion.div
+          layout
+          transition={prefersReducedMotion ? { duration: 0 } : SPRING.input}
+          className="shrink-0 self-center"
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            {showUploadRow ? (
+              <motion.div
+                key="composer-upload-button"
+                layout
+                variants={composerActionButtonVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
                 <Button
                   type="button"
-                  variant="ghost"
+                  className="size-12 shrink-0 rounded-full [&_svg]:size-6"
+                  disabled
+                >
+                  <HiPaperAirplane />
+                </Button>
+              </motion.div>
+            ) : isRecording ? (
+              <motion.div
+                key="composer-record-actions"
+                layout
+                variants={composerActionButtonVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="flex items-center gap-2"
+              >
+                <Button
+                  type="button"
                   size="icon"
-                  className="size-8 rounded-full [&_svg]:size-4"
+                  className="size-12 shrink-0 rounded-full bg-muted text-destructive hover:bg-muted/90 [&_svg]:size-5"
                   onClick={() => {
                     void handleRecordGestureCancel();
                   }}
                   disabled={isBusyComposer}
                 >
-                  <FiX />
+                  <FaTrash />
                 </Button>
                 <Button
                   type="button"
-                  size="icon"
-                  className="size-8 rounded-full [&_svg]:size-4"
+                  className="size-12 shrink-0 rounded-full [&_svg]:size-6"
                   onClick={() => {
                     void handleRecordGestureFinish();
                   }}
@@ -1393,86 +1682,71 @@ export function SendMessageForm({
                 >
                   <HiPaperAirplane />
                 </Button>
-              </div>
-            </div>
-          ) : (
-            <Controller
-              control={form.control}
-              name="text"
-              render={({ field }) => (
-                <Field className="flex-1">
-                  <EmojiInput
-                    placeholder={t("placeholder")}
-                    className={cn(
-                      "max-w-none border-border bg-sidebar",
-                      (isReplying || isEditing) && "rounded-t-none border-t-0",
-                    )}
-                    disabled={isBlockedByCurrentUser || isBlockedByPeer}
-                    value={field.value ?? ""}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    name={field.name}
-                    autoComplete="off"
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    spellCheck={false}
-                    showEmojiPicker
-                    autoGrow
-                    focusToken={inputFocusToken}
-                    onSubmit={() => {
-                      void form.handleSubmit(onSubmit)();
-                    }}
-                    submitOnEnter={sendShortcut === "enter"}
-                    onKeyDown={(event) => {
-                      if (
-                        sendShortcut === "ctrl-enter" &&
-                        event.key === "Enter" &&
-                        event.ctrlKey
-                      ) {
-                        event.preventDefault();
-                        void form.handleSubmit(onSubmit)();
-                      }
-                    }}
-                    rightSlot={
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-10 rounded-full [&_svg]:size-5"
-                        onClick={() => attachmentInputRef.current?.click()}
-                        disabled={
-                          isEditing ||
-                          isBlockedByCurrentUser ||
-                          isBlockedByPeer ||
-                          isBusyComposer
-                        }
-                      >
-                        <FiPaperclip />
-                      </Button>
-                    }
-                  />
-                </Field>
-              )}
-            />
-          )}
-        </div>
-
-        {isBlockedByCurrentUser ? (
-          <p className="px-2 pt-1 text-xs text-destructive/90">{t("blockedHint")}</p>
-        ) : null}
-
-        {isBlockedByPeer ? (
-          <p className="px-2 pt-1 text-xs text-destructive/90">{t("blockedByPeerHint")}</p>
-        ) : null}
-
-        {isUploadingRecordedMedia ? (
-          <p className="px-2 pt-1 text-xs font-medium text-primary">
-            {t("recordUploading", {
-              progress: recordedMediaUploadProgress ?? 0,
-            })}
-          </p>
-        ) : null}
+              </motion.div>
+            ) : canShowRecordControl ? (
+              <motion.div
+                key="composer-record-button"
+                layout
+                variants={composerActionButtonVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+                <Button
+                  type="button"
+                  className="size-12 shrink-0 rounded-full [&_svg]:size-6"
+                  onClick={() => {
+                    void handleRecordGestureStart();
+                  }}
+                  disabled={isBusyComposer}
+                >
+                  {recordMode === "ring" ? <FiVideo /> : <TiMicrophone />}
+                </Button>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="composer-send-button"
+                layout
+                variants={composerActionButtonVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+                <Button
+                  type="submit"
+                  className="size-12 shrink-0 rounded-full [&_svg]:size-6"
+                  disabled={!canSubmit}
+                >
+                  <HiPaperAirplane />
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
       </div>
+
+      <AnimatePresence initial={false}>
+        {shouldShowReplyKeyboard && botReplyKeyboard ? (
+          <motion.div
+            key="composer-reply-keyboard"
+            variants={replyKeyboardVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            style={{ overflow: "hidden" }}
+            className="rounded-b-[20px] border-2 border-border/60 border-t-0 bg-sidebar"
+          >
+            <div className="border-t border-border/40">
+              <ChatReplyKeyboard
+                markup={botReplyKeyboard.markup}
+                disabled={isBusyComposer || isBlockedByCurrentUser || isBlockedByPeer}
+                onPressText={handleBotReplyKeyboardPressStable}
+              />
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
 
       <input
         ref={attachmentInputRef}
@@ -1482,108 +1756,8 @@ export function SendMessageForm({
         onChange={handleSelectFiles}
       />
 
-      {canShowRecordControl && !isRecordLocked ? (
-        <TooltipProvider delayDuration={160}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                className={cn(
-                  "size-12 shrink-0 rounded-full self-end [&_svg]:size-6",
-                  (isRecordHolding || isLockZoneVisible) && "bg-primary/90",
-                )}
-                onPointerDown={handleRecordGestureStart}
-                onPointerMove={handleRecordGestureMove}
-                onPointerUp={handleRecordGestureRelease}
-                onPointerCancel={handleRecordGesturePointerCancel}
-                disabled={isBusyComposer}
-              >
-                <AnimatePresence mode="wait" initial={false}>
-                  {recordMode === "ring" ? (
-                    <motion.div
-                      key={"record-ring"}
-                      variants={swapYVariants}
-                      initial="hidden"
-                      animate="visible"
-                      exit="exit"
-                    >
-                      <FiVideo />
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key={"record-voice"}
-                      variants={swapYVariants}
-                      initial="hidden"
-                      animate="visible"
-                      exit="exit"
-                    >
-                      <TiMicrophone />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              {recordMode === "ring"
-                ? t("recordButtonHintRing")
-                : t("recordButtonHintVoice")}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      ) : null}
-
-      {!canShowRecordControl ? (
-        <Button
-          type="submit"
-          className="size-12 shrink-0 rounded-full self-end [&_svg]:size-6"
-          disabled={!canSubmit}
-        >
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={"text"}
-              variants={swapYVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-            >
-              <HiPaperAirplane />
-            </motion.div>
-          </AnimatePresence>
-        </Button>
-      ) : null}
-
-      <AnimatePresence>
-        {isLockZoneVisible ? (
-          <motion.div
-            className="pointer-events-none fixed inset-x-0 top-4 z-[135] flex justify-center"
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div
-              className={cn(
-                "inline-flex min-w-52 items-center justify-center rounded-full border px-4 py-2 text-xs font-semibold",
-                isRecordLockCandidate
-                  ? "border-primary bg-primary/18 text-primary"
-                  : "border-border/65 bg-background/92 text-muted-foreground",
-              )}
-            >
-              {isRecordLockCandidate ? t("releaseToPin") : t("dragToPin")}
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {isVideoRecording ? (
-          <motion.div
-            className="pointer-events-none fixed inset-0 z-[125] flex items-center justify-center"
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-          >
+      {isVideoRecording ? (
+          <div className="pointer-events-none fixed inset-0 z-[125] flex items-center justify-center">
             <div className="relative size-[min(22rem,72vw)] overflow-hidden rounded-full border border-white/15 bg-black/75 shadow-[0_20px_50px_rgb(0_0_0_/_0.45)]">
               <video
                 ref={ringPreviewRef}
@@ -1600,9 +1774,8 @@ export function SendMessageForm({
                 </span>
               </div>
             </div>
-          </motion.div>
+          </div>
         ) : null}
-      </AnimatePresence>
     </form>
   );
 }

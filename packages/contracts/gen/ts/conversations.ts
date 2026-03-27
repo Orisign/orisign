@@ -11,31 +11,32 @@ import { Observable } from "rxjs";
 export const protobufPackage = "conversations.v1";
 
 export enum ConversationType {
-  CONVERSATION_TYPE_UNSPECIFIED = 0,
-  DM = 1,
-  GROUP = 2,
-  CHANNEL = 3,
-  UNRECOGNIZED = -1,
+  CONVERSATION_TYPE_UNSPECIFIED = "CONVERSATION_TYPE_UNSPECIFIED",
+  DM = "DM",
+  GROUP = "GROUP",
+  CHANNEL = "CHANNEL",
+  SUPERGROUP = "SUPERGROUP",
+  UNRECOGNIZED = "UNRECOGNIZED",
 }
 
 export enum MemberRole {
-  MEMBER_ROLE_UNSPECIFIED = 0,
-  OWNER = 1,
-  ADMIN = 2,
-  MODERATOR = 3,
-  MEMBER = 4,
-  SUBSCRIBER = 5,
-  UNRECOGNIZED = -1,
+  MEMBER_ROLE_UNSPECIFIED = "MEMBER_ROLE_UNSPECIFIED",
+  OWNER = "OWNER",
+  ADMIN = "ADMIN",
+  MODERATOR = "MODERATOR",
+  MEMBER = "MEMBER",
+  SUBSCRIBER = "SUBSCRIBER",
+  UNRECOGNIZED = "UNRECOGNIZED",
 }
 
 export enum MemberState {
-  MEMBER_STATE_UNSPECIFIED = 0,
-  ACTIVE = 1,
-  LEFT = 2,
-  KICKED = 3,
-  BANNED = 4,
-  INVITED = 5,
-  UNRECOGNIZED = -1,
+  MEMBER_STATE_UNSPECIFIED = "MEMBER_STATE_UNSPECIFIED",
+  ACTIVE = "ACTIVE",
+  LEFT = "LEFT",
+  KICKED = "KICKED",
+  BANNED = "BANNED",
+  INVITED = "INVITED",
+  UNRECOGNIZED = "UNRECOGNIZED",
 }
 
 export interface CreateConversationRequest {
@@ -57,6 +58,7 @@ export interface CreateConversationResponse {
 export interface GetConversationRequest {
   conversationId: string;
   requesterId: string;
+  username: string;
 }
 
 export interface GetConversationResponse {
@@ -92,9 +94,32 @@ export interface UpdateMemberRoleRequest {
   role: MemberRole;
 }
 
+export interface UpdateConversationRequest {
+  conversationId: string;
+  actorId: string;
+  title: string;
+  about: string;
+  isPublic: boolean;
+  username: string;
+  avatarKey: string;
+  discussionConversationId: string;
+}
+
+export interface DeleteConversationRequest {
+  conversationId: string;
+  actorId: string;
+}
+
+export interface UpdateConversationNotificationsRequest {
+  conversationId: string;
+  userId: string;
+  notificationsEnabled: boolean;
+}
+
 export interface JoinConversationRequest {
   conversationId: string;
   userId: string;
+  username: string;
 }
 
 export interface LeaveConversationRequest {
@@ -127,6 +152,9 @@ export interface Conversation {
   createdAt: number;
   updatedAt: number;
   avatarKey: string;
+  notificationsEnabled: boolean;
+  discussionConversationId: string;
+  discussionChannelId: string;
 }
 
 export interface ConversationMember {
@@ -150,6 +178,12 @@ export interface ConversationsServiceClient {
   removeMember(request: RemoveMemberRequest): Observable<MutationResponse>;
 
   updateMemberRole(request: UpdateMemberRoleRequest): Observable<MutationResponse>;
+
+  updateConversation(request: UpdateConversationRequest): Observable<MutationResponse>;
+
+  deleteConversation(request: DeleteConversationRequest): Observable<MutationResponse>;
+
+  updateNotifications(request: UpdateConversationNotificationsRequest): Observable<MutationResponse>;
 
   joinConversation(request: JoinConversationRequest): Observable<MutationResponse>;
 
@@ -183,6 +217,18 @@ export interface ConversationsServiceController {
     request: UpdateMemberRoleRequest,
   ): Promise<MutationResponse> | Observable<MutationResponse> | MutationResponse;
 
+  updateConversation(
+    request: UpdateConversationRequest,
+  ): Promise<MutationResponse> | Observable<MutationResponse> | MutationResponse;
+
+  deleteConversation(
+    request: DeleteConversationRequest,
+  ): Promise<MutationResponse> | Observable<MutationResponse> | MutationResponse;
+
+  updateNotifications(
+    request: UpdateConversationNotificationsRequest,
+  ): Promise<MutationResponse> | Observable<MutationResponse> | MutationResponse;
+
   joinConversation(
     request: JoinConversationRequest,
   ): Promise<MutationResponse> | Observable<MutationResponse> | MutationResponse;
@@ -209,6 +255,9 @@ export function ConversationsServiceControllerMethods() {
       "addMembers",
       "removeMember",
       "updateMemberRole",
+      "updateConversation",
+      "deleteConversation",
+      "updateNotifications",
       "joinConversation",
       "leaveConversation",
       "canRead",

@@ -28,6 +28,7 @@ import type {
   UpdateChatFolderRequest,
   User,
 } from '@repo/contracts/gen/ts/users';
+import { PrivacyType } from '@repo/contracts/gen/ts/users';
 
 const PRIVACY_KEYS: Array<keyof PrivacySettings> = [
   'phone',
@@ -41,11 +42,6 @@ const PRIVACY_KEYS: Array<keyof PrivacySettings> = [
   'message',
   'birthDate',
 ];
-
-const PRIVACY_TYPE_UNSPECIFIED = 0;
-const PRIVACY_TYPE_ALL = 1;
-const PRIVACY_TYPE_CONTACTS = 2;
-const PRIVACY_TYPE_NOBODY = 3;
 
 @Injectable()
 export class UsersRepository {
@@ -509,13 +505,13 @@ export class UsersRepository {
     });
   }
 
-  private normalizePrivacyType(value: number): number {
+  private normalizePrivacyType(value: PrivacyType | undefined): PrivacyType {
     if (
-      value !== PRIVACY_TYPE_ALL &&
-      value !== PRIVACY_TYPE_CONTACTS &&
-      value !== PRIVACY_TYPE_NOBODY
+      value !== PrivacyType.ALL &&
+      value !== PrivacyType.CONTACTS &&
+      value !== PrivacyType.NOBODY
     ) {
-      return PRIVACY_TYPE_UNSPECIFIED;
+      return PrivacyType.PRIVACY_TYPE_UNSPECIFIED;
     }
 
     return value;
@@ -572,7 +568,7 @@ export class UsersRepository {
   }
 
   private normalizePrivacySettings(input: unknown): PrivacySettings {
-    const source = (input ?? {}) as Partial<Record<keyof PrivacySettings, any>>;
+    const source = (input ?? {}) as Partial<Record<keyof PrivacySettings, PrivacyType | undefined>>;
 
     return {
       phone: this.normalizePrivacyType(source.phone),

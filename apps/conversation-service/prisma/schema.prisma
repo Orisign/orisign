@@ -8,18 +8,20 @@ datasource db {
 }
 
 model Conversation {
-  id        String               @id @default(cuid())
-  type      ConversationType
-  title     String?
-  about     String?
-  avatarKey String?              @map("avatar_key")
-  ownerId   String               @map("owner_id")
-  isPublic  Boolean              @default(false) @map("is_public")
-  username  String?              @unique
-  members   ConversationMember[]
-  createdAt DateTime             @default(now()) @map("created_at")
-  updatedAt DateTime             @updatedAt @map("updated_at")
-  deletedAt DateTime?            @map("deleted_at")
+  id                     String               @id @default(cuid())
+  type                   ConversationType
+  title                  String?
+  about                  String?
+  avatarKey              String?              @map("avatar_key")
+  ownerId                String               @map("owner_id")
+  isPublic               Boolean              @default(false) @map("is_public")
+  username               String?              @unique
+  discussionConversationId String?            @unique @map("discussion_conversation_id")
+  discussionChannelId    String?              @unique @map("discussion_channel_id")
+  members                ConversationMember[]
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+  deletedAt              DateTime?            @map("deleted_at")
 
   @@index([ownerId])
   @@index([type])
@@ -33,6 +35,7 @@ model ConversationMember {
   userId         String       @map("user_id")
   role           MemberRole
   state          MemberState
+  notificationsEnabled Boolean @default(true) @map("notifications_enabled")
   joinedAt       DateTime     @default(now()) @map("joined_at")
   leftAt         DateTime?    @map("left_at")
 
@@ -46,6 +49,7 @@ enum ConversationType {
   DM
   GROUP
   CHANNEL
+  SUPERGROUP
 }
 
 enum MemberRole {

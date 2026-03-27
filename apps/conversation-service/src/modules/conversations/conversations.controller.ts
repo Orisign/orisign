@@ -4,6 +4,7 @@ import type {
   AddMembersRequest,
   CreateConversationRequest,
   CreateConversationResponse,
+  DeleteConversationRequest,
   GetConversationRequest,
   GetConversationResponse,
   JoinConversationRequest,
@@ -14,6 +15,8 @@ import type {
   PermissionRequest,
   PermissionResponse,
   RemoveMemberRequest,
+  UpdateConversationRequest,
+  UpdateConversationNotificationsRequest,
   UpdateMemberRoleRequest,
 } from '@repo/contracts/gen/ts/conversations';
 import { ConversationsService } from './conversations.service';
@@ -58,6 +61,27 @@ export class ConversationsController {
     data: UpdateMemberRoleRequest,
   ): Promise<MutationResponse> {
     return await this.conversationsService.updateMemberRole(data);
+  }
+
+  @GrpcMethod('ConversationsService', 'UpdateConversation')
+  public async updateConversation(
+    data: UpdateConversationRequest,
+  ): Promise<MutationResponse> {
+    return await this.conversationsService.updateConversation(data);
+  }
+
+  @GrpcMethod('ConversationsService', 'DeleteConversation')
+  public async deleteConversation(
+    data: DeleteConversationRequest,
+  ): Promise<MutationResponse> {
+    return await this.conversationsService.deleteConversation(data);
+  }
+
+  @GrpcMethod('ConversationsService', 'UpdateNotifications')
+  public async updateNotifications(
+    data: UpdateConversationNotificationsRequest,
+  ): Promise<MutationResponse> {
+    return await this.conversationsService.updateNotifications(data);
   }
 
   @GrpcMethod('ConversationsService', 'JoinConversation')

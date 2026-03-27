@@ -12,11 +12,11 @@ export const protobufPackage = "users.v1";
 
 /** Visibility mode for profile fields. */
 export enum PrivacyType {
-  PRIVACY_TYPE_UNSPECIFIED = 0,
-  ALL = 1,
-  CONTACTS = 2,
-  NOBODY = 3,
-  UNRECOGNIZED = -1,
+  PRIVACY_TYPE_UNSPECIFIED = "PRIVACY_TYPE_UNSPECIFIED",
+  ALL = "ALL",
+  CONTACTS = "CONTACTS",
+  NOBODY = "NOBODY",
+  UNRECOGNIZED = "UNRECOGNIZED",
 }
 
 /** Request to fetch user by exactly one identifier. */

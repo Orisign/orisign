@@ -97,6 +97,20 @@ export class ChatRealtimeService {
 		this.sendToConversation(message.conversationId, payload)
 	}
 
+	public emitMessageCreatedToConversation(
+		targetConversationId: string,
+		message: Message
+	) {
+		const sockets = this.socketsByConversation.get(targetConversationId)
+		if (!sockets || sockets.size === 0) return
+
+		this.sendToConversation(targetConversationId, {
+			type: 'message.created',
+			conversationId: targetConversationId,
+			message
+		})
+	}
+
 	public emitReadCursorUpdated(payload: ReadCursorRealtimePayload) {
 		const sockets = this.socketsByConversation.get(payload.conversationId)
 		if (!sockets || sockets.size === 0) return
@@ -115,7 +129,8 @@ export class ChatRealtimeService {
 	public emitMessageUpdated(payload: {
 		conversationId: string
 		messageId: string
-		text: string
+		text?: string
+		replyMarkupJson?: string
 		editedAt: number
 	}) {
 		const sockets = this.socketsByConversation.get(payload.conversationId)
@@ -126,6 +141,27 @@ export class ChatRealtimeService {
 			conversationId: payload.conversationId,
 			messageId: payload.messageId,
 			text: payload.text,
+			replyMarkupJson: payload.replyMarkupJson,
+			editedAt: payload.editedAt
+		})
+	}
+
+	public emitMessageUpdatedToConversation(payload: {
+		targetConversationId: string
+		messageId: string
+		text?: string
+		replyMarkupJson?: string
+		editedAt: number
+	}) {
+		const sockets = this.socketsByConversation.get(payload.targetConversationId)
+		if (!sockets || sockets.size === 0) return
+
+		this.sendToConversation(payload.targetConversationId, {
+			type: 'message.updated',
+			conversationId: payload.targetConversationId,
+			messageId: payload.messageId,
+			text: payload.text,
+			replyMarkupJson: payload.replyMarkupJson,
 			editedAt: payload.editedAt
 		})
 	}
@@ -141,6 +177,22 @@ export class ChatRealtimeService {
 		this.sendToConversation(payload.conversationId, {
 			type: 'message.deleted',
 			conversationId: payload.conversationId,
+			messageId: payload.messageId,
+			deletedAt: payload.deletedAt
+		})
+	}
+
+	public emitMessageDeletedToConversation(payload: {
+		targetConversationId: string
+		messageId: string
+		deletedAt: number
+	}) {
+		const sockets = this.socketsByConversation.get(payload.targetConversationId)
+		if (!sockets || sockets.size === 0) return
+
+		this.sendToConversation(payload.targetConversationId, {
+			type: 'message.deleted',
+			conversationId: payload.targetConversationId,
 			messageId: payload.messageId,
 			deletedAt: payload.deletedAt
 		})

@@ -12,11 +12,11 @@ const microservices_1 = require("@nestjs/microservices");
 exports.protobufPackage = "messages.v1";
 var MessageKind;
 (function (MessageKind) {
-    MessageKind[MessageKind["MESSAGE_KIND_UNSPECIFIED"] = 0] = "MESSAGE_KIND_UNSPECIFIED";
-    MessageKind[MessageKind["TEXT"] = 1] = "TEXT";
-    MessageKind[MessageKind["MEDIA"] = 2] = "MEDIA";
-    MessageKind[MessageKind["SYSTEM"] = 3] = "SYSTEM";
-    MessageKind[MessageKind["UNRECOGNIZED"] = -1] = "UNRECOGNIZED";
+    MessageKind["MESSAGE_KIND_UNSPECIFIED"] = "MESSAGE_KIND_UNSPECIFIED";
+    MessageKind["TEXT"] = "TEXT";
+    MessageKind["MEDIA"] = "MEDIA";
+    MessageKind["SYSTEM"] = "SYSTEM";
+    MessageKind["UNRECOGNIZED"] = "UNRECOGNIZED";
 })(MessageKind || (exports.MessageKind = MessageKind = {}));
 exports.MESSAGES_V1_PACKAGE_NAME = "messages.v1";
 function MessagesServiceControllerMethods() {
@@ -28,6 +28,7 @@ function MessagesServiceControllerMethods() {
             "getUnreadCount",
             "editMessage",
             "deleteMessage",
+            "invokeMessageCallback",
             "markRead",
             "setUserBlock",
             "getUserBlockStatus",

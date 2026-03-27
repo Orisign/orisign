@@ -1,10 +1,14 @@
 "use client";
 
-import { useMessagesControllerRead } from "@/api/generated";
+import {
+  messagesControllerGetCommentSummary,
+  useMessagesControllerRead,
+} from "@/api/generated";
 import type { ConversationResponseDto } from "@/api/generated";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   CHAT_MESSAGE_KIND,
+  type ChatMessagesFilter,
   fetchChatMessagesPage,
   getChatMessagesQueryKey,
   type ChatMessagesQueryData,
@@ -13,37 +17,45 @@ import {
   useChatAuthors,
   useChatReadState,
   useChatMessages,
+  useConversationQuery,
 } from "@/hooks/use-chat";
-import { CHAT_MESSAGES_PAGE_SIZE } from "@/lib/chat.constants";
+import {
+  CHAT_FORCE_SCROLL_BOTTOM_EVENT,
+  CHAT_MESSAGES_PAGE_SIZE,
+} from "@/lib/chat.constants";
 import {
   formatChatDayLabel,
   CHAT_CONVERSATION_TYPE,
+  getConversationTitle,
   getUserAvatarUrl,
   getUserDisplayName,
   getUserInitial,
   isSameCalendarDay,
 } from "@/lib/chat";
 import { ScrollArea, Skeleton } from "@repo/ui";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import InfiniteScroll from "react-infinite-scroll-component";
-import { AnimatePresence, motion } from "motion/react";
+import { ChatCommentsPinnedPost } from "./chat-comments-pinned-post";
 import type { ChatMessageReadReceipt } from "./chat-message-read-dialog";
 import { ChatMessageDayDivider } from "./chat-message-day-divider";
 import { ChatMessageItem } from "./chat-message-item";
+import type { ChatMessageDto } from "@/hooks/use-chat";
 import type { ChatEditTarget, ChatReplyTarget } from "./chat.types";
-import {
-  messageListItemVariants,
-  messageListLayoutTransition,
-} from "@/lib/animations";
 
 interface ChatMessageListProps {
   conversationId: string;
   conversation: ConversationResponseDto | null;
+  discussionConversationId?: string;
+  commentsMode?: boolean;
+  threadReplyToId?: string;
+  threadPost?: ChatMessageDto | null;
   focusMessageId?: string | null;
   onReply?: (message: ChatReplyTarget) => void;
   onEdit?: (message: ChatEditTarget) => void;
+  onOpenComments?: (message: ChatReplyTarget) => void;
+  alwaysMarkRead?: boolean;
   selectionMode?: boolean;
   selectedMessageIds?: Set<string>;
   onStartSelectMessage?: (messageId: string) => void;
@@ -53,9 +65,15 @@ interface ChatMessageListProps {
 export function ChatMessageList({
   conversationId,
   conversation,
+  discussionConversationId,
+  commentsMode = false,
+  threadReplyToId,
+  threadPost = null,
   focusMessageId,
   onReply,
   onEdit,
+  onOpenComments,
+  alwaysMarkRead = false,
   selectionMode = false,
   selectedMessageIds,
   onStartSelectMessage,
@@ -66,6 +84,18 @@ export function ChatMessageList({
   const queryClient = useQueryClient();
   const { user: currentUser } = useCurrentUser();
   const currentUserId = currentUser?.id ?? "";
+  const messagesFilter = useMemo<ChatMessagesFilter | undefined>(
+    () =>
+      commentsMode && threadReplyToId
+        ? { replyToId: threadReplyToId }
+        : (
+            conversation?.type === CHAT_CONVERSATION_TYPE.GROUP &&
+            Boolean(conversation?.discussionChannelId?.trim())
+          )
+          ? { discussionChannelId: conversation?.discussionChannelId?.trim() ?? "" }
+          : undefined,
+    [commentsMode, conversation?.discussionChannelId, conversation?.type, threadReplyToId],
+  );
   const scrollViewportId = useMemo(
     () => `chat-scroll-viewport-${conversationId}`,
     [conversationId],
@@ -73,6 +103,7 @@ export function ChatMessageList({
   const viewportRef = useRef<HTMLDivElement>(null);
   const messageNodeRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const highlightTimeoutRef = useRef<number | null>(null);
+  const scrollFrameRef = useRef<number | null>(null);
   const lastAutoFocusedMessageIdRef = useRef("");
   const hasMoreOlderRef = useRef(true);
   const isLoadingOlderRef = useRef(false);
@@ -84,11 +115,23 @@ export function ChatMessageList({
   const didInitialScrollRef = useRef(false);
   const lastMarkedReadMessageIdRef = useRef("");
 
-  const messagesQuery = useChatMessages(conversationId);
+  const messagesQuery = useChatMessages(conversationId, messagesFilter);
   const messages = useMemo(
     () => messagesQuery.data?.messages ?? [],
     [messagesQuery.data?.messages],
   );
+  const discussionChannelId = conversation?.discussionChannelId?.trim() ?? "";
+  const isDiscussionGroup =
+    conversation?.type === CHAT_CONVERSATION_TYPE.GROUP &&
+    Boolean(discussionChannelId);
+  const discussionChannelQuery = useConversationQuery(
+    isDiscussionGroup ? discussionChannelId : "",
+  );
+  const discussionChannelConversation =
+    discussionChannelQuery.data?.conversation ?? null;
+  const discussionChannelTitle = discussionChannelConversation
+    ? getConversationTitle(discussionChannelConversation)
+    : "";
   const lastMessageId = messages.at(-1)?.id ?? "";
   const latestIncomingMessage = useMemo(
     () =>
@@ -129,13 +172,22 @@ export function ChatMessageList({
       [...new Set([
         ...messages.map((message) => message.authorId),
         ...(conversation?.members ?? []).map((member) => member.userId),
+        ...(threadPost?.authorId ? [threadPost.authorId] : []),
       ])],
-    [conversation?.members, messages],
+    [conversation?.members, messages, threadPost?.authorId],
   );
   const authorsQuery = useChatAuthors(authorIds);
   const authorsById = useMemo(
     () => authorsQuery.data ?? {},
     [authorsQuery.data],
+  );
+  const memberIds = useMemo(
+    () => (conversation?.members ?? []).map((member) => member.userId).filter(Boolean),
+    [conversation?.members],
+  );
+  const otherMemberIds = useMemo(
+    () => memberIds.filter((userId) => userId !== currentUserId),
+    [currentUserId, memberIds],
   );
   const messageIndexById = useMemo(
     () => new Map(messages.map((message, index) => [message.id, index])),
@@ -149,14 +201,66 @@ export function ChatMessageList({
     () => new Map(readCursors.map((cursor) => [cursor.userId, cursor])),
     [readCursors],
   );
-  const isChannel = Number(conversation?.type ?? 0) === CHAT_CONVERSATION_TYPE.CHANNEL;
+  const isChannel = conversation?.type === CHAT_CONVERSATION_TYPE.CHANNEL;
+  const isDiscussionChannelMessage = useCallback(
+    (message?: ChatMessageDto | null) =>
+      Boolean(
+        isDiscussionGroup &&
+        discussionChannelId &&
+        message?.conversationId === discussionChannelId,
+      ),
+    [discussionChannelId, isDiscussionGroup],
+  );
+  const resolveAuthorIdentityKey = useCallback(
+    (message?: ChatMessageDto | null) => {
+      if (!message) {
+        return "";
+      }
+
+      return isDiscussionChannelMessage(message)
+        ? `channel:${discussionChannelId}`
+        : `user:${message.authorId}`;
+    },
+    [discussionChannelId, isDiscussionChannelMessage],
+  );
+  const commentTargetIds = useMemo(
+    () =>
+      isChannel && discussionConversationId
+        ? messages
+            .filter((message) => message.kind !== CHAT_MESSAGE_KIND.SYSTEM)
+            .map((message) => message.id)
+        : [],
+    [discussionConversationId, isChannel, messages],
+  );
+  const commentSummaryQuery = useQuery({
+    queryKey: [
+      "chat",
+      "comment-summary",
+      discussionConversationId,
+      commentTargetIds.join(":"),
+    ],
+    queryFn: () =>
+      messagesControllerGetCommentSummary({
+        conversationId: discussionConversationId ?? "",
+        replyToIds: commentTargetIds,
+      }),
+    enabled: Boolean(isChannel && discussionConversationId && commentTargetIds.length > 0),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+  const commentCountsByMessageId = useMemo(() => {
+    return new Map(
+      (commentSummaryQuery.data?.items ?? []).map((item) => [
+        item.replyToId,
+        item.count,
+      ]),
+    );
+  }, [commentSummaryQuery.data?.items]);
   const channelViewCounts = useMemo(() => {
     const countsByMessageId = new Map<string, number>();
     if (!isChannel) return countsByMessageId;
 
-    const memberIds = new Set(
-      (conversation?.members ?? []).map((member) => member.userId).filter(Boolean),
-    );
+    const visibleMemberIds = new Set(memberIds);
 
     messages.forEach((message, index) => {
       if (message.kind === CHAT_MESSAGE_KIND.SYSTEM) {
@@ -164,7 +268,7 @@ export function ChatMessageList({
       }
 
       const viewers = new Set<string>([message.authorId]);
-      memberIds.forEach((userId) => {
+      visibleMemberIds.forEach((userId) => {
         const cursor = readCursorByUserId.get(userId);
         if (!cursor?.lastReadMessageId) return;
 
@@ -178,23 +282,20 @@ export function ChatMessageList({
     });
 
     return countsByMessageId;
-  }, [conversation?.members, isChannel, messageIndexById, messages, readCursorByUserId]);
+  }, [isChannel, memberIds, messageIndexById, messages, readCursorByUserId]);
   const ownMessageReadReceipts = useMemo(() => {
     const receiptsByMessageId = new Map<string, ChatMessageReadReceipt[]>();
-    const otherMembers = (conversation?.members ?? []).filter(
-      (member) => member.userId && member.userId !== currentUserId,
-    );
 
-    if (!currentUserId || otherMembers.length === 0) {
+    if (!currentUserId || otherMemberIds.length === 0) {
       return receiptsByMessageId;
     }
 
     messages.forEach((message, index) => {
       if (message.authorId !== currentUserId) return;
 
-      const receipts = otherMembers
-        .flatMap((member) => {
-          const cursor = readCursorByUserId.get(member.userId);
+      const receipts = otherMemberIds
+        .flatMap((userId) => {
+          const cursor = readCursorByUserId.get(userId);
           if (!cursor?.lastReadMessageId) {
             return [];
           }
@@ -204,15 +305,15 @@ export function ChatMessageList({
             return [];
           }
 
-          const reader = authorsById[member.userId];
+          const reader = authorsById[userId];
           const displayName = getUserDisplayName(reader, t("unknownAuthor"));
 
           return [
             {
-              userId: member.userId,
+              userId,
               displayName,
               avatarUrl: getUserAvatarUrl(reader),
-              avatarInitial: getUserInitial(reader, displayName || member.userId),
+              avatarInitial: getUserInitial(reader, displayName || userId),
               readAt: cursor.lastReadAt,
             },
           ];
@@ -225,10 +326,10 @@ export function ChatMessageList({
     return receiptsByMessageId;
   }, [
     authorsById,
-    conversation?.members,
     currentUserId,
     messageIndexById,
     messages,
+    otherMemberIds,
     readCursorByUserId,
     t,
   ]);
@@ -240,6 +341,73 @@ export function ChatMessageList({
 
     return state;
   }, [ownMessageReadReceipts]);
+  const rowVirtualizer = useVirtualizer({
+    count: messages.length,
+    getScrollElement: () => viewportRef.current,
+    estimateSize: () => 80,
+    overscan: 5,
+    getItemKey: (index) => messages[index]?.id ?? index,
+  });
+  const virtualItems = rowVirtualizer.getVirtualItems();
+
+  const getDistanceToBottom = useCallback(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) {
+      return 0;
+    }
+
+    return Math.max(
+      0,
+      viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight,
+    );
+  }, []);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+    const viewport = viewportRef.current;
+    if (!viewport) {
+      return;
+    }
+
+    viewport.scrollTo({
+      top: viewport.scrollHeight,
+      behavior,
+    });
+  }, []);
+
+  const handleReplyMessage = useCallback(
+    (message: ChatReplyTarget) => {
+      onReply?.(message);
+    },
+    [onReply],
+  );
+
+  const handleEditMessage = useCallback(
+    (message: ChatEditTarget) => {
+      onEdit?.(message);
+    },
+    [onEdit],
+  );
+
+  const handleOpenCommentsForMessage = useCallback(
+    (message: ChatReplyTarget) => {
+      onOpenComments?.(message);
+    },
+    [onOpenComments],
+  );
+
+  const handleStartSelect = useCallback(
+    (messageId: string) => {
+      onStartSelectMessage?.(messageId);
+    },
+    [onStartSelectMessage],
+  );
+
+  const handleToggleSelect = useCallback(
+    (messageId: string) => {
+      onToggleMessageSelect?.(messageId);
+    },
+    [onToggleMessageSelect],
+  );
 
   const tryMarkConversationRead = useCallback(() => {
     const viewport = viewportRef.current;
@@ -247,12 +415,10 @@ export function ChatMessageList({
       return;
     }
 
-    const distanceToBottom =
-      viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-    const isNearBottom = distanceToBottom < 120;
+    const isNearBottom = getDistanceToBottom() < 120;
     shouldStickToBottomRef.current = isNearBottom;
 
-    if (!isNearBottom) {
+    if (!isNearBottom && !alwaysMarkRead) {
       return;
     }
 
@@ -268,7 +434,7 @@ export function ChatMessageList({
         lastReadMessageId: latestIncomingMessage.id,
       },
     });
-  }, [conversationId, latestIncomingMessage, markRead]);
+  }, [alwaysMarkRead, conversationId, getDistanceToBottom, latestIncomingMessage, markRead]);
 
   const updateHasMoreOlder = useCallback((nextValue: boolean) => {
     hasMoreOlderRef.current = nextValue;
@@ -283,7 +449,7 @@ export function ChatMessageList({
     const viewport = viewportRef.current;
     const previousScrollHeight = viewport?.scrollHeight ?? 0;
     const previousScrollTop = viewport?.scrollTop ?? 0;
-    const queryKey = getChatMessagesQueryKey(conversationId);
+    const queryKey = getChatMessagesQueryKey(conversationId, messagesFilter);
     const loadedMessagesCount =
       queryClient.getQueryData<ChatMessagesQueryData>(queryKey)?.messages.length ?? 0;
 
@@ -295,6 +461,8 @@ export function ChatMessageList({
         conversationId,
         limit: CHAT_MESSAGES_PAGE_SIZE,
         offset: loadedMessagesCount,
+        replyToId: messagesFilter?.replyToId,
+        messageId: messagesFilter?.messageId,
       });
 
       if (olderMessages.length === 0) {
@@ -311,11 +479,13 @@ export function ChatMessageList({
       );
 
       window.requestAnimationFrame(() => {
-        const nextViewport = viewportRef.current;
-        if (!nextViewport) return;
+        window.requestAnimationFrame(() => {
+          const nextViewport = viewportRef.current;
+          if (!nextViewport) return;
 
-        const heightDelta = nextViewport.scrollHeight - previousScrollHeight;
-        nextViewport.scrollTop = previousScrollTop + heightDelta;
+          const heightDelta = nextViewport.scrollHeight - previousScrollHeight;
+          nextViewport.scrollTop = previousScrollTop + heightDelta;
+        });
       });
 
       return true;
@@ -325,7 +495,12 @@ export function ChatMessageList({
       isLoadingOlderRef.current = false;
       setIsLoadingOlder(false);
     }
-  }, [conversationId, queryClient, updateHasMoreOlder]);
+  }, [
+    conversationId,
+    messagesFilter,
+    queryClient,
+    updateHasMoreOlder,
+  ]);
 
   useEffect(() => {
     didInitialScrollRef.current = false;
@@ -346,10 +521,7 @@ export function ChatMessageList({
 
     if (!didInitialScrollRef.current) {
       requestAnimationFrame(() => {
-        viewport.scrollTo({
-          top: viewport.scrollHeight,
-          behavior: "auto",
-        });
+        scrollToBottom();
       });
       didInitialScrollRef.current = true;
       return;
@@ -357,13 +529,12 @@ export function ChatMessageList({
 
     if (shouldStickToBottomRef.current) {
       requestAnimationFrame(() => {
-        viewport.scrollTo({
-          top: viewport.scrollHeight,
-          behavior: "smooth",
+        requestAnimationFrame(() => {
+          scrollToBottom();
         });
       });
     }
-  }, [lastMessageId, messages.length]);
+  }, [lastMessageId, messages.length, scrollToBottom]);
 
   useEffect(() => {
     if (!latestIncomingMessage) return;
@@ -380,16 +551,41 @@ export function ChatMessageList({
       if (!messageId) return;
 
       const viewport = viewportRef.current;
-      const messageNode = messageNodeRefs.current.get(messageId);
-      if (!viewport || !messageNode) {
+      if (!viewport) {
         return;
       }
 
-      messageNode.scrollIntoView({
-        behavior,
-        block: "center",
-        inline: "nearest",
-      });
+      const focusNode = () => {
+        const messageNode = messageNodeRefs.current.get(messageId);
+        if (!messageNode) {
+          return;
+        }
+
+        messageNode.scrollIntoView({
+          behavior,
+          block: "center",
+          inline: "nearest",
+        });
+      };
+
+      const existingNode = messageNodeRefs.current.get(messageId);
+      if (existingNode) {
+        focusNode();
+      } else {
+        const messageIndex = messageIndexById.get(messageId);
+        if (typeof messageIndex === "number") {
+          rowVirtualizer.scrollToIndex(messageIndex, {
+            align: "center",
+            behavior,
+          });
+
+          window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => {
+              focusNode();
+            });
+          });
+        }
+      }
 
       setHighlightedMessageId(messageId);
       if (highlightTimeoutRef.current !== null) {
@@ -402,7 +598,7 @@ export function ChatMessageList({
         );
       }, 1400);
     },
-    [],
+    [messageIndexById, rowVirtualizer],
   );
 
   useEffect(() => {
@@ -431,7 +627,7 @@ export function ChatMessageList({
         while (!isCancelled && attempts < 40) {
           const currentMessages =
             queryClient.getQueryData<ChatMessagesQueryData>(
-              getChatMessagesQueryKey(conversationId),
+              getChatMessagesQueryKey(conversationId, messagesFilter),
             )?.messages ?? [];
 
           if (currentMessages.some((message) => message.id === focusMessageId)) {
@@ -454,7 +650,7 @@ export function ChatMessageList({
 
         const latestMessages =
           queryClient.getQueryData<ChatMessagesQueryData>(
-            getChatMessagesQueryKey(conversationId),
+            getChatMessagesQueryKey(conversationId, messagesFilter),
           )?.messages ?? [];
 
         if (!latestMessages.some((message) => message.id === focusMessageId)) {
@@ -477,34 +673,106 @@ export function ChatMessageList({
     return () => {
       isCancelled = true;
     };
-  }, [conversationId, focusMessage, focusMessageId, loadOlderMessages, messages, queryClient]);
+  }, [
+    conversationId,
+    focusMessage,
+    focusMessageId,
+    loadOlderMessages,
+    messages,
+    messagesFilter,
+    queryClient,
+  ]);
 
   useEffect(
     () => () => {
       if (highlightTimeoutRef.current !== null) {
         window.clearTimeout(highlightTimeoutRef.current);
       }
+
+      if (scrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollFrameRef.current);
+      }
     },
     [],
   );
 
-  function handleScroll() {
+  useEffect(() => {
+    const handleForceScrollBottom = (event: Event) => {
+      const customEvent = event as CustomEvent<{ conversationId?: string }>;
+      if (customEvent.detail?.conversationId !== conversationId) {
+        return;
+      }
+
+      const viewport = viewportRef.current;
+      if (!viewport) {
+        return;
+      }
+
+      shouldStickToBottomRef.current = true;
+
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          scrollToBottom();
+        });
+      });
+    };
+
+    window.addEventListener(CHAT_FORCE_SCROLL_BOTTOM_EVENT, handleForceScrollBottom);
+
+    return () => {
+      window.removeEventListener(CHAT_FORCE_SCROLL_BOTTOM_EVENT, handleForceScrollBottom);
+    };
+  }, [conversationId, scrollToBottom]);
+
+  const processScroll = useCallback(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
 
-    const distanceToBottom =
-      viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-    shouldStickToBottomRef.current = distanceToBottom < 120;
+    shouldStickToBottomRef.current = getDistanceToBottom() < 120;
 
-    if (shouldStickToBottomRef.current) {
+    if (viewport.scrollTop < 200 && hasMoreOlderRef.current && !isLoadingOlderRef.current) {
+      void loadOlderMessages();
+    }
+
+    if (shouldStickToBottomRef.current || alwaysMarkRead) {
       tryMarkConversationRead();
     }
-  }
+  }, [alwaysMarkRead, getDistanceToBottom, loadOlderMessages, tryMarkConversationRead]);
+
+  const handleScroll = useCallback(() => {
+    if (scrollFrameRef.current !== null) {
+      return;
+    }
+
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      processScroll();
+    });
+  }, [processScroll]);
+
+  const registerMessageNode = useCallback(
+    (messageId: string, node: HTMLDivElement | null) => {
+      const currentNode = messageNodeRefs.current.get(messageId) ?? null;
+
+      if (node) {
+        if (currentNode !== node) {
+          messageNodeRefs.current.set(messageId, node);
+          rowVirtualizer.measureElement(node);
+        }
+        return;
+      }
+
+      if (currentNode) {
+        messageNodeRefs.current.delete(messageId);
+      }
+    },
+    [rowVirtualizer],
+  );
 
   if (messagesQuery.isPending) {
     return (
       <ScrollArea className="min-h-0 flex-1">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 py-4 pb-6">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 px-4 py-4 pb-6">
           <div className="flex justify-center py-2">
             <Skeleton className="h-6 w-24 rounded-full" />
           </div>
@@ -540,9 +808,27 @@ export function ChatMessageList({
 
   if (messages.length === 0) {
     return (
-      <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-6">
-        <p className="text-sm text-muted-foreground">{t("empty")}</p>
-      </div>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 px-4 py-4 pb-6">
+          {commentsMode && threadPost ? (
+            <ChatCommentsPinnedPost
+              message={threadPost}
+              senderConversation={discussionChannelConversation}
+              locale={locale}
+              deletedLabel={t("deleted")}
+              editedLabel={t("edited")}
+              unknownAuthorLabel={t("unknownAuthor")}
+              replyUnavailableLabel={t("replyUnavailable")}
+            />
+          ) : null}
+
+          <div className="flex min-h-40 items-center justify-center px-4 py-6">
+            <p className="text-sm text-muted-foreground">
+              {commentsMode ? t("commentsEmpty") : t("empty")}
+            </p>
+          </div>
+        </div>
+      </ScrollArea>
     );
   }
 
@@ -554,28 +840,32 @@ export function ChatMessageList({
       viewportClassName="overscroll-contain"
       onViewportScroll={handleScroll}
     >
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-0.5 px-4 py-4 pb-6">
-        <InfiniteScroll
-          dataLength={messages.length}
-          next={() => void loadOlderMessages()}
-          hasMore={hasMoreOlder}
-          loader={
-            isLoadingOlder ? (
-              <div className="flex justify-center py-2">
-                <Skeleton className="h-5 w-20 rounded-full" />
-              </div>
-            ) : null
-          }
-          inverse
-          scrollableTarget={scrollViewportId}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            overflow: "visible",
-          }}
-        >
-          <AnimatePresence initial={false}>
-            {messages.map((message, index) => {
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 px-4 py-4 pb-6">
+        {commentsMode && threadPost ? (
+          <ChatCommentsPinnedPost
+            message={threadPost}
+            senderConversation={discussionChannelConversation}
+            locale={locale}
+            deletedLabel={t("deleted")}
+            editedLabel={t("edited")}
+            unknownAuthorLabel={t("unknownAuthor")}
+            replyUnavailableLabel={t("replyUnavailable")}
+          />
+        ) : null}
+
+        {isLoadingOlder ? (
+          <div className="flex justify-center py-2">
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </div>
+        ) : null}
+
+        <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+          {virtualItems.map((virtualRow) => {
+              const index = virtualRow.index;
+              const message = messages[index];
+              if (!message) {
+                return null;
+              }
               const previousMessage = messages[index - 1];
               const nextMessage = messages[index + 1];
               const dayLabel = formatChatDayLabel(message.createdAt, locale, {
@@ -586,73 +876,111 @@ export function ChatMessageList({
                 dayLabel &&
                 (index === 0 ||
                   !isSameCalendarDay(previousMessage?.createdAt, message.createdAt));
-              const isOwnMessage = message.authorId === currentUserId;
-
-              return (
-                <motion.div
-                  key={message.id}
-                  layout="position"
-                  custom={isOwnMessage}
-                  variants={messageListItemVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit="exit"
-                  transition={{ layout: messageListLayoutTransition }}
-                  className="transform-gpu [will-change:transform,opacity]"
-                  ref={(node) => {
-                    if (node) {
-                      messageNodeRefs.current.set(message.id, node);
-                      return;
-                    }
-
-                    messageNodeRefs.current.delete(message.id);
-                  }}
-                >
-                  {showDayDivider ? (
-                    <ChatMessageDayDivider label={dayLabel} />
-                  ) : null}
-
-                  <ChatMessageItem
-                    conversationId={conversationId}
-                    message={message}
-                    previousMessage={previousMessage}
-                    nextMessage={nextMessage}
-                    author={authorsById[message.authorId]}
-                    isOwn={isOwnMessage}
-                    isReadByOthers={ownMessageReadState.get(message.id) ?? false}
-                    readReceipts={ownMessageReadReceipts.get(message.id) ?? []}
-                    isChannel={isChannel}
-                    channelViewCount={channelViewCounts.get(message.id) ?? 0}
-                    onReply={onReply}
-                    onEdit={onEdit}
-                    onStartSelect={onStartSelectMessage}
-                    onToggleSelect={onToggleMessageSelect}
-                    onJumpToMessage={focusMessage}
-                    repliedMessage={
-                      message.replyToId ? (messagesById.get(message.replyToId) ?? null) : null
-                    }
-                    repliedAuthorName={
-                      message.replyToId
-                        ? getUserDisplayName(
-                            authorsById[messagesById.get(message.replyToId)?.authorId ?? ""],
-                            t("unknownAuthor"),
+              const isMirroredChannelPost = isDiscussionChannelMessage(message);
+              const isOwnMessage =
+                message.authorId === currentUserId && !isMirroredChannelPost;
+              const startsGroup =
+                index === 0 ||
+                previousMessage?.kind === CHAT_MESSAGE_KIND.SYSTEM ||
+                resolveAuthorIdentityKey(previousMessage) !==
+                  resolveAuthorIdentityKey(message) ||
+                !isSameCalendarDay(previousMessage?.createdAt, message.createdAt);
+              const endsGroup =
+                index === messages.length - 1 ||
+                nextMessage?.kind === CHAT_MESSAGE_KIND.SYSTEM ||
+                resolveAuthorIdentityKey(nextMessage) !==
+                  resolveAuthorIdentityKey(message) ||
+                !isSameCalendarDay(nextMessage?.createdAt, message.createdAt);
+              const repliedMessage = message.replyToId
+                ? (
+                    messagesById.get(message.replyToId) ??
+                    (threadPost?.id === message.replyToId ? threadPost : null)
+                  )
+                : null;
+              const repliedAuthorName = repliedMessage
+                ? (
+                    isDiscussionChannelMessage(repliedMessage)
+                      ? (
+                          discussionChannelTitle ||
+                          (
+                            discussionChannelConversation
+                              ? getConversationTitle(discussionChannelConversation)
+                              : (conversation ? getConversationTitle(conversation) : "")
                           )
-                        : ""
-                    }
-                    locale={locale}
-                    deletedLabel={t("deleted")}
-                    editedLabel={t("edited")}
-                    unknownAuthorLabel={t("unknownAuthor")}
-                    replyUnavailableLabel={t("replyUnavailable")}
-                    selectionMode={selectionMode}
-                    isSelected={selectedMessageIds?.has(message.id) ?? false}
-                    isFocused={highlightedMessageId === message.id}
-                  />
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </InfiniteScroll>
+                        )
+                      : getUserDisplayName(
+                          authorsById[repliedMessage.authorId],
+                          t("unknownAuthor"),
+                        )
+                  )
+                : "";
+                return (
+                  <div
+                    key={virtualRow.key}
+                    ref={(node) => registerMessageNode(message.id, node)}
+                    data-index={index}
+                    className="absolute left-0 top-0 w-full"
+                    style={{
+                      transform: `translateY(${virtualRow.start}px)`,
+                      paddingBottom: endsGroup ? "1.2rem" : "0.65rem",
+                    }}
+                  >
+                    {showDayDivider ? (
+                      <ChatMessageDayDivider label={dayLabel} />
+                    ) : null}
+
+                    <ChatMessageItem
+                      index={index}
+                      conversationId={conversationId}
+                      message={message}
+                      previousMessage={previousMessage}
+                      nextMessage={nextMessage}
+                      author={isMirroredChannelPost ? null : authorsById[message.authorId]}
+                      senderConversation={
+                        isMirroredChannelPost ? discussionChannelConversation : null
+                      }
+                      isOwn={isOwnMessage}
+                      isReadByOthers={ownMessageReadState.get(message.id) ?? false}
+                      readReceipts={ownMessageReadReceipts.get(message.id) ?? []}
+                      isChannel={isChannel}
+                      channelViewCount={channelViewCounts.get(message.id) ?? 0}
+                      commentCount={commentCountsByMessageId.get(message.id) ?? 0}
+                      onReply={commentsMode ? undefined : handleReplyMessage}
+                      onEdit={handleEditMessage}
+                      onOpenComments={
+                        isChannel && discussionConversationId
+                          ? handleOpenCommentsForMessage
+                          : undefined
+                      }
+                      messageFilter={messagesFilter}
+                      onStartSelect={handleStartSelect}
+                      onToggleSelect={handleToggleSelect}
+                      onJumpToMessage={focusMessage}
+                      repliedMessage={repliedMessage}
+                      repliedAuthorName={repliedAuthorName}
+                      authorIdentityKeyOverride={resolveAuthorIdentityKey(message)}
+                      startsGroupOverride={startsGroup}
+                      endsGroupOverride={endsGroup}
+                      forceShowAvatar={isMirroredChannelPost}
+                      forceShowAuthorName={isMirroredChannelPost}
+                      hideIncomingAvatar={
+                        conversation?.type === CHAT_CONVERSATION_TYPE.DM &&
+                        !isMirroredChannelPost
+                      }
+                      hideReplyPreview={commentsMode}
+                      locale={locale}
+                      deletedLabel={t("deleted")}
+                      editedLabel={t("edited")}
+                      unknownAuthorLabel={t("unknownAuthor")}
+                      replyUnavailableLabel={t("replyUnavailable")}
+                      selectionMode={selectionMode}
+                      isSelected={selectedMessageIds?.has(message.id) ?? false}
+                      isFocused={highlightedMessageId === message.id}
+                    />
+                  </div>
+                );
+              })}
+        </div>
       </div>
     </ScrollArea>
   );

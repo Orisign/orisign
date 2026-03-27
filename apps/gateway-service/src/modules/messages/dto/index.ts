@@ -10,7 +10,8 @@ import {
 	IsOptional,
 	IsString,
 	Max,
-	Min
+	Min,
+	ValidateNested
 } from 'class-validator'
 
 export class SendMessageRequestDto {
@@ -37,12 +38,57 @@ export class SendMessageRequestDto {
 	@IsArray()
 	@IsString({ each: true })
 	mediaKeys?: string[]
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	entitiesJson?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	replyMarkupJson?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	attachmentsJson?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	sourceBotId?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	metadataJson?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	locale?: string
 }
 
 export class ListMessagesRequestDto {
 	@ApiProperty()
 	@IsString()
 	conversationId: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	discussionChannelId?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	replyToId?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	messageId?: string
 
 	@ApiPropertyOptional({ default: 30 })
 	@IsOptional()
@@ -72,6 +118,21 @@ export class EditMessageRequestDto {
 	@IsOptional()
 	@IsString()
 	conversationId?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	replyMarkupJson?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	entitiesJson?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	metadataJson?: string
 }
 
 export class DeleteMessageRequestDto {
@@ -90,6 +151,180 @@ export class DeleteMessageRequestDto {
 	@IsOptional()
 	@IsString()
 	conversationId?: string
+}
+
+export class InvokeMessageCallbackRequestDto {
+	@ApiProperty()
+	@IsString()
+	conversationId: string
+
+	@ApiProperty()
+	@IsString()
+	messageId: string
+
+	@ApiProperty()
+	@IsString()
+	callbackData: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	locale?: string
+}
+
+export class RealtimeMessageDto {
+	@ApiProperty()
+	@IsString()
+	id: string
+
+	@ApiProperty()
+	@IsString()
+	conversationId: string
+
+	@ApiProperty()
+	@IsString()
+	authorId: string
+
+	@ApiProperty({ enum: MessageKind })
+	@IsEnum(MessageKind)
+	kind: MessageKind
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	text?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	replyToId?: string
+
+	@ApiPropertyOptional({ type: [String] })
+	@IsOptional()
+	@IsArray()
+	@IsString({ each: true })
+	mediaKeys?: string[]
+
+	@ApiProperty()
+	@Type(() => Number)
+	@IsInt()
+	createdAt: number
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@Type(() => Number)
+	@IsInt()
+	editedAt?: number
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@Type(() => Number)
+	@IsInt()
+	deletedAt?: number
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	entitiesJson?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	replyMarkupJson?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	attachmentsJson?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	sourceBotId?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	metadataJson?: string
+}
+
+export class InternalMessageCreatedRequestDto {
+	@ApiProperty({ type: RealtimeMessageDto })
+	@ValidateNested()
+	@Type(() => RealtimeMessageDto)
+	message: RealtimeMessageDto
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	actorId?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	reason?: string
+}
+
+export class InternalMessageUpdatedRequestDto {
+	@ApiProperty()
+	@IsString()
+	conversationId: string
+
+	@ApiProperty()
+	@IsString()
+	messageId: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	text?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	replyMarkupJson?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@Type(() => Number)
+	@IsInt()
+	editedAt?: number
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	actorId?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	reason?: string
+}
+
+export class InternalMessageDeletedRequestDto {
+	@ApiProperty()
+	@IsString()
+	conversationId: string
+
+	@ApiProperty()
+	@IsString()
+	messageId: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@Type(() => Number)
+	@IsInt()
+	deletedAt?: number
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	actorId?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	reason?: string
 }
 
 export class MarkReadRequestDto {
@@ -221,4 +456,28 @@ export class SharedMediaItemResponseDto {
 export class ListSharedMediaResponseDto {
 	@ApiProperty({ type: [SharedMediaItemResponseDto] })
 	items: SharedMediaItemResponseDto[]
+}
+
+export class GetCommentSummaryRequestDto {
+	@ApiProperty()
+	@IsString()
+	conversationId: string
+
+	@ApiProperty({ type: [String] })
+	@IsArray()
+	@IsString({ each: true })
+	replyToIds: string[]
+}
+
+export class CommentSummaryItemResponseDto {
+	@ApiProperty()
+	replyToId: string
+
+	@ApiProperty()
+	count: number
+}
+
+export class GetCommentSummaryResponseDto {
+	@ApiProperty({ type: [CommentSummaryItemResponseDto] })
+	items: CommentSummaryItemResponseDto[]
 }

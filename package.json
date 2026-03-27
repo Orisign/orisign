@@ -8,10 +8,10 @@
   "packageManager": "bun@1.2.10",
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "dev": "turbo run dev --concurrency 15",
     "lint": "turbo run lint",
-    "db:push": "bun run --filter auth-service prisma:push && bun run --filter conversation-service prisma:push && bun run --filter message-service prisma:push && bun run --filter users-service prisma:push",
-    "db:generate": "bun run --filter auth-service prisma:generate && bun run --filter conversation-service prisma:generate && bun run --filter message-service prisma:generate && bun run --filter users-service prisma:generate",
+    "db:push": "bun run --filter auth-service prisma:push && bun run --filter conversation-service prisma:push && bun run --filter handle-service prisma:push && bun run --filter message-service prisma:push && bun run --filter users-service prisma:push && bun run --filter bot-service prisma:push",
+    "db:generate": "bun run --filter auth-service prisma:generate && bun run --filter conversation-service prisma:generate && bun run --filter handle-service prisma:generate && bun run --filter message-service prisma:generate && bun run --filter users-service prisma:generate && bun run --filter bot-service prisma:generate",
     "db:sync": "bun run db:push && bun run db:generate"
   },
   "devDependencies": {
@@ -43,7 +43,6 @@
     "next-intl": "^4.8.3",
     "react-hook-form": "^7.71.2",
     "react-icons": "^5.6.0",
-    "web": "./apps/web",
     "zustand": "^5.0.11"
   }
 }

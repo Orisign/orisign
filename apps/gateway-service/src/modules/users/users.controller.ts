@@ -29,10 +29,12 @@ import {
 	ConversationType,
 	MemberState
 } from '@repo/contracts/gen/ts/conversations'
+import { PrivacyType } from '@repo/contracts/gen/ts/users'
 import { lastValueFrom } from 'rxjs'
 import { CurrentUser, Protected } from 'src/shared/decorators'
 import { FileValidationPipe } from 'src/shared/pipes'
 
+import { AccountClientGrpc } from '../account/account.grpc'
 import { ConversationsClientGrpc } from '../conversations/conversations.grpc'
 import { ChatRealtimeService } from '../messages/chat-realtime.service'
 
@@ -64,6 +66,7 @@ export class UsersController {
 	public constructor(
 		private readonly usersClient: UsersClientGrpc,
 		private readonly mediaClient: MediaClientGrpc,
+		private readonly accountClient: AccountClientGrpc,
 		private readonly conversationsClient: ConversationsClientGrpc,
 		private readonly chatRealtimeService: ChatRealtimeService
 	) {}
@@ -82,9 +85,11 @@ export class UsersController {
 	@Get('me')
 	@HttpCode(HttpStatus.OK)
 	public async me(@CurrentUser() id: string) {
-		return await lastValueFrom(this.usersClient.getUser({ id }))
+		const response = await lastValueFrom(this.usersClient.getUser({ id }))
+		return await this.enrichGetUserResponse(id, response)
 	}
 
+	@ApiBearerAuth('access-token')
 	@ApiOperation({
 		summary: 'Получить пользователя',
 		description: 'Получает пользователя по id или username'
@@ -97,10 +102,15 @@ export class UsersController {
 	@ApiBadRequestResponse({
 		description: 'Нужно передать хотя бы один идентификатор'
 	})
+	@Protected()
 	@Post('get')
 	@HttpCode(HttpStatus.OK)
-	public async get(@Body() dto: GetUserRequestDto) {
-		return await lastValueFrom(this.usersClient.getUser(dto))
+	public async get(
+		@CurrentUser() id: string,
+		@Body() dto: GetUserRequestDto
+	) {
+		const response = await lastValueFrom(this.usersClient.getUser(dto))
+		return await this.enrichGetUserResponse(id, response)
 	}
 
 	@ApiBearerAuth('access-token')
@@ -120,20 +130,27 @@ export class UsersController {
 		@CurrentUser() id: string,
 		@Body() dto: ListUsersRequestDto
 	) {
+		const normalizedQuery = dto.query?.trim() ?? ''
 		const contactIds = await this.getDirectContactIds(id)
 		const excludeIds = [...new Set([id, ...(dto.excludeIds ?? [])])]
+		const includeIds =
+			normalizedQuery.length > 0 ? undefined : contactIds
 
-		if (contactIds.length === 0) {
+		if (!includeIds && normalizedQuery.length === 0) {
+			return { users: [] }
+		}
+
+		if (includeIds && includeIds.length === 0) {
 			return { users: [] }
 		}
 
 		return await lastValueFrom(
 			this.usersClient.listUsers({
-				query: dto.query ?? '',
+				query: normalizedQuery,
 				limit: dto.limit ?? 30,
 				offset: dto.offset ?? 0,
 				excludeIds,
-				includeIds: contactIds
+				includeIds
 			})
 		)
 	}
@@ -362,6 +379,75 @@ export class UsersController {
 				userId: id
 			})
 		)
+	}
+
+	private async enrichGetUserResponse(requesterId: string, response: GetUserResponseDto) {
+		if (!response.user) {
+			return response
+		}
+
+		return {
+			...response,
+			user: await this.enrichUserForRequester(requesterId, response.user)
+		}
+	}
+
+	private async enrichUserForRequester(
+		requesterId: string,
+		user: GetUserResponseDto['user']
+	) {
+		if (!user) {
+			return user
+		}
+
+		const isSelf = requesterId === user.id
+		let directContactIds: Set<string> | null = null
+
+		const resolveDirectContactIds = async () => {
+			if (directContactIds) {
+				return directContactIds
+			}
+
+			directContactIds = new Set(await this.getDirectContactIds(requesterId))
+			return directContactIds
+		}
+
+		const canSeeField = async (privacyValue?: PrivacyType) => {
+			if (isSelf) {
+				return true
+			}
+
+			if (privacyValue === PrivacyType.ALL) {
+				return true
+			}
+
+			if (privacyValue === PrivacyType.CONTACTS) {
+				return (await resolveDirectContactIds()).has(user.id)
+			}
+
+			return false
+		}
+
+		const canSeePhone = await canSeeField(user.privacySettings?.phone)
+		const canSeeBirthDate = await canSeeField(user.privacySettings?.birthDate)
+
+		let phone: string | undefined
+		if (canSeePhone) {
+			try {
+				const account = await lastValueFrom(
+					this.accountClient.getAccount({ id: user.id })
+				)
+				phone = account.phone || undefined
+			} catch {
+				phone = undefined
+			}
+		}
+
+		return {
+			...user,
+			phone,
+			birthDate: canSeeBirthDate ? user.birthDate : undefined
+		}
 	}
 
 	private async getDirectContactIds(userId: string) {

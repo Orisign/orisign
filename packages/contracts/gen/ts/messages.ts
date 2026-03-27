@@ -11,11 +11,11 @@ import { Observable } from "rxjs";
 export const protobufPackage = "messages.v1";
 
 export enum MessageKind {
-  MESSAGE_KIND_UNSPECIFIED = 0,
-  TEXT = 1,
-  MEDIA = 2,
-  SYSTEM = 3,
-  UNRECOGNIZED = -1,
+  MESSAGE_KIND_UNSPECIFIED = "MESSAGE_KIND_UNSPECIFIED",
+  TEXT = "TEXT",
+  MEDIA = "MEDIA",
+  SYSTEM = "SYSTEM",
+  UNRECOGNIZED = "UNRECOGNIZED",
 }
 
 export interface SendMessageRequest {
@@ -25,6 +25,11 @@ export interface SendMessageRequest {
   text: string;
   replyToId: string;
   mediaKeys: string[];
+  entitiesJson: string;
+  replyMarkupJson: string;
+  attachmentsJson: string;
+  sourceBotId: string;
+  metadataJson: string;
 }
 
 export interface SendMessageResponse {
@@ -37,6 +42,8 @@ export interface ListMessagesRequest {
   requesterId: string;
   limit: number;
   offset: number;
+  replyToId: string;
+  messageId: string;
 }
 
 export interface ListMessagesResponse {
@@ -71,11 +78,27 @@ export interface EditMessageRequest {
   messageId: string;
   actorId: string;
   text: string;
+  replyMarkupJson: string;
+  entitiesJson: string;
+  metadataJson: string;
 }
 
 export interface DeleteMessageRequest {
   messageId: string;
   actorId: string;
+}
+
+export interface InvokeMessageCallbackRequest {
+  conversationId: string;
+  actorId: string;
+  messageId: string;
+  callbackData: string;
+}
+
+export interface InvokeMessageCallbackResponse {
+  ok: boolean;
+  callbackQueryId: string;
+  message: Message | undefined;
 }
 
 export interface MarkReadRequest {
@@ -114,6 +137,11 @@ export interface Message {
   createdAt: number;
   editedAt: number;
   deletedAt: number;
+  entitiesJson: string;
+  replyMarkupJson: string;
+  attachmentsJson: string;
+  sourceBotId: string;
+  metadataJson: string;
 }
 
 export const MESSAGES_V1_PACKAGE_NAME = "messages.v1";
@@ -130,6 +158,8 @@ export interface MessagesServiceClient {
   editMessage(request: EditMessageRequest): Observable<MutationResponse>;
 
   deleteMessage(request: DeleteMessageRequest): Observable<MutationResponse>;
+
+  invokeMessageCallback(request: InvokeMessageCallbackRequest): Observable<InvokeMessageCallbackResponse>;
 
   markRead(request: MarkReadRequest): Observable<MutationResponse>;
 
@@ -161,6 +191,10 @@ export interface MessagesServiceController {
     request: DeleteMessageRequest,
   ): Promise<MutationResponse> | Observable<MutationResponse> | MutationResponse;
 
+  invokeMessageCallback(
+    request: InvokeMessageCallbackRequest,
+  ): Promise<InvokeMessageCallbackResponse> | Observable<InvokeMessageCallbackResponse> | InvokeMessageCallbackResponse;
+
   markRead(request: MarkReadRequest): Promise<MutationResponse> | Observable<MutationResponse> | MutationResponse;
 
   setUserBlock(
@@ -181,6 +215,7 @@ export function MessagesServiceControllerMethods() {
       "getUnreadCount",
       "editMessage",
       "deleteMessage",
+      "invokeMessageCallback",
       "markRead",
       "setUserBlock",
       "getUserBlockStatus",

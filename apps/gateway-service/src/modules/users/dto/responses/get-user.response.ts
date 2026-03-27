@@ -40,6 +40,9 @@ export class UserResponseDto {
 	@ApiPropertyOptional({ example: 'john_doe' })
 	public username?: string
 
+	@ApiPropertyOptional({ example: '+79991234567' })
+	public phone?: string
+
 	@ApiProperty({ example: 'John' })
 	public firstName: string
 

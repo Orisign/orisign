@@ -116,6 +116,8 @@ function buildWaveformFromBufferData(channelData: Float32Array, bars = 34) {
   return peaks.map((peak) => Math.round(22 + (peak / maxPeak) * 78));
 }
 
+const waveformCache = new Map<string, Promise<number[]> | number[]>();
+
 async function extractWaveformFromAudioUrl(url: string, bars = 34) {
   if (typeof window === "undefined") {
     return buildFallbackWaveform(url, bars);
@@ -139,6 +141,26 @@ async function extractWaveformFromAudioUrl(url: string, bars = 34) {
   } finally {
     void context.close().catch(() => undefined);
   }
+}
+
+async function getCachedWaveformForAudioUrl(url: string, bars = 34) {
+  const cachedValue = waveformCache.get(url);
+  if (cachedValue) {
+    return Array.isArray(cachedValue) ? cachedValue : await cachedValue;
+  }
+
+  const pendingWaveform = extractWaveformFromAudioUrl(url, bars)
+    .then((waveform) => {
+      waveformCache.set(url, waveform);
+      return waveform;
+    })
+    .catch((error) => {
+      waveformCache.delete(url);
+      throw error;
+    });
+
+  waveformCache.set(url, pendingWaveform);
+  return pendingWaveform;
 }
 
 const videoControlButtonClass = "inline-flex size-11 items-center justify-center border-0 bg-transparent p-0 text-primary outline-none ring-0 transition-colors duration-150 hover:text-primary/80 active:text-primary/70 focus-visible:text-primary [&_svg]:size-7";
@@ -251,7 +273,7 @@ export function ChatMessageMedia({
         if (!item.url) continue;
 
         try {
-          const waveform = await extractWaveformFromAudioUrl(item.url);
+          const waveform = await getCachedWaveformForAudioUrl(item.url);
           if (isCancelled) return;
 
           setWaveformByKey((currentValue) => ({
@@ -484,16 +506,12 @@ export function ChatMessageMedia({
     if (!canDelete || isDeleting) return;
 
     try {
-      const response = await deleteMessage({
+      await deleteMessage({
         data: {
           conversationId,
           messageId,
         },
       });
-
-      if (!response.ok) {
-        throw new Error("Delete failed");
-      }
 
       queryClient.setQueryData<ChatMessagesQueryData>(
         getChatMessagesQueryKey(conversationId),

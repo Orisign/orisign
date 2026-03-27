@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { ClientsModule, Transport } from '@nestjs/microservices'
 import { PROTO_PATHS } from '@repo/contracts'
+import { GRPC_LOADER_OPTIONS } from 'src/shared/grpc-loader.options'
 
 import { AccountController } from './account.controller'
 import { AccountClientGrpc } from './account.grpc'
@@ -25,7 +26,8 @@ import { AccountClientGrpc } from './account.grpc'
 					options: {
 						package: ['account.v1'],
 						protoPath: [PROTO_PATHS.ACCOUNT],
-						url: configService.getOrThrow<string>('AUTH_GRPC_URL')
+						url: configService.getOrThrow<string>('AUTH_GRPC_URL'),
+						loader: GRPC_LOADER_OPTIONS
 					}
 				}),
 				inject: [ConfigService]

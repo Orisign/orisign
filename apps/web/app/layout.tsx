@@ -37,12 +37,6 @@ export default async function RootLayout({
         <link rel="icon" href="/logo.png" type="image/png" />
         <link rel="shortcut icon" href="/logo.png" type="image/png" />
         <link rel="apple-touch-icon" href="/logo.png" />
-        <link
-          rel="preload"
-          href="/assets/audio/message_sent.mp3"
-          as="audio"
-          type="audio/mpeg"
-        />
       </head>
       <body className={`${inter.variable} antialiased`}>
         <NextIntlClientProvider>

@@ -56,6 +56,14 @@
   --ui-duration-micro: 120ms;
   --ui-duration-fast: 170ms;
   --ui-duration-base: 220ms;
+  --chat-motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --chat-motion-ease-exit: cubic-bezier(0.4, 0, 0.2, 1);
+  --chat-motion-instant: 100ms;
+  --chat-motion-fast: 150ms;
+  --chat-motion-base: 200ms;
+  --chat-motion-smooth: 260ms;
+  --chat-message-enter-duration: 220ms;
+  --chat-composer-enter-duration: 180ms;
   --background: oklch(1 0 0);
   --foreground: oklch(0.141 0.005 285.823);
   --card: oklch(1 0 0);
@@ -167,6 +175,25 @@
   * {
     @apply border-border outline-ring/50;
   }
+
+  :where(
+      [data-slot="button"][data-variant="ghost"],
+      [data-slot="button"][data-variant="outline"],
+      [data-slot="button"][data-variant="secondary"]
+    )
+    :where(svg) {
+    color: hsl(var(--muted-foreground));
+  }
+
+  :where(
+      [data-slot="button"][data-variant="ghost"],
+      [data-slot="button"][data-variant="outline"],
+      [data-slot="button"][data-variant="secondary"]
+    ):is(:hover, :focus-visible, [data-state="open"])
+    :where(svg) {
+    color: inherit;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-inter), "Apple Color Emoji";
@@ -224,6 +251,38 @@
     opacity: 0.38;
   }
 
+  .chat-message-enter {
+    animation: chat-message-enter var(--chat-message-enter-duration) var(--chat-motion-ease);
+    will-change: transform, opacity;
+  }
+
+  .chat-message-text {
+    transition:
+      opacity var(--chat-motion-fast) var(--chat-motion-ease),
+      filter var(--chat-motion-fast) var(--chat-motion-ease);
+  }
+
+  .chat-message-highlight {
+    opacity: 0;
+    transform: scale(0.985);
+    transition:
+      opacity var(--chat-motion-fast) var(--chat-motion-ease),
+      transform var(--chat-motion-fast) var(--chat-motion-ease);
+  }
+
+  .chat-message-highlight[data-active="true"] {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .chat-composer-shell-enter {
+    animation: chat-composer-enter var(--chat-composer-enter-duration) var(--chat-motion-ease);
+  }
+
+  .chat-composer-surface {
+    overflow: visible;
+  }
+
   :root[data-ui-animations="off"] *,
   :root[data-ui-animations="off"] *::before,
   :root[data-ui-animations="off"] *::after {
@@ -256,6 +315,30 @@
   :root[data-ui-animations="on"] .transition-opacity,
   :root[data-ui-animations="on"] .transition-transform {
     transition-timing-function: var(--ui-ease-standard);
+  }
+}
+
+@keyframes chat-message-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.975);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes chat-composer-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 

@@ -139,7 +139,7 @@ export function CreateConversationDetailsSidebar({
   function submitGroup(values: GroupFormValues) {
     createConversation({
       data: {
-        type: CreateConversationRequestDtoType.NUMBER_2,
+        type: CreateConversationRequestDtoType.GROUP,
         title: values.title.trim(),
         memberIds,
         avatarKey: avatar?.key || undefined,
@@ -153,7 +153,7 @@ export function CreateConversationDetailsSidebar({
 
     createConversation({
       data: {
-        type: CreateConversationRequestDtoType.NUMBER_3,
+        type: CreateConversationRequestDtoType.CHANNEL,
         title: values.title.trim(),
         username: username || undefined,
         about: about || undefined,

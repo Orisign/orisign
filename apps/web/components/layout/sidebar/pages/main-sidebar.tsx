@@ -1,8 +1,14 @@
 "use client";
 
-import { useConversationsControllerMy } from "@/api/generated";
+import {
+  CreateConversationRequestDtoType,
+  getConversationsControllerMyQueryKey,
+  useConversationsControllerCreate,
+  useConversationsControllerMy,
+} from "@/api/generated";
 import { ChatItem } from "@/components/chat/chat-item";
 import { ChatList } from "@/components/chat/chat-list";
+import { CreateConversationUserRow } from "@/components/chat/create-conversation-user-row";
 import {
   SidebarPage,
   SidebarPageContent,
@@ -10,6 +16,7 @@ import {
 } from "@/components/ui/sidebar-page";
 import { CreateConversationDropdown } from "@/components/user/create-conversation-dropdown";
 import { UserDropdown } from "@/components/user/user-dropdown";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { useChatFolders } from "@/hooks/use-chat-folders";
 import {
   useClearSearchHistory,
@@ -17,6 +24,7 @@ import {
   useSearchHistory,
   useUpsertSearchHistory,
 } from "@/hooks/use-search-history";
+import { useUsersList } from "@/hooks/use-users-list";
 import { getConversationTitle } from "@/lib/chat";
 import {
   CHAT_FOLDER_ALL_TAB_ID,
@@ -30,6 +38,7 @@ import {
   TabsList,
   TabsTrigger,
   Button,
+  toast,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -37,47 +46,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@repo/ui";
-import { motion } from "motion/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { History, Search, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
+import { SidebarAnimatedMenuIcon } from "./animated-menu-icon";
 
 type SidebarContentView = "main" | "search";
-
-interface SidebarContentTransition {
-  id: string;
-  from: SidebarContentView;
-  to: SidebarContentView;
-}
-
-const SEARCH_VIEW_DURATION_MS = 150;
-const SEARCH_VIEW_EASING = "cubic-bezier(0.4, 0, 0.2, 1)";
-const SEARCH_BUTTON_TRANSITION = {
-  duration: 0.25,
-  ease: [0.4, 0, 0.2, 1],
-} as const;
-const SEARCH_TABS_TRANSITION = {
-  duration: 0.22,
-  ease: [0.22, 1, 0.36, 1],
-} as const;
-
-function resetSearchViewLayerStyles(layer: HTMLDivElement) {
-  layer.style.transition = "";
-  layer.style.transform = "translate3d(0, 0, 0) scale(1)";
-  layer.style.opacity = "1";
-  layer.style.willChange = "";
-}
 
 export const MainSidebar = () => {
   const t = useTranslations("appShell");
   const tSearch = useTranslations("chatSearchSidebar");
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { user: currentUser } = useCurrentUser();
   const { data: foldersData } = useChatFolders();
   const { data: searchData, isLoading: isSearchLoading } =
     useConversationsControllerMy();
@@ -85,6 +75,7 @@ export const MainSidebar = () => {
   const [activeFolderId, setActiveFolderId] = useState(CHAT_FOLDER_ALL_TAB_ID);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [isClearHistoryDialogOpen, setIsClearHistoryDialogOpen] = useState(false);
 
   const { data: searchHistoryData, isLoading: isSearchHistoryLoading } =
@@ -94,23 +85,10 @@ export const MainSidebar = () => {
     useDeleteSearchHistoryEntry();
   const { mutate: clearSearchHistory, isPending: isClearingSearchHistory } =
     useClearSearchHistory();
+  const { mutateAsync: createConversation, isPending: isCreatingConversation } =
+    useConversationsControllerCreate();
 
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const listPanelRef = useRef<HTMLDivElement | null>(null);
-  const listSlideFrameRef = useRef<number | null>(null);
-  const hasAnimatedTabsRef = useRef(false);
-  const lastAnimatedFolderIdRef = useRef(CHAT_FOLDER_ALL_TAB_ID);
-  const previousTabIndexRef = useRef(0);
-  const tabDirectionRef = useRef<1 | -1>(1);
-
-  const [displayedContentView, setDisplayedContentView] =
-    useState<SidebarContentView>("main");
-  const [contentTransition, setContentTransition] =
-    useState<SidebarContentTransition | null>(null);
-  const contentBaseLayerRef = useRef<HTMLDivElement | null>(null);
-  const contentIncomingLayerRef = useRef<HTMLDivElement | null>(null);
-  const displayedContentViewRef = useRef(displayedContentView);
-  const contentTransitionRef = useRef(contentTransition);
 
   const folders = useMemo(
     () =>
@@ -138,25 +116,31 @@ export const MainSidebar = () => {
     return folders.find((folder) => folder.id === resolvedActiveFolderId) ?? null;
   }, [folders, resolvedActiveFolderId]);
 
-  const tabOrder = useMemo(
-    () => [CHAT_FOLDER_ALL_TAB_ID, ...folders.map((folder) => folder.id)],
-    [folders],
-  );
-  const activeTabIndex = useMemo(() => {
-    const index = tabOrder.indexOf(resolvedActiveFolderId);
-    return index < 0 ? 0 : index;
-  }, [resolvedActiveFolderId, tabOrder]);
-
-  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const normalizedSearchQuery = deferredSearchQuery.trim().toLowerCase();
   const searchResults = useMemo(() => {
     if (!normalizedSearchQuery) {
       return [];
     }
 
     return (searchData?.conversations ?? []).filter((conversation) =>
-      getConversationTitle(conversation).toLowerCase().includes(normalizedSearchQuery),
+      [
+        getConversationTitle(conversation),
+        conversation.username ? `@${conversation.username}` : "",
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedSearchQuery),
     );
   }, [normalizedSearchQuery, searchData?.conversations]);
+  const usersSearchQuery = useUsersList({
+    query: deferredSearchQuery,
+    excludeIds: currentUser?.id ? [currentUser.id] : [],
+    limit: 20,
+    enabled: isSearchOpen && Boolean(normalizedSearchQuery),
+  });
+  const userSearchResults = usersSearchQuery.data?.users ?? [];
+  const hasSearchResults =
+    searchResults.length > 0 || userSearchResults.length > 0;
   const searchHistoryEntries = searchHistoryData?.entries;
   const historyConversations = useMemo(() => {
     const conversations = searchData?.conversations ?? [];
@@ -176,188 +160,26 @@ export const MainSidebar = () => {
       );
   }, [searchData?.conversations, searchHistoryEntries]);
 
-  const baseContentView = contentTransition
-    ? contentTransition.from
-    : displayedContentView;
-
-  const showTabs = !isSearchOpen || contentTransition?.from === "main";
-  const queueStateUpdate = (updater: () => void) => {
-    queueMicrotask(updater);
-  };
-
-  useEffect(() => {
-    const previousIndex = previousTabIndexRef.current;
-    if (activeTabIndex === previousIndex) {
-      return;
-    }
-
-    tabDirectionRef.current = activeTabIndex > previousIndex ? 1 : -1;
-    previousTabIndexRef.current = activeTabIndex;
-  }, [activeTabIndex]);
-
-  useLayoutEffect(() => {
-    const panel = listPanelRef.current;
-    if (!panel) return;
-    if (isSearchOpen) return;
-
-    if (!hasAnimatedTabsRef.current) {
-      hasAnimatedTabsRef.current = true;
-      lastAnimatedFolderIdRef.current = resolvedActiveFolderId;
-      return;
-    }
-
-    if (resolvedActiveFolderId === lastAnimatedFolderIdRef.current) {
-      return;
-    }
-
-    lastAnimatedFolderIdRef.current = resolvedActiveFolderId;
-
-    const fromX = tabDirectionRef.current === 1 ? 72 : -72;
-    panel.style.transition = "none";
-    panel.style.transform = `translate3d(${fromX}px, 0, 0)`;
-    void panel.offsetHeight;
-
-    if (listSlideFrameRef.current !== null) {
-      cancelAnimationFrame(listSlideFrameRef.current);
-    }
-
-    listSlideFrameRef.current = requestAnimationFrame(() => {
-      panel.style.transition = "transform 180ms cubic-bezier(0.22, 1, 0.36, 1)";
-      panel.style.transform = "translate3d(0, 0, 0)";
-      listSlideFrameRef.current = null;
-    });
-
-    return () => {
-      if (listSlideFrameRef.current !== null) {
-        cancelAnimationFrame(listSlideFrameRef.current);
-        listSlideFrameRef.current = null;
-      }
-    };
-  }, [isSearchOpen, resolvedActiveFolderId]);
-
-  useLayoutEffect(() => {
-    displayedContentViewRef.current = displayedContentView;
-    contentTransitionRef.current = contentTransition;
-  }, [contentTransition, displayedContentView]);
-
-  useLayoutEffect(() => {
-    if (!contentTransition) {
-      return;
-    }
-
-    const baseLayer = contentBaseLayerRef.current;
-    const incomingLayer = contentIncomingLayerRef.current;
-
-    if (!baseLayer || !incomingLayer) {
-      queueStateUpdate(() => {
-        setDisplayedContentView(contentTransition.to);
-        setContentTransition(null);
-      });
-      return;
-    }
-
-    const isOpeningSearch = contentTransition.to === "search";
-    const transitionValue = `transform ${SEARCH_VIEW_DURATION_MS}ms ${SEARCH_VIEW_EASING}, opacity ${SEARCH_VIEW_DURATION_MS}ms ${SEARCH_VIEW_EASING}`;
-
-    resetSearchViewLayerStyles(baseLayer);
-    resetSearchViewLayerStyles(incomingLayer);
-
-    baseLayer.style.transition = "none";
-    incomingLayer.style.transition = "none";
-
-    baseLayer.style.transform = "translate3d(0, 0, 0) scale(1)";
-    baseLayer.style.opacity = "1";
-    incomingLayer.style.opacity = "0";
-    incomingLayer.style.transform = isOpeningSearch
-      ? "translate3d(0, 0, 0) scale(1.1)"
-      : "translate3d(0, 0, 0) scale(0.95)";
-
-    baseLayer.style.willChange = "transform, opacity";
-    incomingLayer.style.willChange = "transform, opacity";
-    void incomingLayer.offsetHeight;
-
-    baseLayer.style.transition = transitionValue;
-    incomingLayer.style.transition = transitionValue;
-
-    baseLayer.style.opacity = "0";
-    baseLayer.style.transform = isOpeningSearch
-      ? "translate3d(0, 0, 0) scale(1)"
-      : "translate3d(0, 0, 0) scale(1.1)";
-    incomingLayer.style.opacity = "1";
-    incomingLayer.style.transform = "translate3d(0, 0, 0) scale(1)";
-
-    const finishTransition = () => {
-      setContentTransition((prevTransition) => {
-        if (!prevTransition || prevTransition.id !== contentTransition.id) {
-          return prevTransition;
-        }
-
-        setDisplayedContentView(prevTransition.to);
-        return null;
-      });
-    };
-
-    const onTransitionEnd = (event: TransitionEvent) => {
-      if (
-        event.target !== incomingLayer ||
-        event.propertyName !== "transform"
-      ) {
-        return;
-      }
-
-      finishTransition();
-    };
-
-    const timeoutId = window.setTimeout(
-      finishTransition,
-      SEARCH_VIEW_DURATION_MS + 60,
-    );
-    incomingLayer.addEventListener("transitionend", onTransitionEnd);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      incomingLayer.removeEventListener("transitionend", onTransitionEnd);
-      resetSearchViewLayerStyles(baseLayer);
-      resetSearchViewLayerStyles(incomingLayer);
-    };
-  }, [contentTransition]);
-
-  const startContentTransition = useCallback((to: SidebarContentView) => {
-    const activeTransition = contentTransitionRef.current;
-    const from = activeTransition
-      ? activeTransition.to
-      : displayedContentViewRef.current;
-
-    if (from === to) {
-      return;
-    }
-
-    setContentTransition({
-      id: `${from}:${to}:${Date.now()}`,
-      from,
-      to,
-    });
-  }, []);
+  const activeContentView: SidebarContentView = isSearchOpen ? "search" : "main";
+  const showTabs = !isSearchOpen;
 
   const handleOpenSearch = useCallback(() => {
     if (isSearchOpen) {
       return;
     }
 
-    startContentTransition("search");
     setSearchQuery("");
     setIsSearchOpen(true);
-  }, [isSearchOpen, startContentTransition]);
+  }, [isSearchOpen]);
 
   const handleCloseSearch = useCallback(() => {
     if (!isSearchOpen) {
       return;
     }
 
-    startContentTransition("main");
     setIsSearchOpen(false);
     setSearchQuery("");
-  }, [isSearchOpen, startContentTransition]);
+  }, [isSearchOpen]);
 
   const persistSearchConversation = useCallback(
     (conversationId: string) => {
@@ -369,6 +191,49 @@ export const MainSidebar = () => {
       upsertSearchHistory(normalizedConversationId);
     },
     [upsertSearchHistory],
+  );
+
+  const handleOpenDirectConversation = useCallback(
+    async (userId: string) => {
+      if (!userId || isCreatingConversation) {
+        return;
+      }
+
+      try {
+        const response = await createConversation({
+          data: {
+            type: CreateConversationRequestDtoType.DM,
+            memberIds: [userId],
+          },
+        });
+
+        const conversationId = response.conversation?.id?.trim() ?? "";
+        if (!conversationId) {
+          throw new Error("Conversation was not created");
+        }
+
+        await queryClient.invalidateQueries({
+          queryKey: getConversationsControllerMyQueryKey(),
+        });
+        persistSearchConversation(conversationId);
+        setIsSearchOpen(false);
+        setSearchQuery("");
+        router.push(`/${conversationId}`);
+      } catch {
+        toast({
+          title: tSearch("openChatError"),
+          type: "error",
+        });
+      }
+    },
+    [
+      createConversation,
+      isCreatingConversation,
+      persistSearchConversation,
+      queryClient,
+      router,
+      tSearch,
+    ],
   );
 
   useEffect(() => {
@@ -394,55 +259,11 @@ export const MainSidebar = () => {
     return () => window.cancelAnimationFrame(frameId);
   }, [isSearchOpen]);
 
-  const menuTriggerIcon = (
-    <span className="relative inline-flex size-6 items-center justify-center">
-      <motion.span
-        className="absolute h-0.5 rounded-full bg-current"
-        initial={false}
-        animate={{
-          width: isSearchOpen ? 8 : 18,
-          x: isSearchOpen ? -4 : 0,
-          y: isSearchOpen ? -3 : -5,
-          rotate: isSearchOpen ? -45 : 0,
-        }}
-        transition={SEARCH_BUTTON_TRANSITION}
-      />
-      <motion.span
-        className="absolute h-0.5 rounded-full bg-current"
-        initial={false}
-        animate={{
-          width: isSearchOpen ? 14 : 18,
-          x: isSearchOpen ? 1 : 0,
-          y: 0,
-          rotate: 0,
-        }}
-        transition={SEARCH_BUTTON_TRANSITION}
-      />
-      <motion.span
-        className="absolute h-0.5 rounded-full bg-current"
-        initial={false}
-        animate={{
-          width: isSearchOpen ? 8 : 18,
-          x: isSearchOpen ? -4 : 0,
-          y: isSearchOpen ? 3 : 5,
-          rotate: isSearchOpen ? 45 : 0,
-        }}
-        transition={SEARCH_BUTTON_TRANSITION}
-      />
-    </span>
-  );
+  const menuTriggerIcon = <SidebarAnimatedMenuIcon isBack={isSearchOpen} />;
 
   const renderMainContent = () => (
     <div className="relative h-full min-w-0">
-      <div
-        ref={listPanelRef}
-        className="relative transform-gpu"
-        style={{
-          transform: "translate3d(0, 0, 0)",
-          willChange: "transform",
-          backfaceVisibility: "hidden",
-        }}
-      >
+      <div className="relative">
         <ChatList activeFolder={activeFolder} />
       </div>
       <CreateConversationDropdown />
@@ -553,6 +374,14 @@ export const MainSidebar = () => {
             </div>
 
             {searchResults.length > 0 ? (
+              <div className="px-4 pb-2 pt-1">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  {tSearch("chatsTitle")}
+                </p>
+              </div>
+            ) : null}
+
+            {searchResults.length > 0 ? (
               <div className="flex w-full flex-col gap-0.5 px-1">
                 {searchResults.map((conversation) => (
                   <div
@@ -566,11 +395,50 @@ export const MainSidebar = () => {
                   </div>
                 ))}
               </div>
-            ) : (
+            ) : null}
+
+            {usersSearchQuery.isPending ? (
+              <SkeletonGroup durationMs={1600} className="flex w-full flex-col gap-1 px-2 py-1">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <Skeleton key={`search-user-skeleton-${index}`} className="h-14 w-full rounded-xl" />
+                ))}
+              </SkeletonGroup>
+            ) : null}
+
+            {!usersSearchQuery.isPending && userSearchResults.length > 0 ? (
+              <>
+                <div className="px-4 pb-2 pt-3">
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    {tSearch("peopleTitle")}
+                  </p>
+                </div>
+                <div className="flex w-full flex-col gap-0.5 px-1">
+                  {userSearchResults.map((user) => (
+                    <CreateConversationUserRow
+                      key={`search-user-${user.id}`}
+                      conversationSeed="search"
+                      user={user}
+                      subtitle={
+                        user.username
+                          ? `@${user.username}${user.username.endsWith("bot") ? ` · ${tSearch("botLabel")}` : ""}`
+                          : tSearch("createDirect")
+                      }
+                      checked={false}
+                      showCheckbox={false}
+                      onToggle={() => {
+                        void handleOpenDirectConversation(user.id);
+                      }}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : null}
+
+            {!usersSearchQuery.isPending && !hasSearchResults ? (
               <p className="px-4 py-6 text-sm text-muted-foreground">
                 {tSearch("empty")}
               </p>
-            )}
+            ) : null}
           </section>
         ) : null}
       </div>
@@ -591,7 +459,7 @@ export const MainSidebar = () => {
         <div className="flex items-center gap-3">
           <UserDropdown
             triggerIcon={menuTriggerIcon}
-            triggerClassName="size-11 rounded-full [&_svg]:!size-6"
+            triggerClassName="size-11 rounded-full p-0 [&_svg]:!size-6"
             preventOpen={isSearchOpen}
             onTriggerAction={handleCloseSearch}
             triggerAriaLabel={isSearchOpen ? tSearch("backAriaLabel") : "Menu"}
@@ -619,16 +487,8 @@ export const MainSidebar = () => {
           />
         </div>
 
-        <motion.div
-          initial={false}
-          animate={
-            showTabs
-              ? { height: "auto", opacity: 1, y: 0, marginTop: 0 }
-              : { height: 0, opacity: 0, y: -8, marginTop: -6 }
-          }
-          transition={SEARCH_TABS_TRANSITION}
-          className="overflow-hidden"
-          style={{ pointerEvents: showTabs ? "auto" : "none" }}
+        <div
+          className={showTabs ? "overflow-hidden" : "hidden"}
           aria-hidden={!showTabs}
         >
           <Tabs value={resolvedActiveFolderId} onValueChange={setActiveFolderId}>
@@ -651,36 +511,14 @@ export const MainSidebar = () => {
               ))}
             </TabsList>
           </Tabs>
-        </motion.div>
+        </div>
       </SidebarPageHeader>
 
       <SidebarPageContent className="relative min-h-0 flex-1">
-        <div className="relative h-full min-w-0 overflow-hidden [contain:layout_paint]">
-          <div
-            ref={contentBaseLayerRef}
-            key={baseContentView}
-            className="absolute inset-0 min-w-0 transform-gpu"
-            style={{
-              backfaceVisibility: "hidden",
-              pointerEvents: contentTransition ? "none" : "auto",
-            }}
-            aria-hidden={contentTransition ? true : undefined}
-          >
-            {renderContentView(baseContentView)}
+        <div className="relative h-full min-w-0 overflow-hidden">
+          <div className="absolute inset-0 min-w-0">
+            {renderContentView(activeContentView)}
           </div>
-
-          {contentTransition ? (
-            <div
-              ref={contentIncomingLayerRef}
-              key={contentTransition.to}
-              className="absolute inset-0 z-10 min-w-0 transform-gpu"
-              style={{
-                backfaceVisibility: "hidden",
-              }}
-            >
-              {renderContentView(contentTransition.to)}
-            </div>
-          ) : null}
         </div>
       </SidebarPageContent>
 

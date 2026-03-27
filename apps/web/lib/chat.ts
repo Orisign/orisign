@@ -245,23 +245,22 @@ export const CHAT_MEDIA_KIND = {
 export type ChatMediaKind = (typeof CHAT_MEDIA_KIND)[keyof typeof CHAT_MEDIA_KIND];
 
 export const CHAT_CONVERSATION_TYPE = {
-  DM: 1,
-  GROUP: 2,
-  CHANNEL: 3,
+  DM: "DM",
+  GROUP: "GROUP",
+  CHANNEL: "CHANNEL",
+  SUPERGROUP: "SUPERGROUP",
 } as const;
 
 function toConversationType(value: unknown) {
-  if (typeof value === "number") return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-
-  return 0;
+  return typeof value === "string" ? value : "";
 }
 
 export function isDirectConversation(conversation: ConversationResponseDto | null | undefined) {
   return toConversationType(conversation?.type) === CHAT_CONVERSATION_TYPE.DM;
+}
+
+export function isBotProjectionUserId(userId: string | null | undefined) {
+  return typeof userId === "string" && userId.startsWith("botusr_");
 }
 
 export function getConversationAvatarUrl(
