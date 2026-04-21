@@ -37,7 +37,7 @@
     "@types/react-dom": "^19",
     "ajv": "^8",
     "ajv-formats": "^3.0.1",
-    "eslint": "^9",
+    "eslint": "^10",
     "eslint-config-next": "16.1.6",
     "shadcn": "^3.8.5",
     "tailwindcss": "^4",
