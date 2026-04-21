@@ -7,16 +7,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "generate:api": "orval"
+    "pull:api": "node ./scripts/pull-api.mjs",
+    "generate:api": "bun run pull:api && bunx orval --config ./orval.config.ts"
   },
   "dependencies": {
     "@dnd-kit/react": "^0.3.2",
     "@hookform/resolvers": "^5.2.2",
-    "@tanstack/react-virtual": "^3.13.12",
     "@repo/ui": "*",
+    "@tanstack/react-virtual": "^3.13.12",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.575.0",
+    "motion": "^12.38.0",
     "next": "16.1.6",
     "radix-ui": "^1.4.3",
     "react": "19.2.3",

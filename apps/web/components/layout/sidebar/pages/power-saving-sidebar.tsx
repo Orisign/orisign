@@ -14,7 +14,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import { useGeneralSettingsStore } from "@/store/settings/general-settings.store";
 import { Button, Checkbox, Switch, cn } from "@repo/ui";
 import { ArrowLeft } from "lucide-react";
@@ -45,7 +45,7 @@ function setBitEnabled(value: number, bit: number, checked: boolean) {
 
 export const PowerSavingSidebar = () => {
   const t = useTranslations("powerSavingSidebar");
-  const { pop } = useSidebar();
+  const { pop } = sidebarStore();
   const [expanded, setExpanded] = useState<string[]>([]);
   const {
     powerSavingEnabled,

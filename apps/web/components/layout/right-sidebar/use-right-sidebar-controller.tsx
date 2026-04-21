@@ -15,6 +15,8 @@ import {
   conversationsControllerUpdate,
   conversationsControllerUpdateRole,
   getConversationsControllerMyQueryKey,
+  useConversationsControllerMy,
+  useUsersControllerMe,
   useMessagesControllerDelete,
 } from "@/api/generated";
 import {
@@ -32,11 +34,11 @@ import {
   useChatAuthors,
   useConversationQuery,
   useConversationUsernameQuery,
+  useRouteUserQuery,
 } from "@/hooks/use-chat";
 import { useConversationNotifications } from "@/hooks/use-conversation-notifications";
-import { useCurrentUser } from "@/hooks/use-current-user";
-import { useRightSidebar } from "@/hooks/use-right-sidebar";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { rightSidebarStore } from "@/store/right-sidebar/right-sidebar.store";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import { useUsersList } from "@/hooks/use-users-list";
 import { formatBirthDateWithAge } from "@/lib/birth-date";
 import {
@@ -63,6 +65,12 @@ import {
   isUsernameConversationLocator,
   normalizeConversationUsername,
 } from "@/lib/chat-routes";
+import {
+  buildDirectConversationPath,
+  createVirtualDirectConversation,
+  buildUserDirectPath,
+  findDirectConversationWithUser,
+} from "@/lib/direct-chat";
 import { downloadMediaByKey } from "@/lib/download-media";
 import { deleteConversationMedia } from "@/lib/upload-conversation-media";
 import { uploadConversationAvatar } from "@/lib/upload-conversation-avatar";
@@ -157,7 +165,7 @@ function getConversationMembers(conversation: ConversationLike | null) {
   return conversation?.members ?? [];
 }
 
-export function useRightSidebarController(conversationId: string) {
+export function usePanel(conversationId: string) {
   const t = useTranslations("rightSidebar");
   const ageWords = useTranslations("settingsSidebar.profile.ageYears");
   const locale = useLocale();
@@ -172,10 +180,11 @@ export function useRightSidebarController(conversationId: string) {
       !state.powerSavingEnabled,
   );
   const router = useRouter();
-  const { push } = useSidebar();
+  const { push } = sidebarStore();
   const queryClient = useQueryClient();
-  const { user: currentUser } = useCurrentUser();
-  const { activeTab, setActiveTab, close } = useRightSidebar();
+  const me = useUsersControllerMe();
+  const currentUser = me.data?.user ?? null;
+  const { activeTab, setActiveTab, close } = rightSidebarStore();
   const reactionCatalog = useMemo(
     () => [
       { emoji: "❤️", label: t("manage.reactionLabels.heart") },
@@ -260,16 +269,78 @@ export function useRightSidebarController(conversationId: string) {
     ? normalizeConversationUsername(conversationRouteParam)
     : "";
   const usernameConversationQuery = useConversationUsernameQuery(usernameLookup);
-  const resolvedConversationId = usernameLookup
+  const conversationLookupId = usernameLookup
     ? (usernameConversationQuery.data?.conversation?.id?.trim() ?? "")
     : conversationRouteParam;
-  const conversationQuery = useConversationQuery(resolvedConversationId);
-  const conversation =
+  const conversationQuery = useConversationQuery(conversationLookupId);
+  const routeConversation =
     conversationQuery.data?.conversation ??
     usernameConversationQuery.data?.conversation ??
     null;
-  const isResolvingConversationRoute =
-    Boolean(usernameLookup) && usernameConversationQuery.isPending;
+  const isResolvingConversationRoute = usernameLookup
+    ? usernameConversationQuery.isPending
+    : conversationQuery.isPending;
+  const shouldResolveRouteUser = !isResolvingConversationRoute && !routeConversation;
+  const directConversationsQuery = useConversationsControllerMy(undefined, {
+    query: {
+      queryKey: getConversationsControllerMyQueryKey(),
+      staleTime: 60_000,
+    },
+  });
+  const routeUserQuery = useRouteUserQuery(
+    conversationRouteParam,
+    shouldResolveRouteUser,
+  );
+  const routeUser = routeUserQuery.data?.user ?? null;
+  const currentUserId = currentUser?.id ?? "";
+  const routeUserId = routeUser?.id ?? "";
+  const routeDirectConversation = useMemo(() => {
+    if (!routeUserId || !currentUserId) {
+      return null;
+    }
+
+    return findDirectConversationWithUser(
+      directConversationsQuery.data?.conversations,
+      routeUserId,
+      currentUserId,
+    );
+  }, [
+    currentUserId,
+    directConversationsQuery.data?.conversations,
+    routeUserId,
+  ]);
+  const virtualDirectConversation = useMemo(() => {
+    if (
+      routeConversation ||
+      routeDirectConversation ||
+      directConversationsQuery.isPending ||
+      !currentUser?.id ||
+      !routeUser?.id
+    ) {
+      return null;
+    }
+
+    return createVirtualDirectConversation({
+      currentUser,
+      peerUser: routeUser,
+    });
+  }, [
+    currentUser,
+    directConversationsQuery.isPending,
+    routeConversation,
+    routeDirectConversation,
+    routeUser,
+  ]);
+  const conversation =
+    routeConversation ?? routeDirectConversation ?? virtualDirectConversation;
+  const resolvedConversationId =
+    routeConversation?.id?.trim() ?? routeDirectConversation?.id?.trim() ?? "";
+  const isResolvingDirectConversationRoute = Boolean(
+    !routeConversation &&
+      routeUserId &&
+      currentUserId &&
+      directConversationsQuery.isPending,
+  );
   const isDirect = isDirectConversation(conversation);
   const isChannel = isChannelConversation(conversation);
   const isGroup = isGroupConversation(conversation);
@@ -338,7 +409,8 @@ export function useRightSidebarController(conversationId: string) {
     [conversationMembers, sharedMediaItems],
   );
   const { data: authorsMap } = useChatAuthors(authorIds);
-  const peerUser = peerId ? (authorsMap?.[peerId] ?? null) : null;
+  const peerUser =
+    peerId ? (authorsMap?.[peerId] ?? (peerId === routeUser?.id ? routeUser : null)) : null;
   const isBotDirect = Boolean(isDirect && isBotProjectionUserId(peerId));
   const discussionConversationQuery = useConversationQuery(
     draftDiscussionConversationId,
@@ -708,23 +780,6 @@ export function useRightSidebarController(conversationId: string) {
         targetUserId,
       }),
   });
-  const startDirectMutation = useMutation({
-    mutationFn: (targetUserId: string) =>
-      conversationsControllerCreate({
-        type: CreateConversationRequestDtoType.DM,
-        memberIds: [targetUserId],
-      }),
-    onSuccess: async (response) => {
-      await queryClient.invalidateQueries({
-        queryKey: getConversationsControllerMyQueryKey(),
-      });
-
-      if (response.conversation?.id) {
-        router.push(buildConversationPath({ conversationId: response.conversation.id }));
-      }
-    },
-  });
-
   const openMessage = (messageId: string) => {
     if (!resolvedConversationId) {
       return;
@@ -1069,6 +1124,19 @@ export function useRightSidebarController(conversationId: string) {
   const defaultMemberRole = isChannel
     ? UpdateMemberRoleRole.SUBSCRIBER
     : UpdateMemberRoleRole.MEMBER;
+  const hasConversationDraftChanges = Boolean(
+    conversation &&
+      !isDirect &&
+      (
+        draftTitle.trim() !== (conversation.title ?? "") ||
+        draftAbout.trim() !== (conversation.about ?? "") ||
+        draftIsPublic !== Boolean(conversation.isPublic) ||
+        draftUsername.trim().replace(/^@+/, "") !== (conversation.username ?? "") ||
+        draftAvatarKey.trim() !== (conversation.avatarKey ?? "") ||
+        draftDiscussionConversationId.trim() !==
+          (conversation.discussionConversationId ?? "")
+      ),
+  );
   const showBackAction = screen !== "info" || isSharedView;
   const canEditInfo = Boolean(
     screen === "info" &&
@@ -1462,10 +1530,19 @@ export function useRightSidebarController(conversationId: string) {
     }
 
     try {
-      const response = await startDirectMutation.mutateAsync(targetUserId);
-      if (response.conversation?.id) {
-        close();
-      }
+      const targetUser = authorsMap?.[targetUserId] ?? null;
+      const existingConversation = findDirectConversationWithUser(
+        directConversationsQuery.data?.conversations,
+        targetUserId,
+        currentUser?.id,
+      );
+
+      close();
+      router.push(
+        existingConversation
+          ? buildDirectConversationPath(existingConversation, targetUser)
+          : buildUserDirectPath(targetUser ?? { id: targetUserId }),
+      );
     } catch {
       toast({
         title: t("members.writeError"),
@@ -1611,7 +1688,12 @@ export function useRightSidebarController(conversationId: string) {
     }
   };
 
-  if (isResolvingConversationRoute || !conversation) {
+  if (
+    isResolvingConversationRoute ||
+    (shouldResolveRouteUser && routeUserQuery.isPending) ||
+    isResolvingDirectConversationRoute ||
+    !conversation
+  ) {
     return {
       isLoading: true as const,
       layoutGroupId: `right-sidebar:${conversationId}`,
@@ -1718,6 +1800,8 @@ export function useRightSidebarController(conversationId: string) {
     canDeleteChannel: currentUser?.id === conversation.ownerId,
     onDeleteChannel: handleDeleteConversation,
     isDeletingChannel: deleteConversationMutation.isPending,
+    hasDraftChanges: hasConversationDraftChanges,
+    isSavingConversation: updateConversationMutation.isPending,
     draftUsername,
     contentProtectionEnabled,
     setDraftIsPublic,

@@ -1,7 +1,7 @@
 "use client";
 
-import { useSidebar } from "@/hooks/use-sidebar";
-import { useRightSidebar } from "@/hooks/use-right-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
+import { rightSidebarStore } from "@/store/right-sidebar/right-sidebar.store";
 import { decodeConversationLocator } from "@/lib/chat-routes";
 import { cn } from "@/lib/utils";
 import { useGeneralSettingsStore } from "@/store/settings/general-settings.store";
@@ -366,12 +366,12 @@ const SidebarViewport = memo(function SidebarViewport({
 export const AppShell: FC<PropsWithChildren> = ({ children }) => {
   const t = useTranslations("appShell");
   const pathname = usePathname();
-  const { sidebarWidth, setSidebarWidth, current, navigation } = useSidebar();
+  const { sidebarWidth, setSidebarWidth, navigation } = sidebarStore();
   const {
     isOpen: rightSidebarOpen,
     conversationId: rightSidebarConversationId,
     setConversation: setRightSidebarConversation,
-  } = useRightSidebar();
+  } = rightSidebarStore();
   const sidebarAnimationsEnabled = useGeneralSettingsStore(
     (state) =>
       state.animationsEnabled &&
@@ -456,6 +456,7 @@ export const AppShell: FC<PropsWithChildren> = ({ children }) => {
     [clampedSidebarWidth],
   );
 
+  const current = navigation.current;
   const lastAction = navigation.lastAction;
   const direction: 1 | -1 = lastAction === "pop" ? -1 : 1;
   const shouldSlide =

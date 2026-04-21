@@ -48,6 +48,9 @@ export function Providers({ children }: { children: ReactNode }) {
           queries: {
             retry: shouldRetryQuery,
             refetchOnWindowFocus: false,
+            refetchOnReconnect: false,
+            staleTime: 60_000,
+            gcTime: 10 * 60_000,
           },
           mutations: {
             retry: false,

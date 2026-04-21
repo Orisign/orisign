@@ -1,7 +1,6 @@
 "use client";
 
-import { useAuthControllerVerify } from "@/api/generated";
-import { fetchCurrentUser } from "@/hooks/use-current-user";
+import { usersControllerMe, useAuthControllerVerify } from "@/api/generated";
 import {
   verificationSchema,
   type TypeVerificationSchema,
@@ -9,7 +8,7 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@repo/ui";
 import { Controller, useForm } from "react-hook-form";
-import { Field, FieldError } from "../ui/field";
+import { Field } from "../ui/field";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { setCookie } from "@/lib/cookies";
@@ -17,6 +16,7 @@ import { motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { SPRING_SHAKE } from "@/lib/animations";
+import { hasCompletedOnboarding } from "@/lib/user-profile";
 
 interface VerificationFormProps {
   challengeId: string;
@@ -73,13 +73,12 @@ export function VerificationForm({
         setCookie("accessToken", response.accessToken);
 
         try {
-          const user = await fetchCurrentUser({
+          const me = await usersControllerMe({
             credentials: "include",
           });
-          const hasProfile =
-            !!user?.firstName?.trim() || !!user?.username?.trim();
+          const user = me.user ?? null;
 
-          router.push(hasProfile ? "/" : "/onboarding");
+          router.push(hasCompletedOnboarding(user) ? "/" : "/onboarding");
         } catch {
           router.push("/onboarding");
         }

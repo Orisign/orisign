@@ -1,6 +1,11 @@
 "use client";
 
-import { buildWebSocketUrl } from "@/lib/app-config";
+import {
+  apiWsOnOpen,
+  apiWsSend,
+  apiWsSendIfOpen,
+  apiWsSubscribe,
+} from "@/lib/api-ws";
 import { getCookie } from "@/lib/cookies";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -29,18 +34,12 @@ interface CallSignalPayload {
   sdpMLineIndex?: number;
   securityMaterial?: string;
   reason?: string;
+  conversationId?: string;
 }
 
 interface PendingOfferSignal {
   sdp: string;
   securityMaterial: string | null;
-}
-
-function getCallRealtimeUrl(conversationId: string, token: string) {
-  return buildWebSocketUrl("/ws/call", {
-    conversationId,
-    token,
-  });
 }
 
 function getIceServers(): RTCIceServer[] {
@@ -106,7 +105,7 @@ export function useDirectCall({
   const [error, setError] = useState<string | null>(null);
   const [securityMaterial, setSecurityMaterial] = useState<string | null>(null);
   const stateRef = useRef<CallState>("idle");
-  const wsRef = useRef<WebSocket | null>(null);
+  const isSignalSubscribedRef = useRef(false);
   const pendingSignalsRef = useRef<Array<Record<string, unknown>>>([]);
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -193,75 +192,48 @@ export function useDirectCall({
   }, []);
 
   const flushPendingSignals = useCallback(() => {
-    const socket = wsRef.current;
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
+    if (!isSignalSubscribedRef.current) {
       return;
     }
 
     const queue = pendingSignalsRef.current.splice(0, pendingSignalsRef.current.length);
     queue.forEach((payload) => {
-      socket.send(JSON.stringify(payload));
+      apiWsSendIfOpen(payload);
     });
   }, []);
 
   const ensureSignalSocketReady = useCallback(async () => {
-    const socket = wsRef.current;
-    if (!socket) return false;
-
-    if (socket.readyState === WebSocket.OPEN) {
+    if (isSignalSubscribedRef.current) {
       flushPendingSignals();
       return true;
     }
 
-    if (socket.readyState !== WebSocket.CONNECTING) {
+    const token = getCookie("accessToken");
+    if (!enabled || !conversationId || !token) return false;
+
+    try {
+      await apiWsSend({
+        type: "call.subscribe",
+        conversationId,
+        token,
+      });
+      isSignalSubscribedRef.current = true;
+      flushPendingSignals();
+      return true;
+    } catch {
       return false;
     }
-
-    return await new Promise<boolean>((resolve) => {
-      let completed = false;
-
-      const complete = (result: boolean) => {
-        if (completed) return;
-        completed = true;
-        window.clearTimeout(timeoutId);
-        socket.removeEventListener("open", onOpen);
-        socket.removeEventListener("close", onCloseOrError);
-        socket.removeEventListener("error", onCloseOrError);
-        resolve(result);
-      };
-
-      const onOpen = () => {
-        flushPendingSignals();
-        complete(true);
-      };
-      const onCloseOrError = () => complete(false);
-
-      const timeoutId = window.setTimeout(() => complete(false), 4_000);
-
-      socket.addEventListener("open", onOpen, { once: true });
-      socket.addEventListener("close", onCloseOrError, { once: true });
-      socket.addEventListener("error", onCloseOrError, { once: true });
-    });
-  }, [flushPendingSignals]);
+  }, [conversationId, enabled, flushPendingSignals]);
 
   const sendSignal = useCallback((payload: Record<string, unknown>) => {
-    const socket = wsRef.current;
-    if (!socket) {
-      return false;
-    }
-
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify(payload));
+    if (isSignalSubscribedRef.current && apiWsSendIfOpen(payload)) {
       return true;
     }
 
-    if (socket.readyState === WebSocket.CONNECTING) {
-      pendingSignalsRef.current.push(payload);
-      return true;
-    }
-
-    return false;
-  }, []);
+    pendingSignalsRef.current.push(payload);
+    void ensureSignalSocketReady();
+    return true;
+  }, [ensureSignalSocketReady]);
 
   const ensurePeerConnection = useCallback(() => {
     if (peerRef.current) {
@@ -566,6 +538,8 @@ export function useDirectCall({
 
   useEffect(() => {
     if (!enabled || !conversationId) {
+      isSignalSubscribedRef.current = false;
+      pendingSignalsRef.current = [];
       stopRingtone();
       cleanupPeerConnection();
       resetCallSessionState();
@@ -577,41 +551,55 @@ export function useDirectCall({
       return;
     }
 
-    const socket = new WebSocket(getCallRealtimeUrl(conversationId, token));
-    wsRef.current = socket;
+    const subscribeToCall = () =>
+      apiWsSend({
+        type: "call.subscribe",
+        conversationId,
+        token,
+      })
+        .then(() => {
+          isSignalSubscribedRef.current = true;
+          flushPendingSignals();
+        })
+        .catch(() => {
+          isSignalSubscribedRef.current = false;
+          setState("error");
+          setError("Call signaling connection failed");
+        });
 
-    socket.onopen = () => {
-      flushPendingSignals();
-    };
-
-    socket.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(String(event.data)) as CallSignalPayload;
-        void handleCallSignal(payload);
-      } catch {
+    const unsubscribeFromEvents = apiWsSubscribe((payload) => {
+      const signal = payload as CallSignalPayload;
+      if (
+        signal.conversationId &&
+        signal.conversationId !== conversationId
+      ) {
         return;
       }
-    };
 
-    socket.onclose = () => {
-      wsRef.current = null;
-      pendingSignalsRef.current = [];
-      stopRingtone();
-      emitCallSummary("failed");
-      cleanupPeerConnection();
-      resetCallSessionState();
-      setSecurityMaterial(null);
-      setState("idle");
-    };
+      if (
+        signal.type !== "call.offer" &&
+        signal.type !== "call.answer" &&
+        signal.type !== "call.ice" &&
+        signal.type !== "call.end"
+      ) {
+        return;
+      }
 
-    socket.onerror = () => {
-      setState("error");
-      setError("Call signaling connection failed");
-    };
+      void handleCallSignal(signal);
+    });
+
+    void subscribeToCall();
+    const unsubscribeFromOpen = apiWsOnOpen(subscribeToCall);
+
+    if (isSignalSubscribedRef.current) {
+      flushPendingSignals();
+    }
 
     return () => {
-      socket.close();
-      wsRef.current = null;
+      unsubscribeFromEvents();
+      unsubscribeFromOpen();
+      apiWsSendIfOpen({ type: "call.unsubscribe" });
+      isSignalSubscribedRef.current = false;
       pendingSignalsRef.current = [];
       stopRingtone();
       cleanupPeerConnection();
@@ -622,7 +610,6 @@ export function useDirectCall({
   }, [
     cleanupPeerConnection,
     conversationId,
-    emitCallSummary,
     enabled,
     flushPendingSignals,
     handleCallSignal,

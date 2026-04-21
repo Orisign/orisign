@@ -5,6 +5,7 @@ import {
   CreateConversationRequestDtoType,
   getConversationsControllerMyQueryKey,
   useConversationsControllerCreate,
+  useUsersControllerMe,
 } from "@/api/generated";
 import { CreateConversationUserRow } from "@/components/chat/create-conversation-user-row";
 import { EmojiInput } from "@/components/ui/emoji-input";
@@ -15,9 +16,9 @@ import {
   SidebarPageTitle,
 } from "@/components/ui/sidebar-page";
 import { useChatAuthors } from "@/hooks/use-chat";
-import { useCurrentUser } from "@/hooks/use-current-user";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import { buildApiUrl } from "@/lib/app-config";
+import { buildConversationPathFromConversation } from "@/lib/chat-routes";
 import { customFetch } from "@/lib/fetcher";
 import { createCreateChannelSchema } from "@/schemas/chat/create-channel.schema";
 import { createCreateGroupSchema } from "@/schemas/chat/create-group.schema";
@@ -63,8 +64,9 @@ export function CreateConversationDetailsSidebar({
 }: CreateConversationDetailsSidebarProps) {
   const t = useTranslations("createConversation.details");
   const ts = useTranslations("validation.createConversation");
-  const { pop, reset } = useSidebar();
-  const { user: currentUser } = useCurrentUser();
+  const { pop, reset } = sidebarStore();
+  const me = useUsersControllerMe();
+  const currentUser = me.data?.user ?? null;
   const router = useRouter();
   const queryClient = useQueryClient();
   const memberIds = route.memberIds;
@@ -129,8 +131,8 @@ export function CreateConversationDetailsSidebar({
 
         reset();
 
-        if (response.conversation?.id) {
-          router.push(`/${response.conversation.id}`);
+        if (response.conversation) {
+          router.push(buildConversationPathFromConversation(response.conversation));
         }
       },
     },

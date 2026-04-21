@@ -2,10 +2,10 @@
 
 import {
   messagesControllerGetCommentSummary,
+  useUsersControllerMe,
   useMessagesControllerRead,
 } from "@/api/generated";
 import type { ConversationResponseDto } from "@/api/generated";
-import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   CHAT_MESSAGE_KIND,
   type ChatMessagesFilter,
@@ -56,6 +56,7 @@ interface ChatMessageListProps {
   onEdit?: (message: ChatEditTarget) => void;
   onOpenComments?: (message: ChatReplyTarget) => void;
   alwaysMarkRead?: boolean;
+  isLoadingConversation?: boolean;
   selectionMode?: boolean;
   selectedMessageIds?: Set<string>;
   onStartSelectMessage?: (messageId: string) => void;
@@ -74,6 +75,7 @@ export function ChatMessageList({
   onEdit,
   onOpenComments,
   alwaysMarkRead = false,
+  isLoadingConversation = false,
   selectionMode = false,
   selectedMessageIds,
   onStartSelectMessage,
@@ -82,7 +84,8 @@ export function ChatMessageList({
   const t = useTranslations("chat.messages");
   const locale = useLocale();
   const queryClient = useQueryClient();
-  const { user: currentUser } = useCurrentUser();
+  const me = useUsersControllerMe();
+  const currentUser = me.data?.user ?? null;
   const currentUserId = currentUser?.id ?? "";
   const messagesFilter = useMemo<ChatMessagesFilter | undefined>(
     () =>
@@ -109,7 +112,7 @@ export function ChatMessageList({
   const isLoadingOlderRef = useRef(false);
   const isSeekingFocusedMessageRef = useRef(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState("");
-  const [hasMoreOlder, setHasMoreOlder] = useState(true);
+  const [, setHasMoreOlder] = useState(true);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const shouldStickToBottomRef = useRef(true);
   const didInitialScrollRef = useRef(false);
@@ -217,11 +220,13 @@ export function ChatMessageList({
         return "";
       }
 
-      return isDiscussionChannelMessage(message)
+      return isChannel
+        ? `channel:${conversation?.id ?? conversationId}`
+        : isDiscussionChannelMessage(message)
         ? `channel:${discussionChannelId}`
         : `user:${message.authorId}`;
     },
-    [discussionChannelId, isDiscussionChannelMessage],
+    [conversation?.id, conversationId, discussionChannelId, isChannel, isDiscussionChannelMessage],
   );
   const commentTargetIds = useMemo(
     () =>
@@ -345,8 +350,9 @@ export function ChatMessageList({
     count: messages.length,
     getScrollElement: () => viewportRef.current,
     estimateSize: () => 80,
-    overscan: 5,
+    overscan: 4,
     getItemKey: (index) => messages[index]?.id ?? index,
+    useAnimationFrameWithResizeObserver: true,
   });
   const virtualItems = rowVirtualizer.getVirtualItems();
 
@@ -409,13 +415,13 @@ export function ChatMessageList({
     [onToggleMessageSelect],
   );
 
-  const tryMarkConversationRead = useCallback(() => {
+  const tryMarkConversationRead = useCallback((nearBottomOverride?: boolean) => {
     const viewport = viewportRef.current;
     if (!viewport || !conversationId || !latestIncomingMessage) {
       return;
     }
 
-    const isNearBottom = getDistanceToBottom() < 120;
+    const isNearBottom = nearBottomOverride ?? getDistanceToBottom() < 120;
     shouldStickToBottomRef.current = isNearBottom;
 
     if (!isNearBottom && !alwaysMarkRead) {
@@ -557,7 +563,10 @@ export function ChatMessageList({
 
       const focusNode = () => {
         const messageNode = messageNodeRefs.current.get(messageId);
-        if (!messageNode) {
+        if (!messageNode?.isConnected) {
+          if (messageNode) {
+            messageNodeRefs.current.delete(messageId);
+          }
           return;
         }
 
@@ -569,9 +578,12 @@ export function ChatMessageList({
       };
 
       const existingNode = messageNodeRefs.current.get(messageId);
-      if (existingNode) {
+      if (existingNode?.isConnected) {
         focusNode();
       } else {
+        if (existingNode) {
+          messageNodeRefs.current.delete(messageId);
+        }
         const messageIndex = messageIndexById.get(messageId);
         if (typeof messageIndex === "number") {
           rowVirtualizer.scrollToIndex(messageIndex, {
@@ -728,14 +740,15 @@ export function ChatMessageList({
     const viewport = viewportRef.current;
     if (!viewport) return;
 
-    shouldStickToBottomRef.current = getDistanceToBottom() < 120;
+    const isNearBottom = getDistanceToBottom() < 120;
+    shouldStickToBottomRef.current = isNearBottom;
 
     if (viewport.scrollTop < 200 && hasMoreOlderRef.current && !isLoadingOlderRef.current) {
       void loadOlderMessages();
     }
 
-    if (shouldStickToBottomRef.current || alwaysMarkRead) {
-      tryMarkConversationRead();
+    if (isNearBottom || alwaysMarkRead) {
+      tryMarkConversationRead(isNearBottom);
     }
   }, [alwaysMarkRead, getDistanceToBottom, loadOlderMessages, tryMarkConversationRead]);
 
@@ -751,25 +764,23 @@ export function ChatMessageList({
   }, [processScroll]);
 
   const registerMessageNode = useCallback(
-    (messageId: string, node: HTMLDivElement | null) => {
-      const currentNode = messageNodeRefs.current.get(messageId) ?? null;
-
-      if (node) {
-        if (currentNode !== node) {
-          messageNodeRefs.current.set(messageId, node);
-          rowVirtualizer.measureElement(node);
-        }
+    (node: HTMLDivElement | null) => {
+      if (!node) {
+        rowVirtualizer.measureElement(null);
         return;
       }
 
-      if (currentNode) {
-        messageNodeRefs.current.delete(messageId);
+      const messageId = node.dataset.messageId;
+      if (messageId && messageNodeRefs.current.get(messageId) !== node) {
+        messageNodeRefs.current.set(messageId, node);
       }
+
+      rowVirtualizer.measureElement(node);
     },
     [rowVirtualizer],
   );
 
-  if (messagesQuery.isPending) {
+  if (isLoadingConversation || messagesQuery.isPending) {
     return (
       <ScrollArea className="min-h-0 flex-1">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 px-4 py-4 pb-6">
@@ -879,6 +890,11 @@ export function ChatMessageList({
               const isMirroredChannelPost = isDiscussionChannelMessage(message);
               const isOwnMessage =
                 message.authorId === currentUserId && !isMirroredChannelPost;
+              const senderConversation = isMirroredChannelPost
+                ? discussionChannelConversation
+                : isChannel
+                  ? conversation
+                  : null;
               const startsGroup =
                 index === 0 ||
                 previousMessage?.kind === CHAT_MESSAGE_KIND.SYSTEM ||
@@ -899,7 +915,7 @@ export function ChatMessageList({
                 : null;
               const repliedAuthorName = repliedMessage
                 ? (
-                    isDiscussionChannelMessage(repliedMessage)
+                    isDiscussionChannelMessage(repliedMessage) || isChannel
                       ? (
                           discussionChannelTitle ||
                           (
@@ -917,16 +933,19 @@ export function ChatMessageList({
                 return (
                   <div
                     key={virtualRow.key}
-                    ref={(node) => registerMessageNode(message.id, node)}
+                    ref={registerMessageNode}
                     data-index={index}
+                    data-message-id={message.id}
                     className="absolute left-0 top-0 w-full"
                     style={{
-                      transform: `translateY(${virtualRow.start}px)`,
+                      transform: `translate3d(0, ${virtualRow.start}px, 0)`,
                       paddingBottom: endsGroup ? "1.2rem" : "0.65rem",
                     }}
                   >
                     {showDayDivider ? (
-                      <ChatMessageDayDivider label={dayLabel} />
+                      <div data-date-label={dayLabel}>
+                        <ChatMessageDayDivider label={dayLabel} />
+                      </div>
                     ) : null}
 
                     <ChatMessageItem
@@ -935,10 +954,8 @@ export function ChatMessageList({
                       message={message}
                       previousMessage={previousMessage}
                       nextMessage={nextMessage}
-                      author={isMirroredChannelPost ? null : authorsById[message.authorId]}
-                      senderConversation={
-                        isMirroredChannelPost ? discussionChannelConversation : null
-                      }
+                      author={senderConversation ? null : authorsById[message.authorId]}
+                      senderConversation={senderConversation}
                       isOwn={isOwnMessage}
                       isReadByOthers={ownMessageReadState.get(message.id) ?? false}
                       readReceipts={ownMessageReadReceipts.get(message.id) ?? []}

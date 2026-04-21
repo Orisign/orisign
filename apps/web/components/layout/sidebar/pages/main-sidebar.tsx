@@ -1,10 +1,9 @@
 "use client";
 
 import {
-  CreateConversationRequestDtoType,
-  getConversationsControllerMyQueryKey,
-  useConversationsControllerCreate,
+  type UserResponseDto,
   useConversationsControllerMy,
+  useUsersControllerMe,
 } from "@/api/generated";
 import { ChatItem } from "@/components/chat/chat-item";
 import { ChatList } from "@/components/chat/chat-list";
@@ -16,7 +15,6 @@ import {
 } from "@/components/ui/sidebar-page";
 import { CreateConversationDropdown } from "@/components/user/create-conversation-dropdown";
 import { UserDropdown } from "@/components/user/user-dropdown";
-import { useCurrentUser } from "@/hooks/use-current-user";
 import { useChatFolders } from "@/hooks/use-chat-folders";
 import {
   useClearSearchHistory,
@@ -38,7 +36,6 @@ import {
   TabsList,
   TabsTrigger,
   Button,
-  toast,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -46,7 +43,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@repo/ui";
-import { useQueryClient } from "@tanstack/react-query";
 import { History, Search, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
@@ -59,6 +55,11 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { SidebarAnimatedMenuIcon } from "./animated-menu-icon";
+import {
+  buildDirectConversationPath,
+  buildUserDirectPath,
+  findDirectConversationWithUser,
+} from "@/lib/direct-chat";
 
 type SidebarContentView = "main" | "search";
 
@@ -66,8 +67,8 @@ export const MainSidebar = () => {
   const t = useTranslations("appShell");
   const tSearch = useTranslations("chatSearchSidebar");
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { user: currentUser } = useCurrentUser();
+  const me = useUsersControllerMe();
+  const currentUser = me.data?.user ?? null;
   const { data: foldersData } = useChatFolders();
   const { data: searchData, isLoading: isSearchLoading } =
     useConversationsControllerMy();
@@ -85,9 +86,6 @@ export const MainSidebar = () => {
     useDeleteSearchHistoryEntry();
   const { mutate: clearSearchHistory, isPending: isClearingSearchHistory } =
     useClearSearchHistory();
-  const { mutateAsync: createConversation, isPending: isCreatingConversation } =
-    useConversationsControllerCreate();
-
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const folders = useMemo(
@@ -193,46 +191,34 @@ export const MainSidebar = () => {
     [upsertSearchHistory],
   );
 
-  const handleOpenDirectConversation = useCallback(
-    async (userId: string) => {
-      if (!userId || isCreatingConversation) {
+  const openDirect = useCallback(
+    (user: UserResponseDto) => {
+      if (!user.id) {
         return;
       }
 
-      try {
-        const response = await createConversation({
-          data: {
-            type: CreateConversationRequestDtoType.DM,
-            memberIds: [userId],
-          },
-        });
+      const existingConversation = findDirectConversationWithUser(
+        searchData?.conversations,
+        user.id,
+        currentUser?.id,
+      );
+      const targetPath = existingConversation
+        ? buildDirectConversationPath(existingConversation, user)
+        : buildUserDirectPath(user);
 
-        const conversationId = response.conversation?.id?.trim() ?? "";
-        if (!conversationId) {
-          throw new Error("Conversation was not created");
-        }
-
-        await queryClient.invalidateQueries({
-          queryKey: getConversationsControllerMyQueryKey(),
-        });
-        persistSearchConversation(conversationId);
-        setIsSearchOpen(false);
-        setSearchQuery("");
-        router.push(`/${conversationId}`);
-      } catch {
-        toast({
-          title: tSearch("openChatError"),
-          type: "error",
-        });
+      if (existingConversation?.id) {
+        persistSearchConversation(existingConversation.id);
       }
+
+      setIsSearchOpen(false);
+      setSearchQuery("");
+      router.push(targetPath);
     },
     [
-      createConversation,
-      isCreatingConversation,
+      currentUser?.id,
       persistSearchConversation,
-      queryClient,
       router,
-      tSearch,
+      searchData?.conversations,
     ],
   );
 
@@ -426,7 +412,7 @@ export const MainSidebar = () => {
                       checked={false}
                       showCheckbox={false}
                       onToggle={() => {
-                        void handleOpenDirectConversation(user.id);
+                        openDirect(user);
                       }}
                     />
                   ))}

@@ -112,6 +112,8 @@ export function buildRightSidebarScreenNodes({
   canDeleteChannel,
   onDeleteChannel,
   isDeletingChannel,
+  hasDraftChanges,
+  isSavingConversation,
   draftUsername,
   contentProtectionEnabled,
   setDraftIsPublic,
@@ -250,6 +252,8 @@ export function buildRightSidebarScreenNodes({
   canDeleteChannel: boolean;
   onDeleteChannel: () => void;
   isDeletingChannel: boolean;
+  hasDraftChanges: boolean;
+  isSavingConversation: boolean;
   draftUsername: string;
   contentProtectionEnabled: boolean;
   setDraftIsPublic: (value: boolean) => void;
@@ -397,6 +401,8 @@ export function buildRightSidebarScreenNodes({
         canDeleteChannel={canDeleteChannel}
         onDeleteChannel={onDeleteChannel}
         isDeletingChannel={isDeletingChannel}
+        hasDraftChanges={hasDraftChanges}
+        isSaving={isSavingConversation}
         t={t}
       />
     ),

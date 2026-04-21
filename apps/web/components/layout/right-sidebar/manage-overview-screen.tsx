@@ -1,6 +1,8 @@
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { EmojiInput } from "@/components/ui/emoji-input";
+import { fadeScale, SPRING_LAYOUT } from "@/lib/animations";
 import {
   Button,
   Dialog,
@@ -16,10 +18,11 @@ import {
   ScrollArea,
   Slider,
   Switch,
-  Textarea,
   cn,
 } from "@repo/ui";
+import { AnimatePresence, motion } from "motion/react";
 import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { Check } from "lucide-react";
 import {
   IoBanOutline,
   IoCameraOutline,
@@ -65,7 +68,7 @@ function ManageRow({
         type="button"
         onClick={onClick}
         className={cn(
-          "flex w-full items-start gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-accent",
+          "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-accent",
           destructive && "text-destructive hover:bg-destructive/10",
         )}
       >
@@ -79,7 +82,7 @@ function ManageRow({
           ) : null}
         </span>
         {!destructive ? (
-          <span className="pt-0.5 text-muted-foreground">
+          <span className="text-muted-foreground">
             <IoChevronForward className="size-5" />
           </span>
         ) : null}
@@ -133,6 +136,8 @@ export function RightSidebarManageOverviewScreen({
   canDeleteChannel,
   onDeleteChannel,
   isDeletingChannel,
+  hasDraftChanges,
+  isSaving,
   t,
 }: {
   avatarUrl: string;
@@ -160,13 +165,15 @@ export function RightSidebarManageOverviewScreen({
   canDeleteChannel: boolean;
   onDeleteChannel: () => void;
   isDeletingChannel: boolean;
+  hasDraftChanges: boolean;
+  isSaving: boolean;
   t: (key: string, values?: Record<string, string | number>) => string;
 }) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   return (
     <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-      <div className="flex min-h-0 flex-1 flex-col bg-sidebar">
+      <div className="relative flex min-h-0 flex-1 flex-col bg-sidebar">
         <ScrollArea className="h-full">
         <section className="border-b px-4 pb-5 pt-5">
           <div className="flex flex-col items-center text-center">
@@ -183,19 +190,24 @@ export function RightSidebarManageOverviewScreen({
             </div>
 
             <div className="mt-5 w-full space-y-3 text-left">
-              <Input
+              <EmojiInput
                 value={title}
-                onChange={(event) => onTitleChange(event.target.value)}
-                onBlur={onPersist}
+                onChange={onTitleChange}
                 placeholder={t("manage.fields.titlePlaceholder")}
-                className="h-12 rounded-2xl"
+                className="rounded-2xl"
+                minHeight={48}
+                showEmojiPicker
               />
-              <Textarea
+              <EmojiInput
                 value={about}
-                onChange={(event) => onAboutChange(event.target.value)}
-                onBlur={onPersist}
+                onChange={onAboutChange}
                 placeholder={t("manage.fields.aboutPlaceholder")}
-                className="min-h-40 rounded-2xl resize-none"
+                className="rounded-2xl"
+                showEmojiPicker
+                autoGrow
+                submitOnEnter={false}
+                minHeight={160}
+                maxHeight={220}
               />
             </div>
           </div>
@@ -290,7 +302,7 @@ export function RightSidebarManageOverviewScreen({
 
         {isChannel ? (
           <SectionCard>
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-accent">
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-accent">
               <RightSidebarInfoIcon>
                 <IoStarOutline />
               </RightSidebarInfoIcon>
@@ -316,6 +328,32 @@ export function RightSidebarManageOverviewScreen({
           </SectionCard>
         ) : null}
         </ScrollArea>
+
+        <AnimatePresence>
+          {hasDraftChanges ? (
+            <motion.div
+              layout
+              layoutId="right-sidebar-manage-save-fab"
+              variants={fadeScale}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              transition={SPRING_LAYOUT}
+              className="absolute bottom-6 right-5 z-10"
+            >
+              <Button
+                type="button"
+                size="icon"
+                className="size-14 rounded-full"
+                onClick={onPersist}
+                disabled={isSaving}
+                aria-label={t("manage.saveChanges")}
+              >
+                <Check className="size-7" strokeWidth={3} />
+              </Button>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </div>
 
       <DialogContent className="max-w-[28rem]">
@@ -383,8 +421,8 @@ export function RightSidebarChannelTypeScreen({
             }}
             className="gap-5"
           >
-            <label className="flex items-start gap-4">
-              <RadioGroupItem value="private" className="mt-1" />
+            <label className="flex items-center gap-4">
+              <RadioGroupItem value="private" />
               <span className="min-w-0">
                 <span className="block text-[1rem] font-semibold">{t("manage.privateChannel")}</span>
                 <span className="mt-1 block text-sm text-muted-foreground">
@@ -393,8 +431,8 @@ export function RightSidebarChannelTypeScreen({
               </span>
             </label>
 
-            <label className="flex items-start gap-4">
-              <RadioGroupItem value="public" className="mt-1" />
+            <label className="flex items-center gap-4">
+              <RadioGroupItem value="public" />
               <span className="min-w-0">
                 <span className="block text-[1rem] font-semibold">{t("manage.publicChannel")}</span>
                 <span className="mt-1 block text-sm text-muted-foreground">
@@ -418,7 +456,7 @@ export function RightSidebarChannelTypeScreen({
         </section>
 
         <SectionCard title={t("manage.contentProtection")}>
-          <label className="flex cursor-pointer items-start gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-accent">
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-accent">
             <RightSidebarInfoIcon>
               <IoLockClosedOutline />
             </RightSidebarInfoIcon>
@@ -543,7 +581,7 @@ export function RightSidebarInviteLinkCreateScreen({
         </section>
 
         <SectionCard>
-          <label className="flex cursor-pointer items-start gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-accent">
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-accent">
             <RightSidebarInfoIcon><IoStarOutline /></RightSidebarInfoIcon>
             <span className="min-w-0 flex-1">
               <span className="block text-[0.98rem] font-semibold">{t("manage.monthlyFee")}</span>
@@ -552,7 +590,7 @@ export function RightSidebarInviteLinkCreateScreen({
             <Switch checked={monthlyFeeEnabled} onCheckedChange={onSetMonthlyFeeEnabled} />
           </label>
 
-          <label className="flex cursor-pointer items-start gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-accent">
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-accent">
             <RightSidebarInfoIcon><IoChatbubbleEllipsesOutline /></RightSidebarInfoIcon>
             <span className="min-w-0 flex-1">
               <span className="block text-[0.98rem] font-semibold">{t("manage.joinRequests")}</span>
@@ -658,7 +696,7 @@ export function RightSidebarReactionsScreen({
     <div className="flex min-h-0 flex-1 flex-col bg-sidebar">
       <ScrollArea className="h-full">
         <SectionCard>
-          <label className="flex cursor-pointer items-start gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-accent">
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-accent">
             <RightSidebarInfoIcon><IoSparklesOutline /></RightSidebarInfoIcon>
             <span className="min-w-0 flex-1">
               <span className="block text-[0.98rem] font-semibold">{t("manage.enableReactions")}</span>
@@ -698,7 +736,7 @@ export function RightSidebarAdminMessagesScreen({
     <div className="flex min-h-0 flex-1 flex-col bg-sidebar">
       <ScrollArea className="h-full">
         <SectionCard>
-          <label className="flex cursor-pointer items-start gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-accent">
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-accent">
             <RightSidebarInfoIcon><IoChatbubbleEllipsesOutline /></RightSidebarInfoIcon>
             <span className="min-w-0 flex-1">
               <span className="block text-[0.98rem] font-semibold">{t("manage.acceptAdminMessages")}</span>

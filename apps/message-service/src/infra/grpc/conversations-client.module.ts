@@ -15,6 +15,13 @@ import { ConversationsClientService } from './conversations-client.service';
             package: ['conversations.v1'],
             protoPath: [PROTO_PATHS.CONVERSATIONS],
             url: configService.getOrThrow<string>('CONVERSATIONS_GRPC_URL'),
+            loader: {
+              keepCase: false,
+              longs: String,
+              enums: String,
+              defaults: true,
+              oneofs: true,
+            },
           },
         }),
         inject: [ConfigService],

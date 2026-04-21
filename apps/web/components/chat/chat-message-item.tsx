@@ -12,6 +12,7 @@ import {
 } from "@/hooks/use-chat";
 import { Checkbox } from "@repo/ui";
 import {
+  CHAT_CONVERSATION_TYPE,
   getAvatarGradient,
   getConversationAvatarUrl,
   getConversationInitial,
@@ -25,6 +26,7 @@ import {
   isSameCalendarDay,
   isVoiceMediaKey,
   normalizeTimestamp,
+  resolveStorageFileUrl,
 } from "@/lib/chat";
 import { extractMessageUrls, stripMessageFormatting } from "@/lib/chat-message-format";
 import {
@@ -47,8 +49,9 @@ import type { ChatMessageReadReceipt } from "./chat-message-read-dialog";
 import type { ChatEditTarget, ChatReplyTarget } from "./chat.types";
 import { useGeneralSettingsStore } from "@/store/settings/general-settings.store";
 import { useTranslations } from "next-intl";
-import { memo } from "react";
+import { memo, useEffect, useRef } from "react";
 import { ChatMessageReplyMarkup } from "./chat-message-reply-markup";
+import Link from "next/link";
 
 interface ChatMessageItemProps {
   index?: number;
@@ -154,6 +157,75 @@ function getBubbleClassName({
   return classes.join(" ");
 }
 
+interface ForwardedFromMetadata {
+  conversationId: string;
+  messageId: string;
+  authorId: string;
+  sourceType: string;
+  sourceTitle: string;
+  sourceAvatarKey: string;
+  sourceConversationTitle: string;
+  sourceConversationUsername: string;
+  sourceAuthorName: string;
+  sourceAuthorUsername: string;
+}
+
+function parseForwardedFromMetadata(metadataJson: string) {
+  if (!metadataJson.trim()) {
+    return null;
+  }
+
+  try {
+    const metadata = JSON.parse(metadataJson) as {
+      forwardedFrom?: Partial<ForwardedFromMetadata> | null;
+    };
+    const forwardedFrom = metadata.forwardedFrom;
+
+    if (!forwardedFrom) {
+      return null;
+    }
+
+    return {
+      conversationId:
+        typeof forwardedFrom.conversationId === "string"
+          ? forwardedFrom.conversationId
+          : "",
+      messageId:
+        typeof forwardedFrom.messageId === "string" ? forwardedFrom.messageId : "",
+      authorId:
+        typeof forwardedFrom.authorId === "string" ? forwardedFrom.authorId : "",
+      sourceType:
+        typeof forwardedFrom.sourceType === "string" ? forwardedFrom.sourceType : "",
+      sourceTitle:
+        typeof forwardedFrom.sourceTitle === "string"
+          ? forwardedFrom.sourceTitle
+          : "",
+      sourceAvatarKey:
+        typeof forwardedFrom.sourceAvatarKey === "string"
+          ? forwardedFrom.sourceAvatarKey
+          : "",
+      sourceConversationTitle:
+        typeof forwardedFrom.sourceConversationTitle === "string"
+          ? forwardedFrom.sourceConversationTitle
+          : "",
+      sourceConversationUsername:
+        typeof forwardedFrom.sourceConversationUsername === "string"
+          ? forwardedFrom.sourceConversationUsername
+          : "",
+      sourceAuthorName:
+        typeof forwardedFrom.sourceAuthorName === "string"
+          ? forwardedFrom.sourceAuthorName
+          : "",
+      sourceAuthorUsername:
+        typeof forwardedFrom.sourceAuthorUsername === "string"
+          ? forwardedFrom.sourceAuthorUsername
+          : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
 export const ChatMessageItem = memo(function ChatMessageItem({
   index = 0,
   conversationId,
@@ -193,6 +265,28 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   unknownAuthorLabel,
   replyUnavailableLabel,
 }: ChatMessageItemProps) {
+  const bubbleRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const element = bubbleRef.current;
+    if (!element) return;
+
+    const keyframes: Keyframe[] = [
+      { opacity: 0, transform: 'translateY(8px)' },
+      { opacity: 1, transform: 'translateY(0)' }
+    ];
+
+    const animation = element.animate(keyframes, {
+      duration: 150,
+      easing: 'cubic-bezier(0.32, 0.72, 0, 1)',
+      fill: 'forwards'
+    });
+
+    return () => {
+      animation.cancel();
+    };
+  }, []);
+
   const tCallLog = useTranslations("chat.messages.callLog");
   const tMessages = useTranslations("chat.messages");
   const timeFormat = useGeneralSettingsStore((state) => state.timeFormat);
@@ -238,6 +332,46 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   const senderAvatarClassName = senderConversation
     ? `bg-linear-to-br ${getAvatarGradient(senderConversation.id)}`
     : participantVisual.avatarClassName;
+  const forwardedFrom = parseForwardedFromMetadata(message.metadataJson);
+  const forwardedSourceType = forwardedFrom?.sourceType ?? "";
+  const forwardedSourceLinksToMessage =
+    forwardedSourceType === CHAT_CONVERSATION_TYPE.CHANNEL ||
+    forwardedSourceType === CHAT_CONVERSATION_TYPE.GROUP ||
+    forwardedSourceType === CHAT_CONVERSATION_TYPE.SUPERGROUP;
+  const forwardedProfileUsername = (
+    forwardedSourceLinksToMessage
+      ? ""
+      : forwardedFrom?.sourceAuthorUsername ||
+        forwardedFrom?.sourceConversationUsername ||
+        ""
+  ).replace(/^@+/, "");
+  const forwardedSourceName =
+    forwardedFrom?.sourceTitle ||
+    forwardedFrom?.sourceConversationTitle ||
+    forwardedFrom?.sourceAuthorName ||
+    (forwardedFrom?.sourceConversationUsername
+      ? `@${forwardedFrom.sourceConversationUsername}`
+      : "") ||
+    (forwardedFrom?.sourceAuthorUsername
+      ? `@${forwardedFrom.sourceAuthorUsername}`
+      : "") ||
+    "";
+  const forwardedSourceAvatarUrl = resolveStorageFileUrl(forwardedFrom?.sourceAvatarKey);
+  const forwardedSourceInitial =
+    forwardedSourceName.replace(/^@+/, "").trim()[0]?.toUpperCase() ?? "#";
+  const forwardedSourceAvatarSeed =
+    forwardedFrom?.conversationId ||
+    forwardedFrom?.authorId ||
+    forwardedSourceName ||
+    "forwarded";
+  const forwardedSourceHref =
+    forwardedSourceLinksToMessage &&
+    forwardedFrom?.conversationId &&
+    forwardedFrom?.messageId
+      ? `/c/${forwardedFrom.conversationId}/${forwardedFrom.messageId}`
+      : forwardedProfileUsername
+        ? `/@${forwardedProfileUsername}`
+      : "";
 
   const startsGroup = startsGroupOverride ?? (
     !previousMessage ||
@@ -304,11 +438,11 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     onToggleSelect?.(message.id);
   }
 
-  const commentsVisual = commentCount <= 1 ? (
+  const commentsVisual = (
     <Avatar
       size="sm"
       className={cn(
-        "size-6 shrink-0 border border-white/15 shadow-sm",
+        "size-6 shrink-0 border border-white/15",
         senderAvatarClassName,
       )}
     >
@@ -317,25 +451,6 @@ export const ChatMessageItem = memo(function ChatMessageItem({
         {authorInitial}
       </AvatarFallback>
     </Avatar>
-  ) : (
-    <div className="relative mr-1 h-6 w-11 shrink-0">
-      {[
-        "from-sky-500 to-blue-600",
-        "from-emerald-500 to-green-600",
-        "from-fuchsia-500 to-pink-600",
-      ].map((gradient, index) => (
-        <span
-          key={`${message.id}-comments-avatar-${index}`}
-          className={cn(
-            "absolute top-0 inline-flex size-6 items-center justify-center rounded-full border border-white/20 bg-linear-to-br text-[10px] font-semibold text-white shadow-sm",
-            gradient,
-          )}
-          style={{ left: `${index * 0.85}rem` }}
-        >
-          {index === 0 ? authorInitial : authorInitial}
-        </span>
-      ))}
-    </div>
   );
 
   const commentsAction = isChannel && onOpenComments ? (
@@ -392,6 +507,56 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             >
               {authorName}
             </p>
+          ) : null}
+
+          {forwardedFrom && forwardedSourceName ? (
+            <div
+              className={cn(
+                "mb-1 max-w-full text-[12px] leading-tight",
+                isOwn
+                  ? "text-primary-foreground/75"
+                  : "text-muted-foreground",
+              )}
+            >
+              <span className="block font-normal">{tMessages("forwardedFrom")}</span>
+              <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                <Avatar
+                  size="sm"
+                  className={cn(
+                    "size-5 shrink-0 bg-linear-to-br",
+                    getAvatarGradient(forwardedSourceAvatarSeed),
+                  )}
+                >
+                  {forwardedSourceAvatarUrl ? (
+                    <AvatarImage src={forwardedSourceAvatarUrl} alt="" />
+                  ) : null}
+                  <AvatarFallback className="bg-transparent text-[10px] font-semibold text-white">
+                    {forwardedSourceInitial}
+                  </AvatarFallback>
+                </Avatar>
+                {forwardedSourceHref ? (
+                  <Link
+                    href={forwardedSourceHref}
+                    className={cn(
+                      "min-w-0 truncate font-semibold hover:underline",
+                      isOwn ? "text-primary-foreground" : "text-primary",
+                    )}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {forwardedSourceName}
+                  </Link>
+                ) : (
+                  <span
+                    className={cn(
+                      "min-w-0 truncate font-semibold",
+                      isOwn ? "text-primary-foreground" : "text-primary",
+                    )}
+                  >
+                    {forwardedSourceName}
+                  </span>
+                )}
+              </div>
+            </div>
           ) : null}
 
           {isCallLogMessage && callLogPayload ? (
@@ -689,23 +854,25 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   );
 
   return (
-    <ChatMessageContextMenu
-      conversationId={conversationId}
-      message={message}
-      canDelete={isOwn && !isDeleted}
-      canEdit={isOwn && !isDeleted && message.kind === CHAT_MESSAGE_KIND.TEXT && !isCallLogMessage}
-      canSelect={canSelectMessage}
-      canCopyLink={isChannel}
-      disabled={selectionMode}
-      readReceipts={isOwn && !isChannel ? readReceipts : []}
-      onReply={onReply}
-      onEdit={onEdit}
-      onStartSelect={onStartSelect}
-      replyAuthorName={authorName}
-      mediaKeys={mediaKeys}
-      messageFilter={messageFilter}
-    >
-      {content}
-    </ChatMessageContextMenu>
+    <div ref={bubbleRef}>
+      <ChatMessageContextMenu
+        conversationId={conversationId}
+        message={message}
+        canDelete={isOwn && !isDeleted}
+        canEdit={isOwn && !isDeleted && message.kind === CHAT_MESSAGE_KIND.TEXT && !isCallLogMessage}
+        canSelect={canSelectMessage}
+        canCopyLink={isChannel}
+        disabled={selectionMode}
+        readReceipts={isOwn && !isChannel ? readReceipts : []}
+        onReply={onReply}
+        onEdit={onEdit}
+        onStartSelect={onStartSelect}
+        replyAuthorName={authorName}
+        mediaKeys={mediaKeys}
+        messageFilter={messageFilter}
+      >
+        {content}
+      </ChatMessageContextMenu>
+    </div>
   );
 });

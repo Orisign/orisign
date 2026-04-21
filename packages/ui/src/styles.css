@@ -191,6 +191,28 @@
   }
 }
 
+@keyframes ui-dialog-in {
+  0% {
+    opacity: 0;
+    scale: 0.86;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes ui-dialog-out {
+  0% {
+    opacity: 1;
+    scale: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 0.86;
+  }
+}
+
 @keyframes toast-thread-reveal {
   0% {
     opacity: 0;

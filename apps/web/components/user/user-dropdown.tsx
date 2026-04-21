@@ -1,4 +1,4 @@
-import { useSidebar } from "@/hooks/use-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import {
   Button,
   DropdownMenu,
@@ -48,7 +48,7 @@ export const UserDropdown = ({
   onTriggerAction,
   triggerAriaLabel,
 }: UserDropdownProps = {}) => {
-  const { push } = useSidebar();
+  const { push } = sidebarStore();
   const t = useTranslations("userDropdown");
   const { theme, setTheme } = useTheme();
   const [open, setOpen] = useState(false);

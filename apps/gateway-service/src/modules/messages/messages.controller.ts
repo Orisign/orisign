@@ -2,6 +2,7 @@ import {
 	BadRequestException,
 	Body,
 	Controller,
+	ForbiddenException,
 	HttpCode,
 	HttpStatus,
 	Post
@@ -14,16 +15,19 @@ import {
 	ApiTags
 } from '@nestjs/swagger'
 import { ConversationType } from '@repo/contracts/gen/ts/conversations'
+import { MessageKind } from '@repo/contracts/gen/ts/messages'
 import { lastValueFrom } from 'rxjs'
 import { CurrentUser, Protected } from 'src/shared/decorators'
 
 import { BotsClientGrpc } from '../bots/bots.grpc'
 import { ChatRealtimeService } from './chat-realtime.service'
 import { ConversationsClientGrpc } from '../conversations/conversations.grpc'
+import { UsersClientGrpc } from '../users/users.grpc'
 import {
 	CommentSummaryItemResponseDto,
 	DeleteMessageRequestDto,
 	EditMessageRequestDto,
+	ForwardMessageRequestDto,
 	GetCommentSummaryRequestDto,
 	GetCommentSummaryResponseDto,
 	InvokeMessageCallbackRequestDto,
@@ -37,6 +41,7 @@ import {
 	GetUserBlockStatusResponseDto,
 	ListMessagesRequestDto,
 	MarkReadRequestDto,
+	SendDirectMessageRequestDto,
 	SendMessageRequestDto,
 	SharedMediaFilter,
 	SetUserBlockRequestDto
@@ -176,7 +181,8 @@ export class MessagesController {
 		private readonly messagesClient: MessagesClientGrpc,
 		private readonly chatRealtimeService: ChatRealtimeService,
 		private readonly conversationsClient: ConversationsClientGrpc,
-		private readonly botsClient: BotsClientGrpc
+		private readonly botsClient: BotsClientGrpc,
+		private readonly usersClient: UsersClientGrpc
 	) {}
 
 	private parseJsonValue(value?: string): unknown {
@@ -221,6 +227,33 @@ export class MessagesController {
 			conversation.members?.find(member => member.userId && member.userId !== requesterId)
 				?.userId ?? ''
 		)
+	}
+
+	private resolveUserDisplayName(
+		user:
+			| {
+					firstName?: string
+					lastName?: string
+					username?: string
+			  }
+			| null
+			| undefined,
+		fallback = 'User'
+	) {
+		const fullName = [user?.firstName, user?.lastName]
+			.filter(Boolean)
+			.join(' ')
+			.trim()
+
+		if (fullName) {
+			return fullName
+		}
+
+		if (user?.username) {
+			return `@${user.username}`
+		}
+
+		return fallback
 	}
 
 	private async emitBotExternalEvent(
@@ -480,6 +513,208 @@ export class MessagesController {
 		}
 
 		return response
+	}
+
+	@ApiOperation({ summary: 'Отправить первое сообщение в личный чат' })
+	@ApiBody({ type: SendDirectMessageRequestDto })
+	@ApiOkResponse({ description: 'Direct message sent' })
+	@Post('send-direct')
+	@HttpCode(HttpStatus.OK)
+	public async sendDirect(
+		@CurrentUser() id: string,
+		@Body() dto: SendDirectMessageRequestDto
+	) {
+		const targetUserId = dto.targetUserId?.trim() ?? ''
+
+		if (!targetUserId) {
+			throw new BadRequestException('targetUserId is required')
+		}
+
+		if (targetUserId === id) {
+			throw new BadRequestException('Cannot create direct chat with yourself')
+		}
+
+		const [actorToTarget, targetToActor] = await Promise.all([
+			lastValueFrom(
+				this.messagesClient.getUserBlockStatus({
+					actorId: id,
+					targetUserId
+				})
+			),
+			lastValueFrom(
+				this.messagesClient.getUserBlockStatus({
+					actorId: targetUserId,
+					targetUserId: id
+				})
+			)
+		])
+
+		if (actorToTarget?.blocked || targetToActor?.blocked) {
+			throw new ForbiddenException('Messaging is blocked for this direct chat')
+		}
+
+		const directConversation = await lastValueFrom(
+			this.conversationsClient.createConversation({
+				type: ConversationType.DM,
+				creatorId: id,
+				title: '',
+				about: '',
+				isPublic: false,
+				username: '',
+				memberIds: [targetUserId],
+				avatarKey: ''
+			})
+		)
+		const conversation = directConversation.conversation
+		const conversationId = conversation?.id?.trim() ?? ''
+
+		if (!conversationId) {
+			throw new BadRequestException('Direct conversation was not created')
+		}
+
+		const response = await this.send(id, {
+			conversationId,
+			kind: dto.kind,
+			text: dto.text,
+			replyToId: dto.replyToId,
+			mediaKeys: dto.mediaKeys,
+			entitiesJson: dto.entitiesJson,
+			replyMarkupJson: dto.replyMarkupJson,
+			attachmentsJson: dto.attachmentsJson,
+			sourceBotId: dto.sourceBotId,
+			metadataJson: dto.metadataJson,
+			locale: dto.locale
+		})
+
+		return {
+			...response,
+			conversation
+		}
+	}
+
+	@ApiOperation({ summary: 'Переслать сообщение в другой чат' })
+	@ApiBody({ type: ForwardMessageRequestDto })
+	@ApiOkResponse({ description: 'Message forwarded' })
+	@Post('forward')
+	@HttpCode(HttpStatus.OK)
+	public async forward(
+		@CurrentUser() id: string,
+		@Body() dto: ForwardMessageRequestDto
+	) {
+		const sourceConversationId = dto.sourceConversationId?.trim() ?? ''
+		const targetConversationId = dto.targetConversationId?.trim() ?? ''
+		const messageId = dto.messageId?.trim() ?? ''
+
+		if (!sourceConversationId) {
+			throw new BadRequestException('sourceConversationId is required')
+		}
+
+		if (!targetConversationId) {
+			throw new BadRequestException('targetConversationId is required')
+		}
+
+		if (!messageId) {
+			throw new BadRequestException('messageId is required')
+		}
+
+		if (sourceConversationId === targetConversationId) {
+			throw new BadRequestException('Target conversation must be different')
+		}
+
+		const sourceResponse = await lastValueFrom(
+			this.messagesClient.listMessages({
+				conversationId: sourceConversationId,
+				requesterId: id,
+				limit: 1,
+				offset: 0,
+				replyToId: '',
+				messageId
+			})
+		)
+		const sourceMessage = sourceResponse.messages?.at(0)
+
+		if (!sourceMessage) {
+			throw new BadRequestException('Source message was not found')
+		}
+
+		if (sourceMessage.kind === MessageKind.SYSTEM) {
+			throw new BadRequestException('System messages cannot be forwarded')
+		}
+
+		const [sourceConversationResponse, sourceAuthorResponse] = await Promise.all([
+			lastValueFrom(
+				this.conversationsClient.getConversation({
+					conversationId: sourceConversationId,
+					requesterId: id,
+					username: ''
+				})
+			),
+			lastValueFrom(this.usersClient.getUser({ id: sourceMessage.authorId ?? '' })).catch(
+				() => ({ user: null })
+			)
+		])
+		const sourceConversation = sourceConversationResponse.conversation ?? null
+		const sourceAuthor = sourceAuthorResponse.user ?? null
+		const sourceConversationTitle =
+			sourceConversation?.title?.trim() ||
+			(sourceConversation?.username ? `@${sourceConversation.username}` : '')
+		const sourceAuthorName = this.resolveUserDisplayName(
+			sourceAuthor,
+			sourceMessage.authorId || 'User'
+		)
+		const sourceConversationType = sourceConversation?.type ?? ''
+		const linksToSourceMessage =
+			sourceConversationType === ConversationType.CHANNEL ||
+			sourceConversationType === ConversationType.GROUP ||
+			sourceConversationType === ConversationType.SUPERGROUP
+		const sourceTitle =
+			linksToSourceMessage
+				? sourceConversationTitle || sourceAuthorName
+				: sourceAuthorName || sourceConversationTitle
+		const sourceAuthorAvatars = sourceAuthor?.avatars ?? []
+		const sourceAvatarKey = linksToSourceMessage
+			? (sourceConversation?.avatarKey ?? '')
+			: (sourceAuthorAvatars[sourceAuthorAvatars.length - 1] ?? '')
+
+		const existingMetadata = this.parseJsonValue(sourceMessage.metadataJson)
+		const metadata =
+			existingMetadata &&
+			typeof existingMetadata === 'object' &&
+			!Array.isArray(existingMetadata)
+				? { ...existingMetadata }
+				: {}
+
+		const response = await this.send(id, {
+			conversationId: targetConversationId,
+			kind: sourceMessage.kind,
+			text: sourceMessage.text ?? '',
+			mediaKeys: sourceMessage.mediaKeys ?? [],
+			entitiesJson: sourceMessage.entitiesJson ?? '',
+			replyMarkupJson: sourceMessage.replyMarkupJson ?? '',
+			attachmentsJson: sourceMessage.attachmentsJson ?? '',
+			sourceBotId: sourceMessage.sourceBotId ?? '',
+			metadataJson: JSON.stringify({
+				...metadata,
+				forwardedFrom: {
+					conversationId: sourceConversationId,
+					messageId: sourceMessage.id ?? messageId,
+					authorId: sourceMessage.authorId ?? '',
+					createdAt: sourceMessage.createdAt ?? 0,
+					sourceType: sourceConversationType,
+					sourceTitle,
+					sourceAvatarKey,
+					sourceConversationTitle,
+					sourceConversationUsername: sourceConversation?.username ?? '',
+					sourceAuthorName,
+					sourceAuthorUsername: sourceAuthor?.username ?? ''
+				}
+			})
+		})
+
+		return {
+			...response,
+			sourceMessage
+		}
 	}
 
 	@ApiOperation({ summary: 'Invoke callback button on an interactive bot message' })

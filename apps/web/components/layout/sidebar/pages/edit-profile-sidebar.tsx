@@ -1,9 +1,8 @@
 "use client";
 
-import { useUsersControllerPatch } from "@/api/generated";
+import { useUsersControllerMe, useUsersControllerPatch } from "@/api/generated";
 import { AvatarUploadButton } from "@/components/shared/avatar-upload-button";
-import { useCurrentUser } from "@/hooks/use-current-user";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import {
   createEditProfileSidebarSchema,
   TypeEditProfileSidebarSchema,
@@ -26,8 +25,9 @@ import { fadeScale, SPRING_LAYOUT } from "@/lib/animations";
 export const EditProfileSidebar = () => {
   const t = useTranslations("editProfileSidebar");
   const tv = useTranslations("validation.profile");
-  const { pop } = useSidebar();
-  const { user } = useCurrentUser();
+  const { pop } = sidebarStore();
+  const me = useUsersControllerMe();
+  const user = me.data?.user ?? null;
   const schema = useMemo(() => createEditProfileSidebarSchema(tv), [tv]);
   const { mutate: patchUser, isPending } = useUsersControllerPatch();
 

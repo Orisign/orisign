@@ -1,23 +1,24 @@
 import { defineConfig } from "orval";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+const spec = "./api/openapi.yaml";
 
 export default defineConfig({
   api: {
-    input: "http://localhost:4000/openapi.yaml",
+    input: {
+      target: spec,
+    },
     output: {
       target: "./api/generated.ts",
       client: "react-query",
-      baseUrl: apiUrl,
       override: {
         fetch: {
-          includeHttpResponseReturnType: false
+          includeHttpResponseReturnType: false,
         },
         mutator: {
           path: "./lib/fetcher.ts",
-          name: 'customFetch'
-        }
-      }
+          name: "customFetch",
+        },
+      },
     },
   },
 });

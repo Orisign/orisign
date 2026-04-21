@@ -76,7 +76,7 @@ export class UsersService {
 
     await this.usersRepository.create({
       id,
-      firstName: 'User',
+      firstName: '',
       avatars: [],
       privacySettings: {
         create: {},

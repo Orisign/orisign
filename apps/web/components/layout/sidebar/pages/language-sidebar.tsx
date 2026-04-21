@@ -8,7 +8,7 @@ import {
   SidebarPageSeparator,
   SidebarPageTitle,
 } from "@/components/ui/sidebar-page";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import {
   Button,
   cn,
@@ -24,7 +24,7 @@ import { useRouter } from "next/navigation";
 export const LANGUAGES = [{ slug: "ru" }, { slug: "en" }] as const;
 
 export const LanguageSidebar = () => {
-  const { pop } = useSidebar();
+  const { pop } = sidebarStore();
   const t = useTranslations("languageSidebar");
   const locale = useLocale();
   const router = useRouter();

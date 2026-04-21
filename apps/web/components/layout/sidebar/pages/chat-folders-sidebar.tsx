@@ -12,7 +12,7 @@ import {
   useChatFolders,
   useReorderChatFolders,
 } from "@/hooks/use-chat-folders";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import type { ChatFolder } from "@/lib/chat-folders";
 import { Button, Ripple, cn } from "@repo/ui";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
@@ -110,7 +110,7 @@ function SortableFolderRow({
 
 export const ChatFoldersSidebar = () => {
   const t = useTranslations("chatFoldersSidebar");
-  const { pop, push, sidebarWidth } = useSidebar();
+  const { pop, push, sidebarWidth } = sidebarStore();
   const { data } = useChatFolders();
   const { mutate: reorderFolders } = useReorderChatFolders();
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);

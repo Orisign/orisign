@@ -41,6 +41,7 @@ interface EmojiInputProps
   disabled?: boolean;
   showEmojiPicker?: boolean;
   autoGrow?: boolean;
+  minHeight?: number;
   maxHeight?: number;
   onSubmit?: () => void;
   submitOnEnter?: boolean;
@@ -430,6 +431,7 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
       disabled,
       showEmojiPicker = false,
       autoGrow = false,
+      minHeight = MIN_INPUT_HEIGHT,
       maxHeight = 176,
       onSubmit,
       submitOnEnter = true,
@@ -441,8 +443,9 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
     ref,
   ) => {
     const editableRef = React.useRef<HTMLDivElement>(null);
+    const resolvedMinHeight = Math.max(36, minHeight);
     const [isEmpty, setIsEmpty] = React.useState(value.length === 0);
-    const [inputHeight, setInputHeight] = React.useState(MIN_INPUT_HEIGHT);
+    const [inputHeight, setInputHeight] = React.useState(resolvedMinHeight);
     const isComposingRef = React.useRef(false);
     const lastRenderedValueRef = React.useRef(value);
     const lastSelectionRef = React.useRef<SelectionOffsets>({
@@ -458,14 +461,14 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
       if (!editable || !autoGrow) return;
 
       const nextHeight = Math.min(
-        Math.max(Math.ceil(editable.scrollHeight), MIN_INPUT_HEIGHT),
+        Math.max(Math.ceil(editable.scrollHeight), resolvedMinHeight),
         maxHeight,
       );
 
       setInputHeight((currentHeight) =>
         currentHeight === nextHeight ? currentHeight : nextHeight,
       );
-    }, [autoGrow, maxHeight]);
+    }, [autoGrow, maxHeight, resolvedMinHeight]);
 
     const renderValue = React.useCallback(
       (
@@ -514,7 +517,7 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
       const editable = editableRef.current;
       if (!editable) return;
 
-      const domValue = readPlainText(editable).replaceAll("\n", "");
+      const domValue = readPlainText(editable);
       if (domValue === value && lastRenderedValueRef.current === value) {
         return;
       }
@@ -526,12 +529,12 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
 
     React.useLayoutEffect(() => {
       if (!autoGrow) {
-        setInputHeight(MIN_INPUT_HEIGHT);
+        setInputHeight(resolvedMinHeight);
         return;
       }
 
       updateInputHeight();
-    }, [autoGrow, updateInputHeight, value]);
+    }, [autoGrow, resolvedMinHeight, updateInputHeight, value]);
 
     React.useEffect(() => {
       if (!autoGrow) return;
@@ -552,7 +555,7 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
 
       requestAnimationFrame(() => {
         editable.focus();
-        const currentValue = readPlainText(editable).replaceAll("\n", "");
+        const currentValue = readPlainText(editable);
         const nextOffset = currentValue.length;
         setCaretOffset(editable, nextOffset);
         lastSelectionRef.current = {
@@ -582,7 +585,7 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
       if (!editable) return;
 
       const caretOffset = getCaretOffset(editable);
-      const nextValue = readPlainText(editable).replaceAll("\n", "");
+      const nextValue = readPlainText(editable);
       renderValue(nextValue, caretOffset);
       onChange?.(nextValue);
     }, [onChange, renderValue]);
@@ -595,7 +598,7 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
     const handlePaste = React.useCallback(
       (event: React.ClipboardEvent<HTMLDivElement>) => {
         event.preventDefault();
-        const pasted = event.clipboardData.getData("text/plain").replace(/\r?\n/g, " ");
+        const pasted = event.clipboardData.getData("text/plain").replace(/\r\n?/g, "\n");
         const selection = window.getSelection();
 
         if (!selection || selection.rangeCount === 0) {
@@ -622,7 +625,7 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
         if (!editable || disabled) return;
 
         editable.focus();
-        const currentValue = readPlainText(editable).replaceAll("\n", "");
+        const currentValue = readPlainText(editable);
         const selection =
           getSelectionOffsets(editable) ??
           getCollapsedSelectionOffsets(editable) ??
@@ -646,7 +649,7 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
       if (!editable || disabled) return;
 
       editable.focus();
-      const currentValue = readPlainText(editable).replaceAll("\n", "");
+      const currentValue = readPlainText(editable);
       if (currentValue.length === 0) {
         return;
       }
@@ -801,6 +804,13 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
       applyFormattedValue(result.nextText, result.nextSelection);
     }, [applyFormattedValue, disabled, getEditableSelection, value]);
 
+    const insertLineBreakAction = React.useCallback(() => {
+      if (disabled) return;
+      const selection = getEditableSelection();
+      const result = insertTextAtSelection(value, selection, "\n");
+      applyFormattedValue(result.nextText, result.nextSelection);
+    }, [applyFormattedValue, disabled, getEditableSelection, value]);
+
     const deleteSelectionAction = React.useCallback(() => {
       if (disabled) return;
       const selection = getEditableSelection();
@@ -939,18 +949,21 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
     const hasLeftSlot = showEmojiPicker;
     const hasRightSlot = Boolean(rightSlot);
     const showPlaceholder = isEmpty && Boolean(placeholder);
-    const isMultiline = autoGrow && inputHeight > MIN_INPUT_HEIGHT + 2;
+    const isMultiline =
+      autoGrow &&
+      (inputHeight > MIN_INPUT_HEIGHT + 2 ||
+        resolvedMinHeight > MIN_INPUT_HEIGHT + 2);
 
     return (
       <div
         className={cn(
-          "relative w-full rounded-xl border-2 border-border/60 bg-secondary/80 px-4 text-[15px] text-foreground transition-[height,border-color,box-shadow] duration-140 ease-[cubic-bezier(.2,.8,.2,1)]",
+          "relative w-full min-w-0 rounded-xl border-2 border-border/60 bg-secondary/80 px-4 text-[15px] text-foreground transition-[height,border-color,box-shadow] duration-140 ease-[cubic-bezier(.2,.8,.2,1)]",
           disabled && "cursor-not-allowed opacity-50",
           className,
         )}
         style={{
-          height: autoGrow ? inputHeight : MIN_INPUT_HEIGHT,
-          minHeight: MIN_INPUT_HEIGHT,
+          height: autoGrow ? inputHeight : resolvedMinHeight,
+          minHeight: resolvedMinHeight,
         }}
         data-no-twemoji
       >
@@ -993,12 +1006,12 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
               {...props}
               ref={editableRef}
               role="textbox"
-              aria-multiline={false}
+              aria-multiline={autoGrow}
               aria-disabled={disabled}
               contentEditable={!disabled}
               suppressContentEditableWarning
               className={cn(
-                "w-full py-[10px] leading-6 outline-none [&::-webkit-scrollbar]:hidden",
+                "w-full min-w-0 max-w-full py-[10px] leading-6 outline-none [&::-webkit-scrollbar]:hidden",
                 autoGrow
                   ? "overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
                   : "h-full overflow-x-auto whitespace-pre",
@@ -1023,11 +1036,19 @@ export const EmojiInput = React.forwardRef<HTMLInputElement, EmojiInputProps>(
                 if (submitOnEnter && event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
                   onSubmit?.();
+                  onKeyDown?.(event);
+                  return;
                 }
 
                 onKeyDown?.(event);
 
                 if (event.defaultPrevented) {
+                  return;
+                }
+
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  insertLineBreakAction();
                   return;
                 }
               }}

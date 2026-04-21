@@ -14,7 +14,7 @@ import {
   SidebarPageTitle,
 } from "@/components/ui/sidebar-page";
 import { useAuth } from "@/hooks/use-auth";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import { Button, Skeleton, SkeletonGroup, cn, toast } from "@repo/ui";
 import {
   ArrowLeft,
@@ -69,7 +69,7 @@ function sortSessions(sessions: SessionResponseDto[]) {
 export const SessionsSidebar = () => {
   const t = useTranslations("sessionsSidebar");
   const locale = useLocale();
-  const { pop } = useSidebar();
+  const { pop } = sidebarStore();
   const { deviceId } = useAuth();
   const { mutateAsync: listSessions } = useAuthControllerList();
   const { mutateAsync: revokeSession } = useAuthControllerRevokeSession();

@@ -6,14 +6,14 @@ import {
   getConversationsControllerMyQueryKey,
 } from "@/api/generated";
 import { getCookie } from "@/lib/cookies";
-import { buildWebSocketUrl } from "@/lib/app-config";
-import { parseChatReplyMarkup } from "@/lib/bot-reply-markup";
 import {
-  CHAT_REALTIME_RECONNECT_BASE_DELAY_MS,
-  CHAT_REALTIME_RECONNECT_MAX_DELAY_MS,
-} from "@/lib/chat.constants";
+  apiWsOnOpen,
+  apiWsSend,
+  apiWsSendIfOpen,
+  apiWsSubscribe,
+} from "@/lib/api-ws";
+import { parseChatReplyMarkup } from "@/lib/bot-reply-markup";
 import { playChatSound } from "@/lib/chat-sound-manager";
-import { parseJsonWithProtobufSupport } from "@/lib/protobuf";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -84,13 +84,6 @@ const DEFAULT_CHAT_GROUP_STATE: ChatGroupRealtimeState = {
   activity: null,
 };
 
-function getChatRealtimeUrl(conversationId: string, token: string) {
-  return buildWebSocketUrl("/ws/chat", {
-    conversationId,
-    token,
-  });
-}
-
 export function useChatRealtime(
   conversationId: string,
   currentUserId?: string,
@@ -98,31 +91,27 @@ export function useChatRealtime(
   messageFilter?: ChatMessagesFilter,
 ) {
   const queryClient = useQueryClient();
-  const reconnectTimeoutRef = useRef<number | null>(null);
-  const closedByUserRef = useRef(false);
-  const reconnectAttemptRef = useRef(0);
-  const lastReadSignalByUserRef = useRef<Map<string, string>>(new Map());
-  const socketRef = useRef<WebSocket | null>(null);
-  const typingStateRef = useRef(false);
-  const mediaUploadingStateRef = useRef(false);
-  const groupActivityByUserRef = useRef<Map<string, ChatGroupUserActivity>>(new Map());
+  const readsRef = useRef<Map<string, string>>(new Map());
+  const typingRef = useRef(false);
+  const uploadRef = useRef(false);
+  const groupRef = useRef<Map<string, ChatGroupUserActivity>>(new Map());
   const [peerState, setPeerState] = useState<ChatPeerRealtimeState>(
     DEFAULT_CHAT_PEER_STATE,
   );
   const [groupState, setGroupState] = useState<ChatGroupRealtimeState>(
     DEFAULT_CHAT_GROUP_STATE,
   );
-  const messagesQueryKey = useMemo(
+  const msgsKey = useMemo(
     () => getChatMessagesQueryKey(conversationId, messageFilter),
     [conversationId, messageFilter],
   );
 
-  const recomputeGroupState = useCallback(() => {
+  const syncGroup = useCallback(() => {
     let nextActiveUserId: string | null = null;
     let nextActivity: ChatGroupActivityType | null = null;
     let latestUpdatedAt = 0;
 
-    groupActivityByUserRef.current.forEach((activity, userId) => {
+    groupRef.current.forEach((activity, userId) => {
       if (
         activity.uploadingActive &&
         activity.uploadingUpdatedAt >= latestUpdatedAt
@@ -154,7 +143,7 @@ export function useChatRealtime(
     });
   }, []);
 
-  const setGroupUserActivity = useCallback(
+  const setGroup = useCallback(
     (
       userId: string,
       activityType: ChatGroupActivityType,
@@ -165,7 +154,7 @@ export function useChatRealtime(
         return;
       }
 
-      const currentActivity = groupActivityByUserRef.current.get(userId) ?? {
+      const currentActivity = groupRef.current.get(userId) ?? {
         typingActive: false,
         typingUpdatedAt: 0,
         uploadingActive: false,
@@ -186,51 +175,44 @@ export function useChatRealtime(
             };
 
       if (!nextActivity.typingActive && !nextActivity.uploadingActive) {
-        groupActivityByUserRef.current.delete(userId);
+        groupRef.current.delete(userId);
       } else {
-        groupActivityByUserRef.current.set(userId, nextActivity);
+        groupRef.current.set(userId, nextActivity);
       }
 
-      recomputeGroupState();
+      syncGroup();
     },
-    [currentUserId, recomputeGroupState],
+    [currentUserId, syncGroup],
   );
 
-  const clearGroupUserActivity = useCallback(
+  const clearGroup = useCallback(
     (userId: string) => {
       if (!userId) {
         return;
       }
 
-      if (!groupActivityByUserRef.current.has(userId)) {
+      if (!groupRef.current.has(userId)) {
         return;
       }
 
-      groupActivityByUserRef.current.delete(userId);
-      recomputeGroupState();
+      groupRef.current.delete(userId);
+      syncGroup();
     },
-    [recomputeGroupState],
+    [syncGroup],
   );
 
-  const resetGroupActivityState = useCallback(() => {
-    groupActivityByUserRef.current.clear();
+  const resetGroup = useCallback(() => {
+    groupRef.current.clear();
     setGroupState({ ...DEFAULT_CHAT_GROUP_STATE });
   }, []);
 
-  const sendStatusSignal = useCallback(
+  const sendStatus = useCallback(
     (type: "status.typing" | "status.media-upload", active: boolean) => {
-      const socket = socketRef.current;
-      if (!socket || socket.readyState !== WebSocket.OPEN) {
-        return;
-      }
-
-      socket.send(
-        JSON.stringify({
-          type,
-          conversationId,
-          active,
-        }),
-      );
+      apiWsSendIfOpen({
+        type,
+        conversationId,
+        active,
+      });
     },
     [conversationId],
   );
@@ -238,27 +220,27 @@ export function useChatRealtime(
   const setTypingActive = useCallback(
     (active: boolean) => {
       const nextActive = Boolean(active);
-      if (typingStateRef.current === nextActive) {
+      if (typingRef.current === nextActive) {
         return;
       }
 
-      typingStateRef.current = nextActive;
-      sendStatusSignal("status.typing", nextActive);
+      typingRef.current = nextActive;
+      sendStatus("status.typing", nextActive);
     },
-    [sendStatusSignal],
+    [sendStatus],
   );
 
   const setMediaUploadingActive = useCallback(
     (active: boolean) => {
       const nextActive = Boolean(active);
-      if (mediaUploadingStateRef.current === nextActive) {
+      if (uploadRef.current === nextActive) {
         return;
       }
 
-      mediaUploadingStateRef.current = nextActive;
-      sendStatusSignal("status.media-upload", nextActive);
+      uploadRef.current = nextActive;
+      sendStatus("status.media-upload", nextActive);
     },
-    [sendStatusSignal],
+    [sendStatus],
   );
 
   useEffect(() => {
@@ -268,7 +250,7 @@ export function useChatRealtime(
       setPeerState({ ...DEFAULT_CHAT_PEER_STATE });
     });
     const resetGroupStateFrame = window.requestAnimationFrame(() => {
-      resetGroupActivityState();
+      resetGroup();
     });
 
     if (!conversationId || !token) {
@@ -278,61 +260,46 @@ export function useChatRealtime(
       };
     }
 
-    closedByUserRef.current = false;
-    reconnectAttemptRef.current = 0;
     const currentReadState = queryClient.getQueryData<ChatReadStateQueryData>(
       getChatReadStateQueryKey(conversationId),
     );
-    const baselineReadSignals = new Map<string, string>();
+    const readMap = new Map<string, string>();
     (currentReadState?.cursors ?? []).forEach((cursor) => {
-      baselineReadSignals.set(
+      readMap.set(
         cursor.userId,
         `${cursor.userId}:${cursor.lastReadMessageId ?? ""}`,
       );
     });
-    lastReadSignalByUserRef.current = baselineReadSignals;
+    readsRef.current = readMap;
 
-    let socket: WebSocket | null = null;
-
-    const clearReconnectTimeout = () => {
-      if (reconnectTimeoutRef.current === null) return;
-      window.clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    };
-
-    const connect = () => {
-      clearReconnectTimeout();
-
-      socket = new WebSocket(getChatRealtimeUrl(conversationId, token));
-      socketRef.current = socket;
-
-      socket.onopen = () => {
-        reconnectAttemptRef.current = 0;
-
-        if (typingStateRef.current) {
-          socket?.send(
-            JSON.stringify({
+    const subscribeToChat = () =>
+      apiWsSend({
+        type: "chat.subscribe",
+        conversationId,
+        token,
+      })
+        .then(() => {
+          if (typingRef.current) {
+            apiWsSendIfOpen({
               type: "status.typing",
               conversationId,
               active: true,
-            }),
-          );
-        }
+            });
+          }
 
-        if (mediaUploadingStateRef.current) {
-          socket?.send(
-            JSON.stringify({
+          if (uploadRef.current) {
+            apiWsSendIfOpen({
               type: "status.media-upload",
               conversationId,
               active: true,
-            }),
-          );
-        }
-      };
+            });
+          }
+        })
+        .catch(() => undefined);
 
-      socket.onmessage = (event) => {
+    const unsubscribeFromEvents = apiWsSubscribe((rawPayload) => {
         try {
-          const payload = parseJsonWithProtobufSupport<ChatRealtimeEvent>(event.data);
+          const payload = rawPayload as ChatRealtimeEvent;
 
           if (payload.conversationId && payload.conversationId !== conversationId) {
             return;
@@ -357,7 +324,7 @@ export function useChatRealtime(
             }
 
             if (!peerUserId && !payload.online && payload.userId !== currentUserId) {
-              clearGroupUserActivity(payload.userId);
+              clearGroup(payload.userId);
             }
 
             return;
@@ -377,7 +344,7 @@ export function useChatRealtime(
                   ? payload.at
                   : Date.now();
 
-              setGroupUserActivity(
+              setGroup(
                 payload.userId,
                 "typing",
                 Boolean(payload.active),
@@ -402,7 +369,7 @@ export function useChatRealtime(
                   ? payload.at
                   : Date.now();
 
-              setGroupUserActivity(
+              setGroup(
                 payload.userId,
                 "uploadingMedia",
                 Boolean(payload.active),
@@ -420,14 +387,14 @@ export function useChatRealtime(
                 ? payload.cursor.lastReadMessageId
                 : "";
             const cursorKey = `${cursorUserId}:${lastReadMessageId}`;
-            const previousCursorKey = lastReadSignalByUserRef.current.get(cursorUserId);
+            const previousCursorKey = readsRef.current.get(cursorUserId);
 
             if (
               cursorKey &&
               previousCursorKey !== cursorKey &&
               cursorUserId !== currentUserId
             ) {
-              lastReadSignalByUserRef.current.set(cursorUserId, cursorKey);
+              readsRef.current.set(cursorUserId, cursorKey);
               playChatSound("read");
             }
 
@@ -449,7 +416,7 @@ export function useChatRealtime(
 
             const hasMessageInCache = (
               queryClient.getQueryData<ChatMessagesQueryData>(
-                messagesQueryKey,
+                msgsKey,
               )?.messages ?? []
             ).some((entry) => entry.id === message.id);
 
@@ -471,7 +438,7 @@ export function useChatRealtime(
             }
 
             queryClient.setQueryData<ChatMessagesQueryData>(
-              messagesQueryKey,
+              msgsKey,
               (currentData) => appendChatMessageToData(currentData, message),
             );
             queryClient.setQueryData<ChatLastMessagePreviewData>(
@@ -503,7 +470,7 @@ export function useChatRealtime(
             }
 
             if (!peerUserId && message.authorId !== currentUserId) {
-              clearGroupUserActivity(message.authorId);
+              clearGroup(message.authorId);
             }
             return;
           }
@@ -519,7 +486,7 @@ export function useChatRealtime(
             const nextReplyMarkupJson = hasReplyMarkupJson ? payload.replyMarkupJson : "";
 
             queryClient.setQueryData<ChatMessagesQueryData>(
-              messagesQueryKey,
+              msgsKey,
               (currentData) => {
                 if (!currentData) return currentData;
 
@@ -562,7 +529,7 @@ export function useChatRealtime(
                 : Date.now();
 
             queryClient.setQueryData<ChatMessagesQueryData>(
-              messagesQueryKey,
+              msgsKey,
               (currentData) =>
                 removeChatMessageFromData(currentData, payload.messageId ?? ""),
             );
@@ -583,74 +550,49 @@ export function useChatRealtime(
         } catch {
           return;
         }
-      };
-
-      socket.onclose = () => {
-        socketRef.current = null;
-        socket = null;
-
-        if (closedByUserRef.current) {
-          return;
-        }
-
-        reconnectAttemptRef.current += 1;
-        const delayMs = Math.min(
-          CHAT_REALTIME_RECONNECT_MAX_DELAY_MS,
-          CHAT_REALTIME_RECONNECT_BASE_DELAY_MS *
-            2 ** Math.max(0, reconnectAttemptRef.current - 1),
-        );
-
-        reconnectTimeoutRef.current = window.setTimeout(connect, delayMs);
-      };
-    };
-
-    connect();
+    });
+    void subscribeToChat();
+    const unsubscribeFromOpen = apiWsOnOpen(subscribeToChat);
 
     return () => {
-      closedByUserRef.current = true;
-      clearReconnectTimeout();
+      unsubscribeFromEvents();
+      unsubscribeFromOpen();
       window.cancelAnimationFrame(resetPeerStateFrame);
       window.cancelAnimationFrame(resetGroupStateFrame);
-      resetGroupActivityState();
+      resetGroup();
 
-      if (socketRef.current?.readyState === WebSocket.OPEN) {
-        if (typingStateRef.current) {
-          socketRef.current.send(
-            JSON.stringify({
-              type: "status.typing",
-              conversationId,
-              active: false,
-            }),
-          );
-        }
-
-        if (mediaUploadingStateRef.current) {
-          socketRef.current.send(
-            JSON.stringify({
-              type: "status.media-upload",
-              conversationId,
-              active: false,
-            }),
-          );
-        }
+      if (typingRef.current) {
+        apiWsSendIfOpen({
+          type: "status.typing",
+          conversationId,
+          active: false,
+        });
       }
 
-      typingStateRef.current = false;
-      mediaUploadingStateRef.current = false;
-      socketRef.current = null;
-      socket?.close();
+      if (uploadRef.current) {
+        apiWsSendIfOpen({
+          type: "status.media-upload",
+          conversationId,
+          active: false,
+        });
+      }
+
+      typingRef.current = false;
+      uploadRef.current = false;
+      apiWsSendIfOpen({ type: "chat.unsubscribe" });
     };
   }, [
-    clearGroupUserActivity,
+    clearGroup,
     conversationId,
     currentUserId,
-    messagesQueryKey,
+    msgsKey,
+    messageFilter?.discussionChannelId,
     messageFilter?.messageId,
     messageFilter?.replyToId,
     peerUserId,
     queryClient,
-    resetGroupActivityState,
-    setGroupUserActivity,
+    resetGroup,
+    setGroup,
   ]);
 
   return {

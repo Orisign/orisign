@@ -1,6 +1,6 @@
 "use client";
 
-import { useAccountControllerMe } from "@/api/generated";
+import { useAccountControllerMe, useUsersControllerMe } from "@/api/generated";
 import { AvatarCarousel } from "@/components/shared/avatar-carousel";
 import { AvatarUploadButton } from "@/components/shared/avatar-upload-button";
 import { CopyableProfileValue } from "@/components/shared/copyable-profile-value";
@@ -13,8 +13,7 @@ import {
   SidebarPageTitle,
 } from "@/components/ui/sidebar-page";
 import { useAuth } from "@/hooks/use-auth";
-import { useCurrentUser } from "@/hooks/use-current-user";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import { formatBirthDateWithAge } from "@/lib/birth-date";
 import { Button } from "@repo/ui";
 import { ArrowLeft, EllipsisVertical, Pencil } from "lucide-react";
@@ -32,10 +31,11 @@ import { ProfileDropdown } from "@/components/user/profile-dropdown";
 export const SettingsSidebar = () => {
   const t = useTranslations("settingsSidebar");
   const locale = useLocale();
-  const { user } = useCurrentUser();
+  const me = useUsersControllerMe();
+  const user = me.data?.user ?? null;
   const { data: accountData } = useAccountControllerMe();
   const { user: auth } = useAuth();
-  const { pop, push } = useSidebar();
+  const { pop, push } = sidebarStore();
 
   const avatars = user?.avatars ?? [];
   const hasAvatar = avatars.length > 0;

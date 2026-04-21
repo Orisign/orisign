@@ -8,7 +8,7 @@ import {
   SidebarPageSeparator,
   SidebarPageTitle,
 } from "@/components/ui/sidebar-page";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import { useGeneralSettingsStore } from "@/store/settings/general-settings.store";
 import {
   Button,
@@ -42,7 +42,7 @@ const LEGACY_THEME_PRESET_ALIASES: Record<string, string> = {
 
 export const GeneralSettingsSidebar = () => {
   const t = useTranslations("generalSettingsSidebar");
-  const { pop, push } = useSidebar();
+  const { pop, push } = sidebarStore();
   const { setTheme } = useTheme();
   const {
     messageTextSize,
@@ -82,7 +82,7 @@ export const GeneralSettingsSidebar = () => {
         <p className="px-1 text-lg font-semibold text-primary">{t("settingsLabel")}</p>
 
         <div className="min-w-0 space-y-2 px-1">
-          <div className="flex min-w-0 items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center justify-between gap-3">
             <span className="min-w-0 break-words font-semibold leading-snug">
               {t("messageTextSize")}
             </span>
@@ -213,8 +213,8 @@ export const GeneralSettingsSidebar = () => {
             },
           ].map((option) => (
             <Ripple key={option.value} className={cn(SECTION_BUTTON_CLASSNAME, "py-2")}>
-              <label className="flex min-w-0 cursor-pointer items-start gap-4">
-                <RadioGroupItem value={option.value} className="mt-1" />
+              <label className="flex min-w-0 cursor-pointer items-center gap-4">
+                <RadioGroupItem value={option.value} />
                 <div className="min-w-0">
                   <p className="break-words font-semibold">{option.title}</p>
                   <p className="break-words text-sm text-muted-foreground">{option.description}</p>
@@ -240,8 +240,8 @@ export const GeneralSettingsSidebar = () => {
             { value: "24h", title: t("timeFormat24"), subtitle: "19:50" },
           ].map((option) => (
             <Ripple key={option.value} className={cn(SECTION_BUTTON_CLASSNAME, "py-2")}>
-              <label className="flex min-w-0 cursor-pointer items-start gap-4">
-                <RadioGroupItem value={option.value} className="mt-1" />
+              <label className="flex min-w-0 cursor-pointer items-center gap-4">
+                <RadioGroupItem value={option.value} />
                 <div className="min-w-0">
                   <p className="break-words font-semibold">{option.title}</p>
                   <p className="text-sm text-muted-foreground">{option.subtitle}</p>
