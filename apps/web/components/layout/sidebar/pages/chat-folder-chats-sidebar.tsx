@@ -13,7 +13,7 @@ import {
   useChatFolders,
   useUpdateChatFolder,
 } from "@/hooks/use-chat-folders";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import {
   CHAT_FOLDER_DRAFT_ID,
   type ExcludedChatType,
@@ -72,7 +72,7 @@ export function ChatFolderChatsSidebar({
   route: Extract<SidebarRoute, { screen: "chat-folder-chats" }>;
 }) {
   const t = useTranslations("chatFoldersChatsSidebar");
-  const { pop } = useSidebar();
+  const { pop } = sidebarStore();
   const { data: foldersData } = useChatFolders();
   const { mutate: updateFolder } = useUpdateChatFolder();
   const draft = useChatFolderDraftStore((state) => state.draft);

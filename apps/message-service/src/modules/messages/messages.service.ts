@@ -98,8 +98,12 @@ export class MessagesService {
       if (replyTarget.conversationId !== data.conversationId) {
         const linkedDiscussionChannelId =
           conversation?.discussionChannelId?.trim() || '';
+        const isDiscussionConversation =
+          conversation?.type === ConversationType.GROUP ||
+          conversation?.type === ConversationType.SUPERGROUP;
+
         let isLinkedDiscussionReply =
-          conversation?.type === ConversationType.GROUP &&
+          isDiscussionConversation &&
           linkedDiscussionChannelId === replyTarget.conversationId;
 
         if (isLinkedDiscussionReply) {
@@ -155,6 +159,9 @@ export class MessagesService {
       attachmentsJson: data.attachmentsJson,
       sourceBotId: data.sourceBotId,
       metadataJson: data.metadataJson,
+    });
+    await this.conversationsClient.touchConversation({
+      conversationId: data.conversationId,
     });
 
     return {
@@ -336,10 +343,7 @@ export class MessagesService {
     const message = await this.repository.getMessageById(data.messageId);
 
     if (!message) {
-      throw new RpcException({
-        code: RpcStatus.NOT_FOUND,
-        details: 'Message not found',
-      });
+      return { ok: true };
     }
 
     if (message.authorId !== data.actorId) {

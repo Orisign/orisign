@@ -14,7 +14,7 @@ import {
   useDeleteChatFolder,
   useUpdateChatFolder,
 } from "@/hooks/use-chat-folders";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import { CHAT_FOLDER_DRAFT_ID } from "@/lib/chat-folders";
 import {
   createChatFolderEditorSchema,
@@ -49,7 +49,7 @@ export function ChatFolderEditorSidebar({
   route: Extract<SidebarRoute, { screen: "chat-folder-edit" }>;
 }) {
   const t = useTranslations("chatFoldersEditorSidebar");
-  const { pop, push } = useSidebar();
+  const { pop, push } = sidebarStore();
   const { data } = useChatFolders();
   const { mutateAsync: createFolder, isPending: isCreating } = useCreateChatFolder();
   const { mutateAsync: updateFolder, isPending: isUpdating } = useUpdateChatFolder();

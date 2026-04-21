@@ -11,7 +11,11 @@ import {
   getMessagesControllerListUrl,
   usersControllerGet,
 } from "@/api/generated";
-import { normalizeConversationUsername } from "@/lib/chat-routes";
+import {
+  decodeConversationLocator,
+  isUsernameConversationLocator,
+  normalizeConversationUsername,
+} from "@/lib/chat-routes";
 import { buildApiUrl } from "@/lib/app-config";
 import {
   parseChatReplyMarkup,
@@ -127,6 +131,39 @@ export function useConversationUsernameQuery(username: string) {
     queryKey: getConversationUsernameQueryKey(normalizedUsername),
     queryFn: () => conversationsControllerGet({ username: normalizedUsername }),
     enabled: Boolean(normalizedUsername),
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function getRouteUserQueryKey(locator: string) {
+  const normalizedLocator = decodeConversationLocator(locator);
+  const normalizedUsername = isUsernameConversationLocator(normalizedLocator)
+    ? normalizeConversationUsername(normalizedLocator)
+    : "";
+
+  return [
+    "route-user",
+    normalizedUsername ? "username" : "id",
+    normalizedUsername || normalizedLocator,
+  ] as const;
+}
+
+export function useRouteUserQuery(locator: string, enabled = true) {
+  const normalizedLocator = decodeConversationLocator(locator);
+  const normalizedUsername = isUsernameConversationLocator(normalizedLocator)
+    ? normalizeConversationUsername(normalizedLocator)
+    : "";
+  const normalizedUserId = normalizedUsername ? "" : normalizedLocator;
+
+  return useQuery<{ user: UserResponseDto | null }>({
+    queryKey: getRouteUserQueryKey(normalizedLocator),
+    queryFn: () =>
+      usersControllerGet(
+        normalizedUsername
+          ? { username: normalizedUsername }
+          : { id: normalizedUserId },
+      ),
+    enabled: enabled && Boolean(normalizedUsername || normalizedUserId),
     refetchOnWindowFocus: false,
   });
 }
@@ -371,6 +408,7 @@ export function useChatMessages(
       };
     },
     enabled: Boolean(conversationId),
+    initialData: conversationId ? undefined : { messages: [] },
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
@@ -404,6 +442,7 @@ export function useChatInputMarkup(
     },
     select: (data) => resolveActiveConversationInputMarkup(data.messages),
     enabled: Boolean(conversationId),
+    initialData: conversationId ? undefined : { messages: [] },
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });

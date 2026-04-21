@@ -1,9 +1,9 @@
 "use client";
 
 import {
-  CreateConversationRequestDtoType,
   getConversationsControllerMyQueryKey,
-  useConversationsControllerCreate,
+  useConversationsControllerMy,
+  useUsersControllerMe,
 } from "@/api/generated";
 import { CreateConversationUserChip } from "@/components/chat/create-conversation-user-chip";
 import { CreateConversationUserRow } from "@/components/chat/create-conversation-user-row";
@@ -14,13 +14,16 @@ import {
   SidebarPageTitle,
 } from "@/components/ui/sidebar-page";
 import { useChatAuthors } from "@/hooks/use-chat";
-import { useCurrentUser } from "@/hooks/use-current-user";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import { useUsersList } from "@/hooks/use-users-list";
+import {
+  buildDirectConversationPath,
+  buildUserDirectPath,
+  findDirectConversationWithUser,
+} from "@/lib/direct-chat";
 import { cn } from "@/lib/utils";
 import type { SidebarRoute } from "@/store/sidebar/sidebar-state.types";
 import { Button, Input } from "@repo/ui";
-import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useDeferredValue, useMemo, useState } from "react";
@@ -34,10 +37,10 @@ export function CreateConversationMembersSidebar({
   route,
 }: CreateConversationMembersSidebarProps) {
   const t = useTranslations("createConversation.members");
-  const { user: currentUser } = useCurrentUser();
-  const { pop, push, reset, setCurrent } = useSidebar();
+  const me = useUsersControllerMe();
+  const currentUser = me.data?.user ?? null;
+  const { pop, push, reset, setCurrent } = sidebarStore();
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>(
@@ -50,6 +53,12 @@ export function CreateConversationMembersSidebar({
     excludeIds: currentUser?.id ? [currentUser.id] : [],
     limit: 60,
   });
+  const directConversationsQuery = useConversationsControllerMy(undefined, {
+    query: {
+      queryKey: getConversationsControllerMyQueryKey(),
+      staleTime: 60_000,
+    },
+  });
   const selectedUsersQuery = useChatAuthors(selectedUserIds);
 
   const selectedUsers = useMemo(
@@ -59,22 +68,6 @@ export function CreateConversationMembersSidebar({
         .filter((user): user is NonNullable<typeof user> => Boolean(user)),
     [selectedUserIds, selectedUsersQuery.data],
   );
-
-  const { mutate: createConversation, isPending } = useConversationsControllerCreate({
-    mutation: {
-      onSuccess: async (response) => {
-        await queryClient.invalidateQueries({
-          queryKey: getConversationsControllerMyQueryKey(),
-        });
-
-        reset();
-
-        if (response.conversation?.id) {
-          router.push(`/${response.conversation.id}`);
-        }
-      },
-    },
-  });
 
   function handleToggleUser(userId: string) {
     const isSelected = selectedUserIds.includes(userId);
@@ -91,17 +84,28 @@ export function CreateConversationMembersSidebar({
   }
 
   function handleNext() {
-    if (selectedUserIds.length === 0 || isPending) {
+    if (selectedUserIds.length === 0) {
       return;
     }
 
     if (isDirect) {
-      createConversation({
-        data: {
-          type: CreateConversationRequestDtoType.DM,
-          memberIds: [...selectedUserIds],
-        },
-      });
+      const selectedUserId = selectedUserIds[0] ?? "";
+      const selectedUser =
+        selectedUsers[0] ??
+        usersQuery.data?.users.find((user) => user.id === selectedUserId) ??
+        null;
+      const existingConversation = findDirectConversationWithUser(
+        directConversationsQuery.data?.conversations,
+        selectedUserId,
+        currentUser?.id,
+      );
+
+      reset();
+      router.push(
+        existingConversation
+          ? buildDirectConversationPath(existingConversation, selectedUser)
+          : buildUserDirectPath(selectedUser ?? { id: selectedUserId }),
+      );
       return;
     }
 
@@ -177,7 +181,7 @@ export function CreateConversationMembersSidebar({
         type="button"
         size="icon"
         onClick={handleNext}
-        disabled={selectedUserIds.length === 0 || isPending}
+        disabled={selectedUserIds.length === 0}
         className={cn(
           "absolute bottom-4 right-4 z-40 size-14 rounded-full shadow-none [&_svg]:size-7",
           selectedUserIds.length === 0 && "opacity-60",

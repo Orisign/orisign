@@ -1,10 +1,9 @@
 "use client";
 
 import {
-  CreateConversationRequestDtoType,
-  getConversationsControllerMyQueryKey,
-  useConversationsControllerCreate,
+  type UserResponseDto,
   useConversationsControllerMy,
+  useUsersControllerMe,
 } from "@/api/generated";
 import { ChatItem } from "@/components/chat/chat-item";
 import { CreateConversationUserRow } from "@/components/chat/create-conversation-user-row";
@@ -13,13 +12,16 @@ import {
   SidebarPageContent,
   SidebarPageHeader,
 } from "@/components/ui/sidebar-page";
-import { useCurrentUser } from "@/hooks/use-current-user";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import { useUsersList } from "@/hooks/use-users-list";
 import { SPRING_MICRO } from "@/lib/animations";
 import { getConversationTitle } from "@/lib/chat";
-import { Button, Input, Skeleton, SkeletonGroup, toast } from "@repo/ui";
-import { useQueryClient } from "@tanstack/react-query";
+import {
+  buildDirectConversationPath,
+  buildUserDirectPath,
+  findDirectConversationWithUser,
+} from "@/lib/direct-chat";
+import { Button, Input, Skeleton, SkeletonGroup } from "@repo/ui";
 import { AnimatePresence, motion } from "motion/react";
 import { Search } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -40,13 +42,11 @@ const SEARCH_ICON_VARIANTS = {
 
 export const ChatSearchSidebar = () => {
   const t = useTranslations("chatSearchSidebar");
-  const { pop } = useSidebar();
+  const { pop } = sidebarStore();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { user: currentUser } = useCurrentUser();
+  const me = useUsersControllerMe();
+  const currentUser = me.data?.user ?? null;
   const { data, isLoading } = useConversationsControllerMy();
-  const { mutateAsync: createConversation, isPending: isCreatingConversation } =
-    useConversationsControllerCreate();
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
 
@@ -75,35 +75,23 @@ export const ChatSearchSidebar = () => {
   });
   const users = usersQuery.data?.users ?? [];
 
-  async function handleOpenDirectConversation(userId: string) {
-    if (!userId || isCreatingConversation) {
+  function openDirect(user: UserResponseDto) {
+    if (!user.id) {
       return;
     }
 
-    try {
-      const response = await createConversation({
-        data: {
-          type: CreateConversationRequestDtoType.DM,
-          memberIds: [userId],
-        },
-      });
+    const existingConversation = findDirectConversationWithUser(
+      data?.conversations,
+      user.id,
+      currentUser?.id,
+    );
 
-      const conversationId = response.conversation?.id?.trim() ?? "";
-      if (!conversationId) {
-        throw new Error("Conversation was not created");
-      }
-
-      await queryClient.invalidateQueries({
-        queryKey: getConversationsControllerMyQueryKey(),
-      });
-      pop();
-      router.push(`/${conversationId}`);
-    } catch {
-      toast({
-        title: t("openChatError"),
-        type: "error",
-      });
-    }
+    pop();
+    router.push(
+      existingConversation
+        ? buildDirectConversationPath(existingConversation, user)
+        : buildUserDirectPath(user),
+    );
   }
 
   return (
@@ -200,7 +188,7 @@ export const ChatSearchSidebar = () => {
                 checked={false}
                 showCheckbox={false}
                 onToggle={() => {
-                  void handleOpenDirectConversation(user.id);
+                  openDirect(user);
                 }}
               />
             ))}

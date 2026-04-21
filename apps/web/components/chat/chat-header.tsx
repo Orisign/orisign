@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Input } from "@repo/ui";
+import { Button, Input, Skeleton, SkeletonGroup } from "@repo/ui";
 import { IoMdMore } from "react-icons/io";
 import { ChatDropdown } from "./chat-dropdown";
 import { useState } from "react";
@@ -39,6 +39,7 @@ interface ChatHeaderProps {
   canToggleNotifications?: boolean;
   canLeaveConversation?: boolean;
   onViewDiscussion?: () => void;
+  isLoading?: boolean;
 }
 
 export function ChatHeader({
@@ -68,6 +69,7 @@ export function ChatHeader({
   canToggleNotifications = false,
   canLeaveConversation = true,
   onViewDiscussion,
+  isLoading = false,
 }: ChatHeaderProps) {
   const t = useTranslations("chat.header");
   const [searching, setSearching] = useState(false);
@@ -94,6 +96,28 @@ export function ChatHeader({
           <IoArrowBack />
         </Button>
         <p className="truncate text-lg font-semibold">{title}</p>
+      </motion.div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <motion.div
+        layout
+        transition={SPRING_LAYOUT}
+        className="z-20 flex w-full shrink-0 items-center gap-2 border-b border-border bg-sidebar px-4 py-2"
+      >
+        <SkeletonGroup durationMs={2100} className="flex w-full items-center gap-3">
+          <Skeleton className="size-12 shrink-0 rounded-full" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-4 w-44 max-w-[55%] rounded-full" />
+            <Skeleton className="h-3.5 w-28 max-w-[38%] rounded-full" />
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Skeleton className="size-10 rounded-full" />
+            <Skeleton className="size-10 rounded-full" />
+          </div>
+        </SkeletonGroup>
       </motion.div>
     );
   }

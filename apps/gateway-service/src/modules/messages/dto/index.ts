@@ -70,6 +70,76 @@ export class SendMessageRequestDto {
 	locale?: string
 }
 
+export class SendDirectMessageRequestDto {
+	@ApiProperty()
+	@IsString()
+	targetUserId: string
+
+	@ApiProperty({ enum: MessageKind })
+	@IsEnum(MessageKind)
+	kind: MessageKind
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	text?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	replyToId?: string
+
+	@ApiPropertyOptional({ type: [String] })
+	@IsOptional()
+	@IsArray()
+	@IsString({ each: true })
+	mediaKeys?: string[]
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	entitiesJson?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	replyMarkupJson?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	attachmentsJson?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	sourceBotId?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	metadataJson?: string
+
+	@ApiPropertyOptional()
+	@IsOptional()
+	@IsString()
+	locale?: string
+}
+
+export class ForwardMessageRequestDto {
+	@ApiProperty()
+	@IsString()
+	sourceConversationId: string
+
+	@ApiProperty()
+	@IsString()
+	messageId: string
+
+	@ApiProperty()
+	@IsString()
+	targetConversationId: string
+}
+
 export class ListMessagesRequestDto {
 	@ApiProperty()
 	@IsString()

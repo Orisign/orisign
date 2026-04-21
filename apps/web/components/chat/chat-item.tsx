@@ -1,8 +1,7 @@
 "use client";
 
-import { ConversationResponseDto } from "@/api/generated";
+import { ConversationResponseDto, useUsersControllerMe } from "@/api/generated";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useCurrentUser } from "@/hooks/use-current-user";
 import { useChatAuthors, useChatLastMessagePreview, useChatUnreadCount } from "@/hooks/use-chat";
 import {
   formatChatListMessagePreview,
@@ -17,6 +16,8 @@ import {
   getUserInitial,
   isDirectConversation,
 } from "@/lib/chat";
+import { buildConversationPathFromConversation } from "@/lib/chat-routes";
+import { buildDirectConversationPath } from "@/lib/direct-chat";
 import { cn, Ripple } from "@repo/ui";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -32,9 +33,8 @@ export function ChatItem({ conversation }: ChatItemProps) {
   const locale = useLocale();
   const timeFormat = useGeneralSettingsStore((state) => state.timeFormat);
   const pathname = usePathname();
-  const { user } = useCurrentUser();
-  const isActive =
-    pathname === `/${conversation.id}` || pathname.startsWith(`/c/${conversation.id}/`);
+  const me = useUsersControllerMe();
+  const user = me.data?.user ?? null;
   const { data: lastMessagePreview } = useChatLastMessagePreview(conversation.id);
   const isDirect = isDirectConversation(conversation);
   const peerId = isDirect
@@ -53,6 +53,13 @@ export function ChatItem({ conversation }: ChatItemProps) {
     ? (usersMap?.[lastMessage.authorId] ?? null)
     : null;
   const peerUser = peerId ? (usersMap?.[peerId] ?? null) : null;
+  const conversationPath = isDirect
+    ? buildDirectConversationPath(conversation, peerUser)
+    : buildConversationPathFromConversation(conversation);
+  const isActive =
+    pathname === conversationPath ||
+    pathname === `/${conversation.id}` ||
+    pathname.startsWith(`/c/${conversation.id}/`);
   const title = isDirect
     ? getUserDisplayName(peerUser, t("unknownAuthor"))
     : getConversationTitle(conversation);
@@ -104,7 +111,7 @@ export function ChatItem({ conversation }: ChatItemProps) {
           <span className="absolute inset-0 rounded-xl bg-primary" aria-hidden />
         ) : null}
         <Link
-          href={`/${conversation.id}`}
+          href={conversationPath}
           className={cn(
             "relative z-10 block w-full cursor-pointer rounded-xl px-2 py-2.5 transition-colors duration-200",
             isActive ? "text-primary-foreground" : "hover:bg-accent/70",

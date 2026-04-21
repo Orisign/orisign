@@ -18,10 +18,10 @@ export function getStorageBaseUrl() {
 }
 
 export function buildApiUrl(path: string) {
-  const baseUrl = new URL(getApiBaseUrl());
-  baseUrl.pathname = path;
+  const normalizedBaseUrl = normalizeBaseUrl(getApiBaseUrl());
+  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
 
-  return baseUrl.toString();
+  return new URL(normalizedPath, normalizedBaseUrl).toString();
 }
 
 export function buildStorageFileUrl(value: string | null | undefined) {

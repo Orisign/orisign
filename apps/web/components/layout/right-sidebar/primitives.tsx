@@ -114,7 +114,7 @@ export function RightSidebarInfoRow({
     <Ripple asChild>
       <button
         type="button"
-        className="flex w-full items-start gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-accent"
+        className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-accent"
         onClick={onClick}
       >
         <RightSidebarInfoIcon>{icon}</RightSidebarInfoIcon>

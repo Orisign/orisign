@@ -1,7 +1,6 @@
 "use client";
 
-import { useUsersControllerPatch } from "@/api/generated";
-import { useCurrentUser } from "@/hooks/use-current-user";
+import { useUsersControllerMe, useUsersControllerPatch } from "@/api/generated";
 import {
   createEditProfileSchema,
   TypeEditProfileSchema,
@@ -14,6 +13,7 @@ import { Button, Input } from "@repo/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
+import { hasCompletedOnboarding } from "@/lib/user-profile";
 
 const Player = dynamic(
   () => import("@lottiefiles/react-lottie-player").then((mod) => mod.Player),
@@ -25,7 +25,9 @@ export const OnboardingForm = () => {
   const t = useTranslations("profile");
   const tv = useTranslations("validation.profile");
   const router = useRouter();
-  const { user, isSuccess: isMeLoaded } = useCurrentUser();
+  const me = useUsersControllerMe();
+  const user = me.data?.user ?? null;
+  const isMeLoaded = me.isSuccess;
   const editProfileSchema = useMemo(() => createEditProfileSchema(tv), [tv]);
 
   const { mutate: editProfile, isPending: isLoading } = useUsersControllerPatch(
@@ -59,8 +61,7 @@ export const OnboardingForm = () => {
   useEffect(() => {
     if (!isMeLoaded) return;
 
-    const hasProfile = !!user?.firstName?.trim() || !!user?.username?.trim();
-    if (hasProfile) {
+    if (hasCompletedOnboarding(user)) {
       router.replace("/");
     }
   }, [isMeLoaded, router, user]);

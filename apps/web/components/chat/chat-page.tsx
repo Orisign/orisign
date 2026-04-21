@@ -1,13 +1,17 @@
 "use client";
 
 import {
+  type ConversationResponseDto,
   type GetConversationResponseDto,
   type ListMyConversationsResponseDto,
   ConversationMemberResponseDtoRole,
   ConversationMemberResponseDtoState,
+  ConversationResponseDtoType,
   SendMessageRequestDtoKind,
   getConversationsControllerMyQueryKey,
   useConversationsControllerJoin,
+  useConversationsControllerMy,
+  useUsersControllerMe,
   useMessagesControllerDelete,
   useMessagesControllerSend,
 } from "@/api/generated";
@@ -27,6 +31,7 @@ import {
   useChatMessages,
   useConversationQuery,
   useConversationUsernameQuery,
+  useRouteUserQuery,
 } from "@/hooks/use-chat";
 import { useChatRealtime } from "@/hooks/use-chat-realtime";
 import { useChatBlockStatus, useSetChatBlock } from "@/hooks/use-chat-block";
@@ -36,9 +41,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SendMessageForm } from "./send-message-form";
 import { ChatMessageList } from "./chat-message-list";
-import { useCurrentUser } from "@/hooks/use-current-user";
 import { useLocale, useTranslations } from "next-intl";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, toast } from "@repo/ui";
 import { FiTrash2, FiX } from "react-icons/fi";
 import {
@@ -66,6 +70,13 @@ import {
   isUsernameConversationLocator,
   normalizeConversationUsername,
 } from "@/lib/chat-routes";
+import {
+  buildDirectConversationPath,
+  createVirtualDirectConversation,
+  findDirectConversationWithUser,
+  sendDirectMessage,
+  upsertConversationInListData,
+} from "@/lib/direct-chat";
 import type {
   ChatCommentsContext,
   ChatEditTarget,
@@ -74,7 +85,7 @@ import type {
 import { useDirectCall } from "@/hooks/use-direct-call";
 import { ChatCallWindow } from "./chat-call-window";
 import { createCallLogMessageText } from "@/lib/call-log-message";
-import { useRightSidebar } from "@/hooks/use-right-sidebar";
+import { rightSidebarStore } from "@/store/right-sidebar/right-sidebar.store";
 import { runWithViewTransition } from "@/lib/view-transitions";
 import { AnimatePresence, motion } from "motion/react";
 import { fadeScale } from "@/lib/animations";
@@ -86,7 +97,7 @@ interface ChatPageProps {
 
 const EMPTY_MESSAGE_SELECTION = new Set<string>();
 
-function toThreadPostSnapshotMessage(
+function toPost(
   snapshot: ChatReplyTarget | null,
   fallbackConversationId: string,
 ): ChatMessageDto | null {
@@ -124,13 +135,16 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
     ? normalizeConversationUsername(conversationRouteParam)
     : "";
   const usernameConversationQuery = useConversationUsernameQuery(usernameLookup);
-  const activeConversationId = usernameLookup
+  const routeConversationId = usernameLookup
     ? (usernameConversationQuery.data?.conversation?.id?.trim() ?? "")
     : conversationRouteParam;
-  const conversationQuery = useConversationQuery(activeConversationId);
-  const { user: currentUser } = useCurrentUser();
+  const conversationQuery = useConversationQuery(routeConversationId);
+  const me = useUsersControllerMe();
+  const currentUser = me.data?.user ?? null;
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [createdDirectConversation, setCreatedDirectConversation] =
+    useState<ConversationResponseDto | null>(null);
   const [replyState, setReplyState] = useState<{
     conversationId: string;
     target: ChatReplyTarget | null;
@@ -183,19 +197,114 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
   const { mutateAsync: joinConversation, isPending: isJoiningConversation } =
     useConversationsControllerJoin();
   const { mutateAsync: setUserBlock, isPending: isSettingPeerBlock } = useSetChatBlock();
-  const rightSidebar = useRightSidebar();
-  const isResolvingConversationRoute =
-    Boolean(usernameLookup) && usernameConversationQuery.isPending;
-  const conversation =
+  const rightSidebar = rightSidebarStore();
+  const routeConversation =
     conversationQuery.data?.conversation ?? usernameConversationQuery.data?.conversation ?? null;
+  const isResolvingConversationRoute = usernameLookup
+    ? usernameConversationQuery.isPending
+    : conversationQuery.isPending;
+  const shouldResolveRouteUser = !isResolvingConversationRoute && !routeConversation;
+  const routeUserQuery = useRouteUserQuery(
+    conversationRouteParam,
+    shouldResolveRouteUser,
+  );
+  const routeUser = routeUserQuery.data?.user ?? null;
+  const myConversationsQuery = useConversationsControllerMy(undefined, {
+    query: {
+      queryKey: getConversationsControllerMyQueryKey(),
+      staleTime: 60_000,
+    },
+  });
+  const currentUserId = currentUser?.id ?? "";
+  const routeUserId = routeUser?.id ?? "";
+  const routeDirectConversation = useMemo(() => {
+    if (!routeUserId || !currentUserId) {
+      return null;
+    }
+
+    if (
+      createdDirectConversation?.id &&
+      createdDirectConversation.type === ConversationResponseDtoType.DM &&
+      createdDirectConversation.members.some((member) => member.userId === routeUserId)
+    ) {
+      return createdDirectConversation;
+    }
+
+    return findDirectConversationWithUser(
+      myConversationsQuery.data?.conversations,
+      routeUserId,
+      currentUserId,
+    );
+  }, [
+    createdDirectConversation,
+    currentUserId,
+    myConversationsQuery.data?.conversations,
+    routeUserId,
+  ]);
+  const virtualDirectConversation = useMemo(() => {
+    if (
+      routeConversation ||
+      routeDirectConversation ||
+      myConversationsQuery.isPending ||
+      !currentUser?.id ||
+      !routeUser?.id
+    ) {
+      return null;
+    }
+
+    return createVirtualDirectConversation({
+      currentUser,
+      peerUser: routeUser,
+    });
+  }, [
+    currentUser,
+    myConversationsQuery.isPending,
+    routeConversation,
+    routeDirectConversation,
+    routeUser,
+  ]);
+  const conversation =
+    routeConversation ?? routeDirectConversation ?? virtualDirectConversation;
+  const activeConversationId =
+    routeConversation?.id?.trim() ?? routeDirectConversation?.id?.trim() ?? "";
+  const isVirtualDirect = Boolean(virtualDirectConversation && !activeConversationId);
+  const isResolvingDirectConversationRoute = Boolean(
+    !routeConversation &&
+      routeUserId &&
+      currentUserId &&
+      myConversationsQuery.isPending,
+  );
+  const isChatShellLoading =
+    me.isPending ||
+    isResolvingConversationRoute ||
+    (shouldResolveRouteUser && routeUserQuery.isPending) ||
+    isResolvingDirectConversationRoute;
 
   useEffect(() => {
     if (isResolvingConversationRoute) return;
-    if (conversationQuery.isPending) return;
-    if (conversation) return;
+    if (conversation || routeUser) return;
+    if (shouldResolveRouteUser && routeUserQuery.isPending) return;
 
     router.replace("/");
-  }, [conversation, conversationQuery.isPending, isResolvingConversationRoute, router]);
+  }, [
+    conversation,
+    isResolvingConversationRoute,
+    routeUser,
+    routeUserQuery.isPending,
+    router,
+    shouldResolveRouteUser,
+  ]);
+
+  useEffect(() => {
+    if (!routeUser?.id || routeUser.username || !routeDirectConversation?.id) {
+      return;
+    }
+
+    const targetPath = buildDirectConversationPath(routeDirectConversation, routeUser);
+    if (targetPath !== `/${conversationRouteParam}`) {
+      router.replace(targetPath);
+    }
+  }, [conversationRouteParam, routeDirectConversation, routeUser, router]);
 
   const exitSelectionMode = useCallback(() => {
     setSelectionState({
@@ -291,6 +400,14 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
     () => (isCommentsMode ? { replyToId: commentsFor } : undefined),
     [commentsFor, isCommentsMode],
   );
+  const realtimeMessageFilter = useMemo<ChatMessagesFilter | undefined>(
+    () =>
+      commentsMessageFilter ??
+      (isDiscussionGroup && commentsChannelId
+        ? { discussionChannelId: commentsChannelId }
+        : undefined),
+    [commentsChannelId, commentsMessageFilter, isDiscussionGroup],
+  );
   const composerInputMarkupQuery = useChatInputMarkup(
     activeConversationId,
     commentsMessageFilter,
@@ -311,7 +428,7 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
   const threadPostSnapshot = useMemo(
     () =>
       isCommentsMode
-        ? toThreadPostSnapshotMessage(
+        ? toPost(
             commentsContext?.post ?? null,
             commentsChannelId,
           )
@@ -459,13 +576,15 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
     activeConversationId,
     currentUser?.id,
     peerId,
-    commentsMessageFilter,
+    realtimeMessageFilter,
   );
   const groupStatusUserId = isDirect ? null : chatRealtime.groupState.activeUserId;
   const statusAuthorIds = [...new Set([peerId, groupStatusUserId].filter(Boolean))] as string[];
   const { data: usersMap } = useChatAuthors(statusAuthorIds);
   const { data: blockStatus } = useChatBlockStatus(isDirect ? peerId : null);
-  const peerUser = peerId ? (usersMap?.[peerId] ?? null) : null;
+  const peerUser = peerId
+    ? (usersMap?.[peerId] ?? (peerId === routeUser?.id ? routeUser : null))
+    : null;
   const isBotDirectConversation = Boolean(isDirect && isBotProjectionUserId(peerId));
   const groupStatusUser = groupStatusUserId
     ? (usersMap?.[groupStatusUserId] ?? null)
@@ -529,17 +648,22 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
   const isChannel = conversation?.type === CHAT_CONVERSATION_TYPE.CHANNEL;
   const currentMemberRole = currentMember?.role;
   const canWriteMessages =
-    !isChannel ||
-    currentUser?.id === conversation?.ownerId ||
-    currentMemberRole === ConversationMemberResponseDtoRole.OWNER ||
-    currentMemberRole === ConversationMemberResponseDtoRole.ADMIN ||
-    currentMemberRole === ConversationMemberResponseDtoRole.MEMBER;
+    Boolean(conversation) &&
+    (
+      !isChannel ||
+      currentUser?.id === conversation?.ownerId ||
+      currentMemberRole === ConversationMemberResponseDtoRole.OWNER ||
+      currentMemberRole === ConversationMemberResponseDtoRole.ADMIN ||
+      currentMemberRole === ConversationMemberResponseDtoRole.MEMBER
+    );
   const canJoinChannel =
     isChannel &&
     Boolean(activeConversationId) &&
     currentUser?.id !== conversation?.ownerId &&
     !currentMember;
-  const canLeaveConversation = isDirect || Boolean(currentMember && currentUser?.id !== conversation?.ownerId);
+  const canLeaveConversation =
+    Boolean(activeConversationId) &&
+    (isDirect || Boolean(currentMember && currentUser?.id !== conversation?.ownerId));
   const notifications = useConversationNotifications(
     activeConversationId,
     conversation?.notificationsEnabled,
@@ -568,6 +692,87 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
   const handleToggleNotifications = useCallback(() => {
     notifications.toggleNotifications(!notifications.notificationsEnabled);
   }, [notifications]);
+
+  const handleDirectConversationResolved = useCallback(
+    (nextConversation: ConversationResponseDto) => {
+      if (!nextConversation.id) {
+        return;
+      }
+
+      setCreatedDirectConversation(nextConversation);
+
+      const targetPath = buildDirectConversationPath(nextConversation, routeUser);
+      if (targetPath !== `/${conversationRouteParam}`) {
+        router.replace(targetPath);
+      }
+    },
+    [conversationRouteParam, routeUser, router],
+  );
+
+  const { mutateAsync: startBotDirect, isPending: isStartingBotDirect } = useMutation({
+    mutationFn: async () => {
+      if (!peerId) {
+        throw new Error("Direct peer is missing");
+      }
+
+      return sendDirectMessage({
+        targetUserId: peerId,
+        kind: SendMessageRequestDtoKind.TEXT,
+        text: "/start",
+        locale,
+      });
+    },
+    onSuccess: (response) => {
+      const conversation = response.conversation ?? null;
+      if (!conversation?.id) {
+        return;
+      }
+
+      const nextTimestamp = Date.now();
+      setCreatedDirectConversation(conversation);
+
+      queryClient.setQueryData<GetConversationResponseDto>(
+        getConversationQueryKey(conversation.id),
+        {
+          conversation: {
+            ...conversation,
+            updatedAt: Math.max(conversation.updatedAt ?? 0, nextTimestamp),
+          },
+        },
+      );
+      queryClient.setQueriesData<ListMyConversationsResponseDto>(
+        { queryKey: getConversationsControllerMyQueryKey() },
+        (currentData) =>
+          upsertConversationInListData(currentData, conversation, nextTimestamp),
+      );
+      void queryClient.invalidateQueries({
+        queryKey: getConversationsControllerMyQueryKey(),
+      });
+
+      const targetPath = buildDirectConversationPath(conversation, routeUser);
+      if (targetPath !== `/${conversationRouteParam}`) {
+        router.replace(targetPath);
+      }
+    },
+    onError: () => {
+      toast({
+        title: tSendForm("sendError"),
+        type: "error",
+      });
+    },
+  });
+
+  const handleStartBotDirect = useCallback(async () => {
+    if (!peerId || isStartingBotDirect) {
+      return;
+    }
+
+    try {
+      await startBotDirect();
+    } catch {
+      // The mutation onError already shows the user-facing error.
+    }
+  }, [isStartingBotDirect, peerId, startBotDirect]);
 
   const handleJoinChannel = useCallback(async () => {
     if (!activeConversationId || isJoiningConversation) {
@@ -732,7 +937,7 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
   }, [conversation?.discussionConversationId, router]);
 
   const directCall = useDirectCall({
-    enabled: isDirect && !isBotDirectConversation,
+    enabled: Boolean(activeConversationId) && isDirect && !isBotDirectConversation,
     conversationId: activeConversationId,
     onCallSummary: (summary) => {
       sendMessage({
@@ -750,7 +955,13 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
   });
 
   const shouldShowComposerFooter =
-    isSelectionMode || isPeerBlockedByCurrentUser || canJoinChannel || canWriteMessages;
+    !isChatShellLoading &&
+    (isSelectionMode || isPeerBlockedByCurrentUser || canJoinChannel || canWriteMessages);
+  const canStartBotDirect =
+    isVirtualDirect &&
+    isBotDirectConversation &&
+    !isPeerBlockedByCurrentUser &&
+    !isCurrentUserBlockedByPeer;
 
   return (
     <div className="chat-wallpaper relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
@@ -769,7 +980,7 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
 
       <div className="flex min-h-0 flex-1 flex-col">
         <ChatHeader
-          conversationId={activeConversationId}
+          conversationId={activeConversationId || conversationRouteParam}
           title={headerTitle}
           members={conversation?.members.length ?? 0}
           subtitle={subtitle}
@@ -777,7 +988,7 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
           avatarFallback={avatarFallback}
           avatarSeed={avatarSeed}
           isDirect={isDirect}
-          showCallAction={isDirect && !isBotDirectConversation}
+          showCallAction={Boolean(activeConversationId) && isDirect && !isBotDirectConversation}
           directPeerId={peerId}
           isPeerBlockedByCurrentUser={isPeerBlockedByCurrentUser}
           onStartCall={() => {
@@ -789,7 +1000,7 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
           callActive={directCall.isInCall}
           callDisabled={isCallUnavailable}
           onToggleRightSidebar={
-            isCommentsMode || !activeConversationId
+            isCommentsMode || !conversation
               ? undefined
               : () => rightSidebar.toggle(conversationRouteParam)
           }
@@ -805,6 +1016,7 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
               ? handleViewDiscussion
               : undefined
           }
+          isLoading={isChatShellLoading}
         />
 
         <ChatMessageList
@@ -827,6 +1039,7 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
           onReply={isCommentsMode ? undefined : handleReplyMessage}
           onEdit={handleEditMessage}
           alwaysMarkRead={isBotDirectConversation}
+          isLoadingConversation={isChatShellLoading}
         />
 
         {shouldShowComposerFooter ? (
@@ -885,6 +1098,23 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
                     {tSendForm("subscribeAction")}
                   </Button>
                 </motion.div>
+              ) : canStartBotDirect ? (
+                <motion.div
+                  key="start-bot"
+                  variants={fadeScale}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                >
+                  <Button
+                    type="button"
+                    className="h-14 w-full rounded-2xl text-base font-semibold"
+                    onClick={() => void handleStartBotDirect()}
+                    disabled={!peerId || isStartingBotDirect}
+                  >
+                    {tSendForm("startBotAction")}
+                  </Button>
+                </motion.div>
               ) : (
                 isPeerBlockedByCurrentUser ? (
                   <motion.div
@@ -914,12 +1144,18 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
                     >
                       <SendMessageForm
                         conversationId={activeConversationId}
+                        directPeerUserId={isVirtualDirect ? (peerId ?? "") : ""}
                         isBlockedByCurrentUser={isPeerBlockedByCurrentUser}
                         isBlockedByPeer={isCurrentUserBlockedByPeer}
                         botReplyKeyboard={activeBotReplyKeyboard}
                         botInputPlaceholder={botInputPlaceholder}
-                        onTypingStateChange={chatRealtime.setTypingActive}
-                        onUploadingMediaStateChange={chatRealtime.setMediaUploadingActive}
+                        onTypingStateChange={
+                          activeConversationId ? chatRealtime.setTypingActive : undefined
+                        }
+                        onUploadingMediaStateChange={
+                          activeConversationId ? chatRealtime.setMediaUploadingActive : undefined
+                        }
+                        onConversationResolved={handleDirectConversationResolved}
                         replyTarget={replyTarget}
                         implicitReplyTarget={implicitCommentsReplyTarget}
                         hideReplyPanel={isCommentsMode}

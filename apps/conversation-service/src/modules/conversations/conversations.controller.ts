@@ -15,6 +15,7 @@ import type {
   PermissionRequest,
   PermissionResponse,
   RemoveMemberRequest,
+  TouchConversationRequest,
   UpdateConversationRequest,
   UpdateConversationNotificationsRequest,
   UpdateMemberRoleRequest,
@@ -82,6 +83,13 @@ export class ConversationsController {
     data: UpdateConversationNotificationsRequest,
   ): Promise<MutationResponse> {
     return await this.conversationsService.updateNotifications(data);
+  }
+
+  @GrpcMethod('ConversationsService', 'TouchConversation')
+  public async touchConversation(
+    data: TouchConversationRequest,
+  ): Promise<MutationResponse> {
+    return await this.conversationsService.touchConversation(data);
   }
 
   @GrpcMethod('ConversationsService', 'JoinConversation')

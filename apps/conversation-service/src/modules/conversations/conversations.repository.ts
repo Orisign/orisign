@@ -263,6 +263,18 @@ export class ConversationsRepository {
     });
   }
 
+  public async touchConversation(conversationId: string): Promise<void> {
+    await this.prismaService.conversation.updateMany({
+      where: {
+        id: conversationId,
+        deletedAt: null,
+      },
+      data: {
+        updatedAt: new Date(),
+      },
+    });
+  }
+
   public async updateConversation(params: {
     conversationId: string;
     title: string;

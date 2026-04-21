@@ -1111,7 +1111,7 @@ export const getAccountControllerMeUrl = () => {
 
 
 
-  return `http://localhost:4000/account/me`
+  return `/account/me`
 }
 
 export const accountControllerMe = async ( options?: RequestInit): Promise<AccountResponseDto> => {
@@ -1131,7 +1131,7 @@ export const accountControllerMe = async ( options?: RequestInit): Promise<Accou
 
 export const getAccountControllerMeQueryKey = () => {
     return [
-    `http://localhost:4000/account/me`
+    `/account/me`
     ] as const;
     }
 
@@ -1187,7 +1187,7 @@ export const getAccountControllerInitEmailUrl = () => {
 
 
 
-  return `http://localhost:4000/account/email/init`
+  return `/account/email/init`
 }
 
 export const accountControllerInitEmail = async (initEmailChangeRequestDto: InitEmailChangeRequestDto, options?: RequestInit): Promise<ChangeResponseDto> => {
@@ -1259,7 +1259,7 @@ export const getAccountControllerConfirmEmailUrl = () => {
 
 
 
-  return `http://localhost:4000/account/email/confirm`
+  return `/account/email/confirm`
 }
 
 export const accountControllerConfirmEmail = async (confirmEmailChangeRequestDto: ConfirmEmailChangeRequestDto, options?: RequestInit): Promise<ChangeResponseDto> => {
@@ -1331,7 +1331,7 @@ export const getAccountControllerInitPhoneUrl = () => {
 
 
 
-  return `http://localhost:4000/account/phone/init`
+  return `/account/phone/init`
 }
 
 export const accountControllerInitPhone = async (initPhoneChangeRequestDto: InitPhoneChangeRequestDto, options?: RequestInit): Promise<ChangeResponseDto> => {
@@ -1403,7 +1403,7 @@ export const getAccountControllerConfirmPhoneUrl = () => {
 
 
 
-  return `http://localhost:4000/account/phone/confirm`
+  return `/account/phone/confirm`
 }
 
 export const accountControllerConfirmPhone = async (confirmPhoneChangeRequestDto: ConfirmPhoneChangeRequestDto, options?: RequestInit): Promise<ChangeResponseDto> => {
@@ -1475,7 +1475,7 @@ export const getAuthControllerSendOtpUrl = () => {
 
 
 
-  return `http://localhost:4000/auth/otp/send`
+  return `/auth/otp/send`
 }
 
 export const authControllerSendOtp = async (sendOtpRequest: SendOtpRequest, options?: RequestInit): Promise<SendOtpResponseDto> => {
@@ -1547,7 +1547,7 @@ export const getAuthControllerVerifyUrl = () => {
 
 
 
-  return `http://localhost:4000/auth/otp/verify`
+  return `/auth/otp/verify`
 }
 
 export const authControllerVerify = async (verifyOtpRequest: VerifyOtpRequest, options?: RequestInit): Promise<AccessTokenResponseDto> => {
@@ -1619,7 +1619,7 @@ export const getAuthControllerListUrl = () => {
 
 
 
-  return `http://localhost:4000/auth/list`
+  return `/auth/list`
 }
 
 export const authControllerList = async (listSessionRequest: ListSessionRequest, options?: RequestInit): Promise<ListSessionsResponseDto> => {
@@ -1691,7 +1691,7 @@ export const getAuthControllerRefreshUrl = () => {
 
 
 
-  return `http://localhost:4000/auth/refresh`
+  return `/auth/refresh`
 }
 
 export const authControllerRefresh = async ( options?: RequestInit): Promise<AccessTokenResponseDto> => {
@@ -1762,7 +1762,7 @@ export const getAuthControllerLogoutUrl = () => {
 
 
 
-  return `http://localhost:4000/auth/logout`
+  return `/auth/logout`
 }
 
 export const authControllerLogout = async ( options?: RequestInit): Promise<OkResponseDto> => {
@@ -1833,7 +1833,7 @@ export const getAuthControllerRevokeSessionUrl = () => {
 
 
 
-  return `http://localhost:4000/auth/revoke`
+  return `/auth/revoke`
 }
 
 export const authControllerRevokeSession = async (revokeSessionRequestDto: RevokeSessionRequestDto, options?: RequestInit): Promise<OkResponseDto> => {
@@ -1904,7 +1904,7 @@ export const getBotsControllerCreateUrl = () => {
 
 
 
-  return `http://localhost:4000/internal/bots`
+  return `/internal/bots`
 }
 
 export const botsControllerCreate = async (createBotRequestDto: CreateBotRequestDto, options?: RequestInit): Promise<void> => {
@@ -1979,7 +1979,7 @@ export const getBotsControllerListUrl = (params?: BotsControllerListParams,) => 
 
   const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `http://localhost:4000/internal/bots?${stringifiedParams}` : `http://localhost:4000/internal/bots`
+  return stringifiedParams.length > 0 ? `/internal/bots?${stringifiedParams}` : `/internal/bots`
 }
 
 export const botsControllerList = async (params?: BotsControllerListParams, options?: RequestInit): Promise<void> => {
@@ -1999,7 +1999,7 @@ export const botsControllerList = async (params?: BotsControllerListParams, opti
 
 export const getBotsControllerListQueryKey = (params?: BotsControllerListParams,) => {
     return [
-    `http://localhost:4000/internal/bots`, ...(params ? [params] : [])
+    `/internal/bots`, ...(params ? [params] : [])
     ] as const;
     }
 
@@ -2048,7 +2048,7 @@ export const getBotsControllerGetUrl = (botId: string,) => {
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}`
+  return `/internal/bots/${botId}`
 }
 
 export const botsControllerGet = async (botId: string, options?: RequestInit): Promise<void> => {
@@ -2068,7 +2068,7 @@ export const botsControllerGet = async (botId: string, options?: RequestInit): P
 
 export const getBotsControllerGetQueryKey = (botId: string,) => {
     return [
-    `http://localhost:4000/internal/bots/${botId}`
+    `/internal/bots/${botId}`
     ] as const;
     }
 
@@ -2117,7 +2117,7 @@ export const getBotsControllerUpdateUrl = (botId: string,) => {
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}`
+  return `/internal/bots/${botId}`
 }
 
 export const botsControllerUpdate = async (botId: string,
@@ -2183,7 +2183,7 @@ export const getBotsControllerDeleteUrl = (botId: string,) => {
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}`
+  return `/internal/bots/${botId}`
 }
 
 export const botsControllerDelete = async (botId: string, options?: RequestInit): Promise<void> => {
@@ -2250,7 +2250,7 @@ export const getBotsControllerUploadAvatarUrl = (botId: string,) => {
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}/avatar/upload`
+  return `/internal/bots/${botId}/avatar/upload`
 }
 
 export const botsControllerUploadAvatar = async (botId: string,
@@ -2319,7 +2319,7 @@ export const getBotsControllerSetAvatarUrl = (botId: string,) => {
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}/avatar`
+  return `/internal/bots/${botId}/avatar`
 }
 
 export const botsControllerSetAvatar = async (botId: string,
@@ -2385,7 +2385,7 @@ export const getBotsControllerDeleteAvatarUrl = (botId: string,) => {
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}/avatar`
+  return `/internal/bots/${botId}/avatar`
 }
 
 export const botsControllerDeleteAvatar = async (botId: string, options?: RequestInit): Promise<void> => {
@@ -2449,7 +2449,7 @@ export const getBotsControllerStatsUrl = (botId: string,) => {
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}/stats`
+  return `/internal/bots/${botId}/stats`
 }
 
 export const botsControllerStats = async (botId: string, options?: RequestInit): Promise<void> => {
@@ -2469,7 +2469,7 @@ export const botsControllerStats = async (botId: string, options?: RequestInit):
 
 export const getBotsControllerStatsQueryKey = (botId: string,) => {
     return [
-    `http://localhost:4000/internal/bots/${botId}/stats`
+    `/internal/bots/${botId}/stats`
     ] as const;
     }
 
@@ -2526,7 +2526,7 @@ export const getBotsControllerLogsUrl = (botId: string,
 
   const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `http://localhost:4000/internal/bots/${botId}/logs?${stringifiedParams}` : `http://localhost:4000/internal/bots/${botId}/logs`
+  return stringifiedParams.length > 0 ? `/internal/bots/${botId}/logs?${stringifiedParams}` : `/internal/bots/${botId}/logs`
 }
 
 export const botsControllerLogs = async (botId: string,
@@ -2548,7 +2548,7 @@ export const botsControllerLogs = async (botId: string,
 export const getBotsControllerLogsQueryKey = (botId: string,
     params?: BotsControllerLogsParams,) => {
     return [
-    `http://localhost:4000/internal/bots/${botId}/logs`, ...(params ? [params] : [])
+    `/internal/bots/${botId}/logs`, ...(params ? [params] : [])
     ] as const;
     }
 
@@ -2599,7 +2599,7 @@ export const getBotsControllerRegenerateUrl = (botId: string,) => {
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}/token/regenerate`
+  return `/internal/bots/${botId}/token/regenerate`
 }
 
 export const botsControllerRegenerate = async (botId: string, options?: RequestInit): Promise<void> => {
@@ -2663,7 +2663,7 @@ export const getBotsControllerRevokeUrl = (botId: string,) => {
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}/token/revoke`
+  return `/internal/bots/${botId}/token/revoke`
 }
 
 export const botsControllerRevoke = async (botId: string, options?: RequestInit): Promise<void> => {
@@ -2727,7 +2727,7 @@ export const getBotsControllerEnableUrl = (botId: string,) => {
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}/enable`
+  return `/internal/bots/${botId}/enable`
 }
 
 export const botsControllerEnable = async (botId: string, options?: RequestInit): Promise<void> => {
@@ -2791,7 +2791,7 @@ export const getBotsControllerDisableUrl = (botId: string,) => {
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}/disable`
+  return `/internal/bots/${botId}/disable`
 }
 
 export const botsControllerDisable = async (botId: string, options?: RequestInit): Promise<void> => {
@@ -2855,7 +2855,7 @@ export const getBotsControllerSetWebhookUrl = (botId: string,) => {
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}/webhook`
+  return `/internal/bots/${botId}/webhook`
 }
 
 export const botsControllerSetWebhook = async (botId: string,
@@ -2921,7 +2921,7 @@ export const getBotsControllerDeleteWebhookUrl = (botId: string,) => {
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}/webhook`
+  return `/internal/bots/${botId}/webhook`
 }
 
 export const botsControllerDeleteWebhook = async (botId: string, options?: RequestInit): Promise<void> => {
@@ -2985,7 +2985,7 @@ export const getBotsControllerGetWebhookUrl = (botId: string,) => {
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}/webhook`
+  return `/internal/bots/${botId}/webhook`
 }
 
 export const botsControllerGetWebhook = async (botId: string, options?: RequestInit): Promise<void> => {
@@ -3005,7 +3005,7 @@ export const botsControllerGetWebhook = async (botId: string, options?: RequestI
 
 export const getBotsControllerGetWebhookQueryKey = (botId: string,) => {
     return [
-    `http://localhost:4000/internal/bots/${botId}/webhook`
+    `/internal/bots/${botId}/webhook`
     ] as const;
     }
 
@@ -3054,7 +3054,7 @@ export const getBotsControllerGetCommandsUrl = (botId: string,) => {
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}/commands`
+  return `/internal/bots/${botId}/commands`
 }
 
 export const botsControllerGetCommands = async (botId: string, options?: RequestInit): Promise<void> => {
@@ -3074,7 +3074,7 @@ export const botsControllerGetCommands = async (botId: string, options?: Request
 
 export const getBotsControllerGetCommandsQueryKey = (botId: string,) => {
     return [
-    `http://localhost:4000/internal/bots/${botId}/commands`
+    `/internal/bots/${botId}/commands`
     ] as const;
     }
 
@@ -3123,7 +3123,7 @@ export const getBotsControllerPutCommandsUrl = (botId: string,) => {
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}/commands`
+  return `/internal/bots/${botId}/commands`
 }
 
 export const botsControllerPutCommands = async (botId: string,
@@ -3197,7 +3197,7 @@ export const getBotsControllerChatsUrl = (botId: string,
 
   const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `http://localhost:4000/internal/bots/${botId}/chats?${stringifiedParams}` : `http://localhost:4000/internal/bots/${botId}/chats`
+  return stringifiedParams.length > 0 ? `/internal/bots/${botId}/chats?${stringifiedParams}` : `/internal/bots/${botId}/chats`
 }
 
 export const botsControllerChats = async (botId: string,
@@ -3219,7 +3219,7 @@ export const botsControllerChats = async (botId: string,
 export const getBotsControllerChatsQueryKey = (botId: string,
     params?: BotsControllerChatsParams,) => {
     return [
-    `http://localhost:4000/internal/bots/${botId}/chats`, ...(params ? [params] : [])
+    `/internal/bots/${botId}/chats`, ...(params ? [params] : [])
     ] as const;
     }
 
@@ -3271,7 +3271,7 @@ export const getBotsControllerAllowUrl = (botId: string,
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}/chats/${chatId}/allow`
+  return `/internal/bots/${botId}/chats/${chatId}/allow`
 }
 
 export const botsControllerAllow = async (botId: string,
@@ -3337,7 +3337,7 @@ export const getBotsControllerDenyUrl = (botId: string,
 
 
 
-  return `http://localhost:4000/internal/bots/${botId}/chats/${chatId}/deny`
+  return `/internal/bots/${botId}/chats/${chatId}/deny`
 }
 
 export const botsControllerDeny = async (botId: string,
@@ -3405,7 +3405,7 @@ export const getBotsControllerMeUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/me`
+  return `/bot/me`
 }
 
 export const botsControllerMe = async ( options?: RequestInit): Promise<void> => {
@@ -3425,7 +3425,7 @@ export const botsControllerMe = async ( options?: RequestInit): Promise<void> =>
 
 export const getBotsControllerMeQueryKey = () => {
     return [
-    `http://localhost:4000/bot/me`
+    `/bot/me`
     ] as const;
     }
 
@@ -3477,7 +3477,7 @@ export const getBotsControllerSendMessageUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/sendMessage`
+  return `/bot/sendMessage`
 }
 
 export const botsControllerSendMessage = async (developerSendMessageRequestDto: DeveloperSendMessageRequestDto, options?: RequestInit): Promise<void> => {
@@ -3542,7 +3542,7 @@ export const getBotsControllerSendPhotoUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/sendPhoto`
+  return `/bot/sendPhoto`
 }
 
 export const botsControllerSendPhoto = async (developerSendMediaRequestDto: DeveloperSendMediaRequestDto, options?: RequestInit): Promise<void> => {
@@ -3607,7 +3607,7 @@ export const getBotsControllerSendVideoUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/sendVideo`
+  return `/bot/sendVideo`
 }
 
 export const botsControllerSendVideo = async (developerSendMediaRequestDto: DeveloperSendMediaRequestDto, options?: RequestInit): Promise<void> => {
@@ -3672,7 +3672,7 @@ export const getBotsControllerSendDocumentUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/sendDocument`
+  return `/bot/sendDocument`
 }
 
 export const botsControllerSendDocument = async (developerSendMediaRequestDto: DeveloperSendMediaRequestDto, options?: RequestInit): Promise<void> => {
@@ -3737,7 +3737,7 @@ export const getBotsControllerSendAudioUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/sendAudio`
+  return `/bot/sendAudio`
 }
 
 export const botsControllerSendAudio = async (developerSendMediaRequestDto: DeveloperSendMediaRequestDto, options?: RequestInit): Promise<void> => {
@@ -3802,7 +3802,7 @@ export const getBotsControllerSendMediaGroupUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/sendMediaGroup`
+  return `/bot/sendMediaGroup`
 }
 
 export const botsControllerSendMediaGroup = async (developerSendMediaRequestDto: DeveloperSendMediaRequestDto, options?: RequestInit): Promise<void> => {
@@ -3867,7 +3867,7 @@ export const getBotsControllerEditMessageTextUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/editMessageText`
+  return `/bot/editMessageText`
 }
 
 export const botsControllerEditMessageText = async (developerEditMessageTextRequestDto: DeveloperEditMessageTextRequestDto, options?: RequestInit): Promise<void> => {
@@ -3932,7 +3932,7 @@ export const getBotsControllerEditMessageCaptionUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/editMessageCaption`
+  return `/bot/editMessageCaption`
 }
 
 export const botsControllerEditMessageCaption = async (developerEditMessageTextRequestDto: DeveloperEditMessageTextRequestDto, options?: RequestInit): Promise<void> => {
@@ -3997,7 +3997,7 @@ export const getBotsControllerEditMessageReplyMarkupUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/editMessageReplyMarkup`
+  return `/bot/editMessageReplyMarkup`
 }
 
 export const botsControllerEditMessageReplyMarkup = async (developerEditMessageReplyMarkupRequestDto: DeveloperEditMessageReplyMarkupRequestDto, options?: RequestInit): Promise<void> => {
@@ -4062,7 +4062,7 @@ export const getBotsControllerDeleteMessageUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/deleteMessage`
+  return `/bot/deleteMessage`
 }
 
 export const botsControllerDeleteMessage = async (developerDeleteMessageRequestDto: DeveloperDeleteMessageRequestDto, options?: RequestInit): Promise<void> => {
@@ -4127,7 +4127,7 @@ export const getBotsControllerAnswerCallbackQueryUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/answerCallbackQuery`
+  return `/bot/answerCallbackQuery`
 }
 
 export const botsControllerAnswerCallbackQuery = async (developerAnswerCallbackQueryRequestDto: DeveloperAnswerCallbackQueryRequestDto, options?: RequestInit): Promise<void> => {
@@ -4199,7 +4199,7 @@ export const getBotsControllerGetUpdatesUrl = (params?: BotsControllerGetUpdates
 
   const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `http://localhost:4000/bot/getUpdates?${stringifiedParams}` : `http://localhost:4000/bot/getUpdates`
+  return stringifiedParams.length > 0 ? `/bot/getUpdates?${stringifiedParams}` : `/bot/getUpdates`
 }
 
 export const botsControllerGetUpdates = async (params?: BotsControllerGetUpdatesParams, options?: RequestInit): Promise<void> => {
@@ -4219,7 +4219,7 @@ export const botsControllerGetUpdates = async (params?: BotsControllerGetUpdates
 
 export const getBotsControllerGetUpdatesQueryKey = (params?: BotsControllerGetUpdatesParams,) => {
     return [
-    `http://localhost:4000/bot/getUpdates`, ...(params ? [params] : [])
+    `/bot/getUpdates`, ...(params ? [params] : [])
     ] as const;
     }
 
@@ -4268,7 +4268,7 @@ export const getBotsControllerDeveloperSetWebhookUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/setWebhook`
+  return `/bot/setWebhook`
 }
 
 export const botsControllerDeveloperSetWebhook = async ( options?: RequestInit): Promise<void> => {
@@ -4332,7 +4332,7 @@ export const getBotsControllerDeveloperDeleteWebhookUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/deleteWebhook`
+  return `/bot/deleteWebhook`
 }
 
 export const botsControllerDeveloperDeleteWebhook = async ( options?: RequestInit): Promise<void> => {
@@ -4396,7 +4396,7 @@ export const getBotsControllerDeveloperGetWebhookInfoUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/getWebhookInfo`
+  return `/bot/getWebhookInfo`
 }
 
 export const botsControllerDeveloperGetWebhookInfo = async ( options?: RequestInit): Promise<void> => {
@@ -4416,7 +4416,7 @@ export const botsControllerDeveloperGetWebhookInfo = async ( options?: RequestIn
 
 export const getBotsControllerDeveloperGetWebhookInfoQueryKey = () => {
     return [
-    `http://localhost:4000/bot/getWebhookInfo`
+    `/bot/getWebhookInfo`
     ] as const;
     }
 
@@ -4465,7 +4465,7 @@ export const getBotsControllerSetMyCommandsUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/setMyCommands`
+  return `/bot/setMyCommands`
 }
 
 export const botsControllerSetMyCommands = async ( options?: RequestInit): Promise<void> => {
@@ -4529,7 +4529,7 @@ export const getBotsControllerGetMyCommandsUrl = () => {
 
 
 
-  return `http://localhost:4000/bot/getMyCommands`
+  return `/bot/getMyCommands`
 }
 
 export const botsControllerGetMyCommands = async ( options?: RequestInit): Promise<void> => {
@@ -4549,7 +4549,7 @@ export const botsControllerGetMyCommands = async ( options?: RequestInit): Promi
 
 export const getBotsControllerGetMyCommandsQueryKey = () => {
     return [
-    `http://localhost:4000/bot/getMyCommands`
+    `/bot/getMyCommands`
     ] as const;
     }
 
@@ -4601,7 +4601,7 @@ export const getConversationsControllerCreateUrl = () => {
 
 
 
-  return `http://localhost:4000/conversations`
+  return `/conversations`
 }
 
 export const conversationsControllerCreate = async (createConversationRequestDto: CreateConversationRequestDto, options?: RequestInit): Promise<CreateConversationResponseDto> => {
@@ -4672,7 +4672,7 @@ export const getConversationsControllerUpdateUrl = () => {
 
 
 
-  return `http://localhost:4000/conversations`
+  return `/conversations`
 }
 
 export const conversationsControllerUpdate = async (updateConversationRequestDto: UpdateConversationRequestDto, options?: RequestInit): Promise<MutationResponseDto> => {
@@ -4743,7 +4743,7 @@ export const getConversationsControllerUploadAvatarUrl = () => {
 
 
 
-  return `http://localhost:4000/conversations/avatar`
+  return `/conversations/avatar`
 }
 
 export const conversationsControllerUploadAvatar = async (conversationsControllerUploadAvatarBody: ConversationsControllerUploadAvatarBody, options?: RequestInit): Promise<UploadConversationAvatarResponseDto> => {
@@ -4822,7 +4822,7 @@ export const getConversationsControllerUploadMediaUrl = () => {
 
 
 
-  return `http://localhost:4000/conversations/media`
+  return `/conversations/media`
 }
 
 export const conversationsControllerUploadMedia = async (conversationsControllerUploadMediaBody: ConversationsControllerUploadMediaBody, options?: RequestInit): Promise<UploadConversationMediaResponseDto> => {
@@ -4895,7 +4895,7 @@ export const getConversationsControllerDeleteMediaUrl = () => {
 
 
 
-  return `http://localhost:4000/conversations/media/delete`
+  return `/conversations/media/delete`
 }
 
 export const conversationsControllerDeleteMedia = async (deleteConversationMediaRequestDto: DeleteConversationMediaRequestDto, options?: RequestInit): Promise<MutationResponseDto> => {
@@ -4966,7 +4966,7 @@ export const getConversationsControllerGetUrl = () => {
 
 
 
-  return `http://localhost:4000/conversations/get`
+  return `/conversations/get`
 }
 
 export const conversationsControllerGet = async (conversationByIdRequestDto: ConversationByIdRequestDto, options?: RequestInit): Promise<GetConversationResponseDto> => {
@@ -5044,7 +5044,7 @@ export const getConversationsControllerMyUrl = (params?: ConversationsController
 
   const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `http://localhost:4000/conversations/my?${stringifiedParams}` : `http://localhost:4000/conversations/my`
+  return stringifiedParams.length > 0 ? `/conversations/my?${stringifiedParams}` : `/conversations/my`
 }
 
 export const conversationsControllerMy = async (params?: ConversationsControllerMyParams, options?: RequestInit): Promise<ListMyConversationsResponseDto> => {
@@ -5064,7 +5064,7 @@ export const conversationsControllerMy = async (params?: ConversationsController
 
 export const getConversationsControllerMyQueryKey = (params?: ConversationsControllerMyParams,) => {
     return [
-    `http://localhost:4000/conversations/my`, ...(params ? [params] : [])
+    `/conversations/my`, ...(params ? [params] : [])
     ] as const;
     }
 
@@ -5119,7 +5119,7 @@ export const getConversationsControllerAddMembersUrl = () => {
 
 
 
-  return `http://localhost:4000/conversations/members/add`
+  return `/conversations/members/add`
 }
 
 export const conversationsControllerAddMembers = async (addMembersRequestDto: AddMembersRequestDto, options?: RequestInit): Promise<MutationResponseDto> => {
@@ -5190,7 +5190,7 @@ export const getConversationsControllerRemoveMemberUrl = () => {
 
 
 
-  return `http://localhost:4000/conversations/members/remove`
+  return `/conversations/members/remove`
 }
 
 export const conversationsControllerRemoveMember = async (removeMemberRequestDto: RemoveMemberRequestDto, options?: RequestInit): Promise<MutationResponseDto> => {
@@ -5261,7 +5261,7 @@ export const getConversationsControllerUpdateRoleUrl = () => {
 
 
 
-  return `http://localhost:4000/conversations/members/role`
+  return `/conversations/members/role`
 }
 
 export const conversationsControllerUpdateRole = async (updateMemberRoleRequestDto: UpdateMemberRoleRequestDto, options?: RequestInit): Promise<MutationResponseDto> => {
@@ -5332,7 +5332,7 @@ export const getConversationsControllerDeleteUrl = () => {
 
 
 
-  return `http://localhost:4000/conversations/delete`
+  return `/conversations/delete`
 }
 
 export const conversationsControllerDelete = async (conversationByIdRequestDto: ConversationByIdRequestDto, options?: RequestInit): Promise<MutationResponseDto> => {
@@ -5403,7 +5403,7 @@ export const getConversationsControllerUpdateNotificationsUrl = () => {
 
 
 
-  return `http://localhost:4000/conversations/notifications`
+  return `/conversations/notifications`
 }
 
 export const conversationsControllerUpdateNotifications = async (updateConversationNotificationsRequestDto: UpdateConversationNotificationsRequestDto, options?: RequestInit): Promise<MutationResponseDto> => {
@@ -5474,7 +5474,7 @@ export const getConversationsControllerJoinUrl = () => {
 
 
 
-  return `http://localhost:4000/conversations/join`
+  return `/conversations/join`
 }
 
 export const conversationsControllerJoin = async (conversationByIdRequestDto: ConversationByIdRequestDto, options?: RequestInit): Promise<MutationResponseDto> => {
@@ -5545,7 +5545,7 @@ export const getConversationsControllerLeaveUrl = () => {
 
 
 
-  return `http://localhost:4000/conversations/leave`
+  return `/conversations/leave`
 }
 
 export const conversationsControllerLeave = async (conversationByIdRequestDto: ConversationByIdRequestDto, options?: RequestInit): Promise<MutationResponseDto> => {
@@ -5616,7 +5616,7 @@ export const getHandlesControllerResolveUrl = () => {
 
 
 
-  return `http://localhost:4000/handles/resolve`
+  return `/handles/resolve`
 }
 
 export const handlesControllerResolve = async ( options?: RequestInit): Promise<void> => {
@@ -5686,7 +5686,7 @@ export const getHandlesControllerCheckUrl = () => {
 
 
 
-  return `http://localhost:4000/handles/check`
+  return `/handles/check`
 }
 
 export const handlesControllerCheck = async ( options?: RequestInit): Promise<void> => {
@@ -5757,7 +5757,7 @@ export const getHandlesControllerGetByTargetUrl = (kind: 'HANDLE_KIND_UNSPECIFIE
 
 
 
-  return `http://localhost:4000/handles/${kind}/${targetId}`
+  return `/handles/${kind}/${targetId}`
 }
 
 export const handlesControllerGetByTarget = async (kind: 'HANDLE_KIND_UNSPECIFIED' | 'USER' | 'CONVERSATION' | 'BOT' | 'SYSTEM_BOT' | 'UNRECOGNIZED',
@@ -5779,7 +5779,7 @@ export const handlesControllerGetByTarget = async (kind: 'HANDLE_KIND_UNSPECIFIE
 export const getHandlesControllerGetByTargetQueryKey = (kind: 'HANDLE_KIND_UNSPECIFIED' | 'USER' | 'CONVERSATION' | 'BOT' | 'SYSTEM_BOT' | 'UNRECOGNIZED',
     targetId: string,) => {
     return [
-    `http://localhost:4000/handles/${kind}/${targetId}`
+    `/handles/${kind}/${targetId}`
     ] as const;
     }
 
@@ -5836,7 +5836,7 @@ export const getMessagesControllerSendUrl = () => {
 
 
 
-  return `http://localhost:4000/messages/send`
+  return `/messages/send`
 }
 
 export const messagesControllerSend = async (sendMessageRequestDto: SendMessageRequestDto, options?: RequestInit): Promise<void> => {
@@ -5907,7 +5907,7 @@ export const getMessagesControllerInvokeCallbackUrl = () => {
 
 
 
-  return `http://localhost:4000/messages/callback`
+  return `/messages/callback`
 }
 
 export const messagesControllerInvokeCallback = async (invokeMessageCallbackRequestDto: InvokeMessageCallbackRequestDto, options?: RequestInit): Promise<void> => {
@@ -5978,7 +5978,7 @@ export const getMessagesControllerListUrl = () => {
 
 
 
-  return `http://localhost:4000/messages/list`
+  return `/messages/list`
 }
 
 export const messagesControllerList = async (listMessagesRequestDto: ListMessagesRequestDto, options?: RequestInit): Promise<void> => {
@@ -6049,7 +6049,7 @@ export const getMessagesControllerGetCommentSummaryUrl = () => {
 
 
 
-  return `http://localhost:4000/messages/comment-summary`
+  return `/messages/comment-summary`
 }
 
 export const messagesControllerGetCommentSummary = async (getCommentSummaryRequestDto: GetCommentSummaryRequestDto, options?: RequestInit): Promise<GetCommentSummaryResponseDto> => {
@@ -6120,7 +6120,7 @@ export const getMessagesControllerListSharedMediaUrl = () => {
 
 
 
-  return `http://localhost:4000/messages/shared-media`
+  return `/messages/shared-media`
 }
 
 export const messagesControllerListSharedMedia = async (listSharedMediaRequestDto: ListSharedMediaRequestDto, options?: RequestInit): Promise<ListSharedMediaResponseDto> => {
@@ -6191,7 +6191,7 @@ export const getMessagesControllerReadStateUrl = () => {
 
 
 
-  return `http://localhost:4000/messages/read-state`
+  return `/messages/read-state`
 }
 
 export const messagesControllerReadState = async (getReadStateRequestDto: GetReadStateRequestDto, options?: RequestInit): Promise<GetReadStateResponseDto> => {
@@ -6262,7 +6262,7 @@ export const getMessagesControllerUnreadCountUrl = () => {
 
 
 
-  return `http://localhost:4000/messages/unread-count`
+  return `/messages/unread-count`
 }
 
 export const messagesControllerUnreadCount = async (getUnreadCountRequestDto: GetUnreadCountRequestDto, options?: RequestInit): Promise<GetUnreadCountResponseDto> => {
@@ -6333,7 +6333,7 @@ export const getMessagesControllerEditUrl = () => {
 
 
 
-  return `http://localhost:4000/messages/edit`
+  return `/messages/edit`
 }
 
 export const messagesControllerEdit = async (editMessageRequestDto: EditMessageRequestDto, options?: RequestInit): Promise<void> => {
@@ -6404,7 +6404,7 @@ export const getMessagesControllerDeleteUrl = () => {
 
 
 
-  return `http://localhost:4000/messages/delete`
+  return `/messages/delete`
 }
 
 export const messagesControllerDelete = async (deleteMessageRequestDto: DeleteMessageRequestDto, options?: RequestInit): Promise<void> => {
@@ -6475,7 +6475,7 @@ export const getMessagesControllerReadUrl = () => {
 
 
 
-  return `http://localhost:4000/messages/read`
+  return `/messages/read`
 }
 
 export const messagesControllerRead = async (markReadRequestDto: MarkReadRequestDto, options?: RequestInit): Promise<void> => {
@@ -6546,7 +6546,7 @@ export const getMessagesControllerSetUserBlockUrl = () => {
 
 
 
-  return `http://localhost:4000/messages/block`
+  return `/messages/block`
 }
 
 export const messagesControllerSetUserBlock = async (setUserBlockRequestDto: SetUserBlockRequestDto, options?: RequestInit): Promise<void> => {
@@ -6617,7 +6617,7 @@ export const getMessagesControllerGetUserBlockStatusUrl = () => {
 
 
 
-  return `http://localhost:4000/messages/block/status`
+  return `/messages/block/status`
 }
 
 export const messagesControllerGetUserBlockStatus = async (getUserBlockStatusRequestDto: GetUserBlockStatusRequestDto, options?: RequestInit): Promise<GetUserBlockStatusResponseDto> => {
@@ -6688,7 +6688,7 @@ export const getMessagesInternalControllerEmitMessageCreatedUrl = () => {
 
 
 
-  return `http://localhost:4000/internal/messages/realtime/message-created`
+  return `/internal/messages/realtime/message-created`
 }
 
 export const messagesInternalControllerEmitMessageCreated = async (internalMessageCreatedRequestDto: InternalMessageCreatedRequestDto, options?: RequestInit): Promise<void> => {
@@ -6759,7 +6759,7 @@ export const getMessagesInternalControllerEmitMessageUpdatedUrl = () => {
 
 
 
-  return `http://localhost:4000/internal/messages/realtime/message-updated`
+  return `/internal/messages/realtime/message-updated`
 }
 
 export const messagesInternalControllerEmitMessageUpdated = async (internalMessageUpdatedRequestDto: InternalMessageUpdatedRequestDto, options?: RequestInit): Promise<void> => {
@@ -6830,7 +6830,7 @@ export const getMessagesInternalControllerEmitMessageDeletedUrl = () => {
 
 
 
-  return `http://localhost:4000/internal/messages/realtime/message-deleted`
+  return `/internal/messages/realtime/message-deleted`
 }
 
 export const messagesInternalControllerEmitMessageDeleted = async (internalMessageDeletedRequestDto: InternalMessageDeletedRequestDto, options?: RequestInit): Promise<void> => {
@@ -6902,7 +6902,7 @@ export const getUsersControllerMeUrl = () => {
 
 
 
-  return `http://localhost:4000/users/me`
+  return `/users/me`
 }
 
 export const usersControllerMe = async ( options?: RequestInit): Promise<GetUserResponseDto> => {
@@ -6922,7 +6922,7 @@ export const usersControllerMe = async ( options?: RequestInit): Promise<GetUser
 
 export const getUsersControllerMeQueryKey = () => {
     return [
-    `http://localhost:4000/users/me`
+    `/users/me`
     ] as const;
     }
 
@@ -6978,7 +6978,7 @@ export const getUsersControllerGetUrl = () => {
 
 
 
-  return `http://localhost:4000/users/get`
+  return `/users/get`
 }
 
 export const usersControllerGet = async (getUserRequestDto: GetUserRequestDto, options?: RequestInit): Promise<GetUserResponseDto> => {
@@ -7050,7 +7050,7 @@ export const getUsersControllerListUrl = () => {
 
 
 
-  return `http://localhost:4000/users/list`
+  return `/users/list`
 }
 
 export const usersControllerList = async (listUsersRequestDto: ListUsersRequestDto, options?: RequestInit): Promise<ListUsersResponseDto> => {
@@ -7122,7 +7122,7 @@ export const getUsersControllerListChatFoldersUrl = () => {
 
 
 
-  return `http://localhost:4000/users/chat-folders`
+  return `/users/chat-folders`
 }
 
 export const usersControllerListChatFolders = async ( options?: RequestInit): Promise<ListChatFoldersResponseDto> => {
@@ -7142,7 +7142,7 @@ export const usersControllerListChatFolders = async ( options?: RequestInit): Pr
 
 export const getUsersControllerListChatFoldersQueryKey = () => {
     return [
-    `http://localhost:4000/users/chat-folders`
+    `/users/chat-folders`
     ] as const;
     }
 
@@ -7198,7 +7198,7 @@ export const getUsersControllerCreateChatFolderUrl = () => {
 
 
 
-  return `http://localhost:4000/users/chat-folders`
+  return `/users/chat-folders`
 }
 
 export const usersControllerCreateChatFolder = async (createChatFolderRequestDto: CreateChatFolderRequestDto, options?: RequestInit): Promise<ChatFolderSingleResponseDto> => {
@@ -7270,7 +7270,7 @@ export const getUsersControllerUpdateChatFolderUrl = (folderId: string,) => {
 
 
 
-  return `http://localhost:4000/users/chat-folders/${folderId}`
+  return `/users/chat-folders/${folderId}`
 }
 
 export const usersControllerUpdateChatFolder = async (folderId: string,
@@ -7343,7 +7343,7 @@ export const getUsersControllerDeleteChatFolderUrl = (folderId: string,) => {
 
 
 
-  return `http://localhost:4000/users/chat-folders/${folderId}`
+  return `/users/chat-folders/${folderId}`
 }
 
 export const usersControllerDeleteChatFolder = async (folderId: string, options?: RequestInit): Promise<void> => {
@@ -7414,7 +7414,7 @@ export const getUsersControllerReorderChatFoldersUrl = () => {
 
 
 
-  return `http://localhost:4000/users/chat-folders/reorder`
+  return `/users/chat-folders/reorder`
 }
 
 export const usersControllerReorderChatFolders = async (reorderChatFoldersRequestDto: ReorderChatFoldersRequestDto, options?: RequestInit): Promise<void> => {
@@ -7493,7 +7493,7 @@ export const getUsersControllerListSearchHistoryUrl = (params?: UsersControllerL
 
   const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `http://localhost:4000/users/search-history?${stringifiedParams}` : `http://localhost:4000/users/search-history`
+  return stringifiedParams.length > 0 ? `/users/search-history?${stringifiedParams}` : `/users/search-history`
 }
 
 export const usersControllerListSearchHistory = async (params?: UsersControllerListSearchHistoryParams, options?: RequestInit): Promise<SearchHistoryListResponseDto> => {
@@ -7513,7 +7513,7 @@ export const usersControllerListSearchHistory = async (params?: UsersControllerL
 
 export const getUsersControllerListSearchHistoryQueryKey = (params?: UsersControllerListSearchHistoryParams,) => {
     return [
-    `http://localhost:4000/users/search-history`, ...(params ? [params] : [])
+    `/users/search-history`, ...(params ? [params] : [])
     ] as const;
     }
 
@@ -7569,7 +7569,7 @@ export const getUsersControllerUpsertSearchHistoryUrl = () => {
 
 
 
-  return `http://localhost:4000/users/search-history`
+  return `/users/search-history`
 }
 
 export const usersControllerUpsertSearchHistory = async (upsertSearchHistoryRequestDto: UpsertSearchHistoryRequestDto, options?: RequestInit): Promise<SearchHistorySingleResponseDto> => {
@@ -7641,7 +7641,7 @@ export const getUsersControllerClearSearchHistoryUrl = () => {
 
 
 
-  return `http://localhost:4000/users/search-history`
+  return `/users/search-history`
 }
 
 export const usersControllerClearSearchHistory = async ( options?: RequestInit): Promise<void> => {
@@ -7712,7 +7712,7 @@ export const getUsersControllerDeleteSearchHistoryEntryUrl = (entryId: string,) 
 
 
 
-  return `http://localhost:4000/users/search-history/${entryId}`
+  return `/users/search-history/${entryId}`
 }
 
 export const usersControllerDeleteSearchHistoryEntry = async (entryId: string, options?: RequestInit): Promise<void> => {
@@ -7783,7 +7783,7 @@ export const getUsersControllerCreateUrl = () => {
 
 
 
-  return `http://localhost:4000/users/create`
+  return `/users/create`
 }
 
 export const usersControllerCreate = async (createUserRequestDto: CreateUserRequestDto, options?: RequestInit): Promise<void> => {
@@ -7855,7 +7855,7 @@ export const getUsersControllerPatchUrl = () => {
 
 
 
-  return `http://localhost:4000/users`
+  return `/users`
 }
 
 export const usersControllerPatch = async (patchUserRequestDto: PatchUserRequestDto, options?: RequestInit): Promise<void> => {
@@ -7927,7 +7927,7 @@ export const getUsersControllerPatchPrivacyUrl = () => {
 
 
 
-  return `http://localhost:4000/users/privacy`
+  return `/users/privacy`
 }
 
 export const usersControllerPatchPrivacy = async (patchPrivacyRequestDto: PatchPrivacyRequestDto, options?: RequestInit): Promise<void> => {
@@ -7999,7 +7999,7 @@ export const getUsersControllerAddAvatarUrl = () => {
 
 
 
-  return `http://localhost:4000/users/avatar`
+  return `/users/avatar`
 }
 
 export const usersControllerAddAvatar = async (usersControllerAddAvatarBody: UsersControllerAddAvatarBody, options?: RequestInit): Promise<void> => {
@@ -8073,7 +8073,7 @@ export const getUsersControllerDeleteAvatarUrl = () => {
 
 
 
-  return `http://localhost:4000/users/avatar`
+  return `/users/avatar`
 }
 
 export const usersControllerDeleteAvatar = async (deleteAvatarRequestDto: DeleteAvatarRequestDto, options?: RequestInit): Promise<void> => {
@@ -8145,7 +8145,7 @@ export const getUsersControllerGetAvatarUrlUrl = () => {
 
 
 
-  return `http://localhost:4000/users/avatar/url`
+  return `/users/avatar/url`
 }
 
 export const usersControllerGetAvatarUrl = async (deleteAvatarRequestDto: DeleteAvatarRequestDto, options?: RequestInit): Promise<void> => {

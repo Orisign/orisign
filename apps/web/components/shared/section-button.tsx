@@ -1,6 +1,6 @@
 "use client";
 
-import { useSidebar } from "@/hooks/use-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import { SidebarRoute } from "@/store/sidebar/sidebar-state.types";
 import { SECTION_BUTTON_CLASSNAME } from "./shared.constants";
 import { Ripple } from "@repo/ui";
@@ -13,7 +13,7 @@ interface SectionButtonProps {
 }
 
 export function SectionButton({ icon, title, route }: SectionButtonProps) {
-  const { push } = useSidebar();
+  const { push } = sidebarStore();
 
   return (
     <Ripple

@@ -6,10 +6,10 @@ import { RightSidebarLoadingState } from "./loading-state";
 import { RightSidebarMediaPreview } from "./media-preview";
 import { RightSidebarScreenViewport } from "./screen-viewport";
 import type { RightSidebarProps } from "./types";
-import { useRightSidebarController } from "./use-right-sidebar-controller";
+import { usePanel } from "./use-right-sidebar-controller";
 
 export function RightSidebar({ conversationId }: RightSidebarProps) {
-  const controller = useRightSidebarController(conversationId);
+  const controller = usePanel(conversationId);
 
   if (controller.isLoading) {
     return <RightSidebarLoadingState />;

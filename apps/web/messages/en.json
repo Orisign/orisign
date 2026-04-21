@@ -143,6 +143,7 @@
         "aboutHint": "You can add an additional description for the channel or group."
       },
       "saveError": "Failed to save changes",
+      "saveChanges": "Save changes",
       "deleteError": "Failed to delete channel",
       "titleRequired": "Enter a title",
       "usernameRequired": "Enter a public link",
@@ -375,6 +376,7 @@
       "blockedByPeerHint": "You can't send messages because this user has blocked you.",
       "unblockAction": "Unblock",
       "subscribeAction": "Subscribe",
+      "startBotAction": "Start",
       "subscribeError": "Failed to subscribe to the channel",
       "unblockError": "Failed to unblock user",
       "sendError": "Failed to send message",
@@ -405,6 +407,7 @@
       "replyUnavailable": "Message unavailable",
       "commentsButton": "{count, plural, =0 {Comments} one {# comment} other {# comments}}",
       "unknownAuthor": "User",
+      "forwardedFrom": "Forwarded from",
       "callbackError": "Failed to send the bot callback action",
       "unsupportedButtonAction": "This button action is not supported in the web client yet",
       "callLog": {
@@ -445,6 +448,7 @@
       },
       "contextMenu": {
         "reply": "Reply",
+        "forward": "Forward",
         "copy": "Copy",
         "copyLink": "Copy link",
         "edit": "Edit",
@@ -461,6 +465,25 @@
         "title": "{count, plural, one {# view} other {# views}}",
         "readAt": "{day} at {time}",
         "empty": "Nobody has read this message yet"
+      },
+      "forwardDialog": {
+        "title": "Forward",
+        "description": "Choose a chat to forward this message to.",
+        "searchPlaceholder": "Send to...",
+        "selectChat": "Select {title}",
+        "send": "Send",
+        "selected": "{count, plural, one {# recipient} other {# recipients}}",
+        "selectHint": "Select recipients",
+        "empty": "No available chats",
+        "emptySearch": "Nothing found",
+        "forwarded": "{count, plural, one {Message forwarded} other {Message forwarded to # chats}}",
+        "forwardedPartial": "{count, plural, one {Message forwarded to one recipient} other {Message forwarded to # recipients}}, failed: {failedCount}",
+        "forwardError": "Failed to forward message",
+        "unknownAuthor": "User",
+        "direct": "Direct chat",
+        "channel": "Channel",
+        "group": "Group",
+        "supergroup": "Supergroup"
       }
     },
     "page": {

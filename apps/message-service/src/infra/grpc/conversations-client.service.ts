@@ -6,6 +6,7 @@ import type {
   GetConversationResponse,
   PermissionRequest,
   PermissionResponse,
+  TouchConversationRequest,
 } from '@repo/contracts/gen/ts/conversations';
 import { lastValueFrom } from 'rxjs';
 
@@ -34,5 +35,9 @@ export class ConversationsClientService implements OnModuleInit {
     request: GetConversationRequest,
   ): Promise<GetConversationResponse> {
     return await lastValueFrom(this.conversationsClient.getConversation(request));
+  }
+
+  public async touchConversation(request: TouchConversationRequest): Promise<void> {
+    await lastValueFrom(this.conversationsClient.touchConversation(request));
   }
 }

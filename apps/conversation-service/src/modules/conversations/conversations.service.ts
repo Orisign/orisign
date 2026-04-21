@@ -17,6 +17,7 @@ import type {
   PermissionRequest,
   PermissionResponse,
   RemoveMemberRequest,
+  TouchConversationRequest,
   UpdateConversationRequest,
   UpdateConversationNotificationsRequest,
   UpdateMemberRoleRequest,
@@ -507,6 +508,23 @@ export class ConversationsService {
       userId: data.userId,
       notificationsEnabled: data.notificationsEnabled,
     });
+
+    return { ok: true };
+  }
+
+  public async touchConversation(
+    data: TouchConversationRequest,
+  ): Promise<MutationResponse> {
+    const conversationId = data.conversationId?.trim() ?? '';
+
+    if (!conversationId) {
+      throw new RpcException({
+        code: RpcStatus.INVALID_ARGUMENT,
+        details: 'Conversation id is required',
+      });
+    }
+
+    await this.repository.touchConversation(conversationId);
 
     return { ok: true };
   }

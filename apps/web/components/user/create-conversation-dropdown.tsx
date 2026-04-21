@@ -1,6 +1,6 @@
 "use client";
 
-import { useSidebar } from "@/hooks/use-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import {
   Button,
   DropdownMenu,
@@ -18,7 +18,7 @@ import { iconSwap } from "@/lib/animations";
 export const CreateConversationDropdown = () => {
   const t = useTranslations("conversationDropdown");
   const [open, setOpen] = useState(false);
-  const { push } = useSidebar();
+  const { push } = sidebarStore();
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>

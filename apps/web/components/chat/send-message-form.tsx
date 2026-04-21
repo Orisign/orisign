@@ -2,8 +2,10 @@
 /* eslint-disable @next/next/no-img-element */
 
 import {
+  type ConversationResponseDto,
   type GetConversationResponseDto,
   type ListMyConversationsResponseDto,
+  type SendMessageRequestDto,
   SendMessageRequestDtoKind,
   getConversationsControllerMyQueryKey,
   useMessagesControllerEdit,
@@ -19,7 +21,7 @@ import {
   Field,
   toast,
 } from "@repo/ui";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import {
   type ChangeEvent,
@@ -38,10 +40,15 @@ import { useLocale, useTranslations } from "next-intl";
 import {
   type ChatMessagesFilter,
   type ChatMessagesQueryData,
+  type ChatMessageDto,
+  type ChatLastMessagePreviewData,
+  appendChatMessageToData,
   bumpConversationInListData,
   bumpConversationQueryData,
+  getChatLastMessagePreviewQueryKey,
   getChatMessagesQueryKey,
   getConversationQueryKey,
+  normalizeChatMessage,
 } from "@/hooks/use-chat";
 import { cn } from "@/lib/utils";
 import {
@@ -67,6 +74,10 @@ import {
   type ChatReplyMarkupCarrier,
   type ChatReplyKeyboardMarkup,
 } from "@/lib/bot-reply-markup";
+import {
+  sendDirectMessage,
+  upsertConversationInListData,
+} from "@/lib/direct-chat";
 import type { ChatEditTarget, ChatReplyTarget } from "./chat.types";
 import { ChatReplyKeyboard } from "./chat-reply-keyboard";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -165,6 +176,7 @@ function createRecordedFileFromBlob(
 
 export function SendMessageForm({
   conversationId,
+  directPeerUserId = "",
   isBlockedByCurrentUser = false,
   isBlockedByPeer = false,
   botReplyKeyboard = null,
@@ -177,9 +189,11 @@ export function SendMessageForm({
   onCancelEdit,
   onTypingStateChange,
   onUploadingMediaStateChange,
+  onConversationResolved,
   messageFilter,
 }: {
   conversationId: string;
+  directPeerUserId?: string;
   isBlockedByCurrentUser?: boolean;
   isBlockedByPeer?: boolean;
   botReplyKeyboard?: ActiveBotReplyKeyboard | null;
@@ -192,6 +206,7 @@ export function SendMessageForm({
   onCancelEdit: () => void;
   onTypingStateChange?: (active: boolean) => void;
   onUploadingMediaStateChange?: (active: boolean) => void;
+  onConversationResolved?: (conversation: ConversationResponseDto) => void;
   messageFilter?: ChatMessagesFilter;
 }) {
   const t = useTranslations("chat.sendMessageForm");
@@ -234,11 +249,37 @@ export function SendMessageForm({
     initialized: false,
     messageId: "",
   });
+  const showSendError = useCallback(
+    (error: unknown) => {
+      const errorMessage =
+        error instanceof ApiError &&
+        error.body &&
+        typeof error.body === "object"
+          ? String(
+              (error.body as Record<string, unknown>).details ??
+                (error.body as Record<string, unknown>).message ??
+                "",
+            )
+          : (error instanceof Error ? error.message : "");
+      const isBlockedError = errorMessage.toLowerCase().includes("block");
+
+      toast({
+        title: isBlockedError ? t("blockedByPeerHint") : t("sendError"),
+        type: "error",
+      });
+    },
+    [t],
+  );
 
   const { mutateAsync: sendMessage, isPending: isSendingMessage } = useMessagesControllerSend({
     mutation: {
-      onSuccess: async () => {
+      onSuccess: async (response) => {
         const nextTimestamp = Date.now();
+        const responseBody = response as unknown as {
+          message?: Partial<ChatMessageDto> | null;
+        };
+        const sentMessage = normalizeChatMessage(responseBody.message);
+        const resolvedTimestamp = sentMessage?.createdAt || nextTimestamp;
 
         form.reset({
           text: "",
@@ -259,15 +300,26 @@ export function SendMessageForm({
         });
 
         queueMicrotask(() => {
+          if (sentMessage) {
+            queryClient.setQueryData<ChatMessagesQueryData>(
+              getChatMessagesQueryKey(conversationId, messageFilter),
+              (currentData) => appendChatMessageToData(currentData, sentMessage),
+            );
+            queryClient.setQueryData<ChatLastMessagePreviewData>(
+              getChatLastMessagePreviewQueryKey(conversationId),
+              { message: sentMessage },
+            );
+          }
+
           queryClient.setQueryData<GetConversationResponseDto>(
             getConversationQueryKey(conversationId),
-            (currentData) => bumpConversationQueryData(currentData, nextTimestamp),
+            (currentData) => bumpConversationQueryData(currentData, resolvedTimestamp),
           );
 
           queryClient.setQueriesData<ListMyConversationsResponseDto>(
             { queryKey: getConversationsControllerMyQueryKey() },
             (currentData) =>
-              bumpConversationInListData(currentData, conversationId, nextTimestamp),
+              bumpConversationInListData(currentData, conversationId, resolvedTimestamp),
           );
         });
 
@@ -279,26 +331,72 @@ export function SendMessageForm({
           );
         });
       },
-      onError: (error) => {
-        const errorMessage =
-          error instanceof ApiError &&
-          error.body &&
-          typeof error.body === "object"
-            ? String(
-                (error.body as Record<string, unknown>).details ??
-                  (error.body as Record<string, unknown>).message ??
-                  "",
-              )
-            : (error instanceof Error ? error.message : "");
-        const isBlockedError = errorMessage.toLowerCase().includes("block");
-
-        toast({
-          title: isBlockedError ? t("blockedByPeerHint") : t("sendError"),
-          type: "error",
-        });
-      },
+      onError: showSendError,
     },
   });
+  const { mutateAsync: sendDirectMessageMutation, isPending: isSendingDirectMessage } =
+    useMutation({
+      mutationFn: sendDirectMessage,
+      onSuccess: async (response) => {
+        const conversation = response.conversation ?? null;
+        const resolvedConversationId = conversation?.id?.trim() ?? "";
+        if (!conversation || !resolvedConversationId) {
+          return;
+        }
+
+        const nextTimestamp = Date.now();
+
+        form.reset({
+          text: "",
+          replyToId: implicitReplyTarget?.id ?? "",
+        });
+        onCancelReply();
+        onCancelEdit();
+        if (activeReplyKeyboardMarkup?.oneTimeKeyboard && botReplyKeyboard) {
+          setDismissedBotKeyboardMessageId(botReplyKeyboard.message.id);
+        }
+        setAttachments((currentAttachments) => {
+          currentAttachments.forEach((attachment) => {
+            if (attachment.previewUrl) {
+              URL.revokeObjectURL(attachment.previewUrl);
+            }
+          });
+          return [];
+        });
+
+        onConversationResolved?.(conversation);
+
+        queueMicrotask(() => {
+          queryClient.setQueryData<GetConversationResponseDto>(
+            getConversationQueryKey(resolvedConversationId),
+            {
+              conversation: {
+                ...conversation,
+                updatedAt: Math.max(conversation.updatedAt ?? 0, nextTimestamp),
+              },
+            },
+          );
+
+          queryClient.setQueriesData<ListMyConversationsResponseDto>(
+            { queryKey: getConversationsControllerMyQueryKey() },
+            (currentData) =>
+              upsertConversationInListData(currentData, conversation, nextTimestamp),
+          );
+          void queryClient.invalidateQueries({
+            queryKey: getConversationsControllerMyQueryKey(),
+          });
+        });
+
+        window.requestAnimationFrame(() => {
+          window.dispatchEvent(
+            new CustomEvent(CHAT_FORCE_SCROLL_BOTTOM_EVENT, {
+              detail: { conversationId: resolvedConversationId },
+            }),
+          );
+        });
+      },
+      onError: showSendError,
+    });
   const { mutate: editMessage } = useMessagesControllerEdit({
     mutation: {
       onSuccess: async (_data, variables) => {
@@ -370,20 +468,25 @@ export function SendMessageForm({
     (attachment) => attachment.status === "error",
   );
   const hasAttachedMedia = attachments.length > 0;
-  const isBusyComposer = isSendingMessage || isUploadingRecordedMedia;
+  const hasSendTarget = Boolean(conversationId || directPeerUserId);
+  const isBusyComposer =
+    isSendingMessage || isSendingDirectMessage || isUploadingRecordedMedia;
   const isRecording = recordGestureState === "recording";
   const isVideoRecording = isRecording && activeRecordingMode === "ring";
   const isTypingStateActive =
+    Boolean(conversationId) &&
     textValue.trim().length > 0 &&
     !isBlockedByCurrentUser &&
     !isBlockedByPeer &&
     !isBusyComposer &&
     !isRecording;
   const isUploadingMediaStateActive =
+    Boolean(conversationId) &&
     (hasUploadingAttachments || isUploadingRecordedMedia) &&
     !isBlockedByCurrentUser &&
     !isBlockedByPeer;
   const canShowRecordControl =
+    Boolean(conversationId) &&
     textValue.trim().length === 0 &&
     !isEditing &&
     !hasAttachedMedia &&
@@ -393,6 +496,7 @@ export function SendMessageForm({
     !hasErroredAttachments &&
     !isUploadingRecordedMedia;
   const canSubmit =
+    hasSendTarget &&
     (textValue.trim().length > 0 || hasAttachedMedia || isEditing) &&
     !hasUploadingAttachments &&
     !isBlockedByCurrentUser &&
@@ -853,24 +957,48 @@ export function SendMessageForm({
     }
   }, [botReplyKeyboard, conversationId]);
 
+  async function sendMessagePayload(
+    payload: Omit<SendMessageRequestDto, "conversationId">,
+  ) {
+    if (conversationId) {
+      await sendMessage({
+        data: {
+          conversationId,
+          ...payload,
+        },
+      });
+      return;
+    }
+
+    if (!directPeerUserId) {
+      return;
+    }
+
+    const response = await sendDirectMessageMutation({
+      targetUserId: directPeerUserId,
+      ...payload,
+    });
+
+    if (!response.conversation?.id) {
+      throw new Error("Direct conversation was not created");
+    }
+  }
+
   async function sendTextMessage(options: {
     text: string;
     replyToId?: string;
   }) {
     const trimmedText = options.text.trim();
-    if (!trimmedText || !conversationId) {
+    if (!trimmedText || !hasSendTarget) {
       return;
     }
 
-      await sendMessage({
-        data: {
-          conversationId,
-          kind: SendMessageRequestDtoKind.TEXT,
-          text: trimmedText,
-          replyToId: options.replyToId || undefined,
-          locale,
-        },
-      });
+    await sendMessagePayload({
+      kind: SendMessageRequestDtoKind.TEXT,
+      text: trimmedText,
+      replyToId: options.replyToId || undefined,
+      locale,
+    });
   }
 
   async function handleRecordGestureCancel() {
@@ -1004,7 +1132,7 @@ export function SendMessageForm({
   async function onSubmit(data: TypeSendMessageSchema) {
     const text = data.text.trim();
 
-    if (!conversationId || isBlockedByCurrentUser || isBlockedByPeer) return;
+    if (!hasSendTarget || isBlockedByCurrentUser || isBlockedByPeer) return;
     if (isBusyComposer) return;
     if (hasUploadingAttachments || hasErroredAttachments) return;
     if (!isEditing && text.length === 0 && !hasAttachedMedia) return;
@@ -1027,18 +1155,15 @@ export function SendMessageForm({
         uploadedMediaKeys = await uploadPendingAttachments(attachments);
       }
 
-        await sendMessage({
-          data: {
-            conversationId,
-            kind: uploadedMediaKeys.length > 0
-              ? SendMessageRequestDtoKind.MEDIA
-              : SendMessageRequestDtoKind.TEXT,
-            text: text || undefined,
-            replyToId: data.replyToId || undefined,
-            mediaKeys: uploadedMediaKeys.length > 0 ? uploadedMediaKeys : undefined,
-            locale,
-          },
-        });
+      await sendMessagePayload({
+        kind: uploadedMediaKeys.length > 0
+          ? SendMessageRequestDtoKind.MEDIA
+          : SendMessageRequestDtoKind.TEXT,
+        text: text || undefined,
+        replyToId: data.replyToId || undefined,
+        mediaKeys: uploadedMediaKeys.length > 0 ? uploadedMediaKeys : undefined,
+        locale,
+      });
     } catch {
       if (uploadedMediaKeys.length > 0) {
         await Promise.allSettled(
@@ -1064,7 +1189,7 @@ export function SendMessageForm({
   }
 
   async function handleBotReplyKeyboardPress(text: string) {
-    if (!conversationId || isBlockedByCurrentUser || isBlockedByPeer) return;
+    if (!hasSendTarget || isBlockedByCurrentUser || isBlockedByPeer) return;
     if (isBusyComposer || hasUploadingAttachments || hasErroredAttachments || isEditing) return;
 
     const shouldDismissOneTimeKeyboard = Boolean(
@@ -1221,15 +1346,15 @@ export function SendMessageForm({
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
-      className="flex items-start justify-center gap-2"
+      className="flex min-w-0 items-start justify-center gap-2"
     >
-      <div className="flex-1">
-        <div className="flex items-end gap-2">
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-end gap-2">
           <motion.div
             layout
             transition={prefersReducedMotion ? { duration: 0 } : SPRING.input}
             className={cn(
-              "chat-composer-surface relative flex-1 overflow-hidden border-2 border-border/60 bg-sidebar",
+              "chat-composer-surface relative min-w-0 flex-1 overflow-hidden border-2 border-border/60 bg-sidebar",
               shouldShowReplyKeyboard
                 ? "rounded-t-[20px] rounded-b-none border-b-0"
                 : "rounded-[20px]",
@@ -1315,7 +1440,7 @@ export function SendMessageForm({
                           size="icon"
                           className="absolute right-1 top-1 size-6 rounded-full"
                           onClick={() => handleRemoveAttachment(attachment.id)}
-                          disabled={attachment.status === "uploading" || isSendingMessage}
+                          disabled={attachment.status === "uploading" || isBusyComposer}
                         >
                           <FiX className="size-3.5" />
                         </Button>
@@ -1565,17 +1690,17 @@ export function SendMessageForm({
                   initial="hidden"
                   animate="visible"
                   exit="exit"
-                  className="input-wrapper"
+                  className="input-wrapper min-w-0"
                 >
                   <Controller
                     control={form.control}
                     name="text"
                     render={({ field }) => (
-                      <Field className="flex-1">
+                      <Field className="min-w-0 flex-1">
                         <EmojiInput
                           placeholder={botInputPlaceholder || t("placeholder")}
-                          className="max-w-none rounded-none border-0 bg-transparent shadow-none"
-                          disabled={isBlockedByCurrentUser || isBlockedByPeer}
+                          className="max-w-full rounded-none border-0 bg-transparent shadow-none"
+                          disabled={!hasSendTarget || isBlockedByCurrentUser || isBlockedByPeer}
                           value={field.value ?? ""}
                           onChange={field.onChange}
                           onBlur={field.onBlur}
@@ -1610,6 +1735,7 @@ export function SendMessageForm({
                               onClick={() => attachmentInputRef.current?.click()}
                               disabled={
                                 isEditing ||
+                                !hasSendTarget ||
                                 isBlockedByCurrentUser ||
                                 isBlockedByPeer ||
                                 isBusyComposer
@@ -1631,7 +1757,7 @@ export function SendMessageForm({
         <motion.div
           layout
           transition={prefersReducedMotion ? { duration: 0 } : SPRING.input}
-          className="shrink-0 self-center"
+          className="mb-1 shrink-0 self-end"
         >
           <AnimatePresence mode="wait" initial={false}>
             {showUploadRow ? (

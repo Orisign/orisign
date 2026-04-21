@@ -1,5 +1,6 @@
 import { PassportService } from '@lumina-cinema/passport'
 import { Injectable, Logger } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import type { Message } from '@repo/contracts/gen/ts/messages'
 import type { Server as HttpServer, IncomingMessage } from 'http'
 import { lastValueFrom } from 'rxjs'
@@ -52,6 +53,17 @@ type MediaUploadRealtimePayload = {
 	at: number
 }
 
+type ApiWsRequestPayload = {
+	type?: string
+	id?: string
+	method?: string
+	path?: string
+	headers?: Record<string, unknown>
+	bodyText?: string
+	token?: string
+	conversationId?: string
+}
+
 @Injectable()
 export class ChatRealtimeService {
 	private readonly logger = new Logger(ChatRealtimeService.name)
@@ -66,7 +78,8 @@ export class ChatRealtimeService {
 	public constructor(
 		private readonly passportService: PassportService,
 		private readonly conversationsClient: ConversationsClientGrpc,
-		private readonly usersClient: UsersClientGrpc
+		private readonly usersClient: UsersClientGrpc,
+		private readonly configService: ConfigService
 	) {}
 
 	public attachServer(httpServer: HttpServer) {
@@ -292,7 +305,312 @@ export class ChatRealtimeService {
 			return
 		}
 
+		if (pathname === '/apiws') {
+			this.handleApiWsConnection(socket, request)
+			return
+		}
+
 		socket.close(1008, 'Unsupported websocket route')
+	}
+
+	private handleApiWsConnection(socket: any, request: IncomingMessage) {
+		socket.on('message', (rawPayload: unknown) => {
+			void this.handleApiWsMessage(socket, request, rawPayload)
+		})
+
+		socket.on('close', () => {
+			this.unregisterChatListSocket(socket)
+			this.unregisterSocket(socket)
+			this.unregisterCallSocket(socket)
+		})
+
+		socket.on('error', () => {
+			this.unregisterChatListSocket(socket)
+			this.unregisterSocket(socket)
+			this.unregisterCallSocket(socket)
+		})
+
+		socket.send(
+			JSON.stringify({
+				type: 'ready',
+				route: 'apiws'
+			})
+		)
+	}
+
+	private async handleApiWsMessage(
+		socket: any,
+		request: IncomingMessage,
+		rawPayload: unknown
+	) {
+		let payload: ApiWsRequestPayload | null = null
+
+		try {
+			payload =
+				typeof rawPayload === 'string'
+					? JSON.parse(rawPayload)
+					: JSON.parse(String(rawPayload))
+		} catch {
+			return
+		}
+
+		if (payload?.type !== 'api.request') {
+			if (payload?.type === 'chat-list.subscribe') {
+				this.handleApiWsChatListSubscribe(socket, payload)
+				return
+			}
+
+			if (payload?.type === 'chat-list.unsubscribe') {
+				this.unregisterChatListSocket(socket)
+				return
+			}
+
+			if (payload?.type === 'chat.subscribe') {
+				await this.handleApiWsChatSubscribe(socket, payload)
+				return
+			}
+
+			if (payload?.type === 'chat.unsubscribe') {
+				this.unregisterSocket(socket)
+				return
+			}
+
+			if (
+				payload?.type === 'status.typing' ||
+				payload?.type === 'status.media-upload'
+			) {
+				this.handleChatSignal(socket, rawPayload)
+				return
+			}
+
+			if (payload?.type === 'call.subscribe') {
+				await this.handleApiWsCallSubscribe(socket, payload)
+				return
+			}
+
+			if (payload?.type === 'call.unsubscribe') {
+				this.unregisterCallSocket(socket)
+				return
+			}
+
+			if (
+				payload?.type === 'call.offer' ||
+				payload?.type === 'call.answer' ||
+				payload?.type === 'call.ice' ||
+				payload?.type === 'call.end'
+			) {
+				this.handleCallSignal(socket, rawPayload)
+				return
+			}
+
+			return
+		}
+
+		const id = typeof payload.id === 'string' ? payload.id : ''
+		if (!id) {
+			return
+		}
+
+		if (!this.isValidApiWsPostRequest(payload)) {
+			this.sendApiWsResponse(socket, {
+				id,
+				status: 400,
+				ok: false,
+				bodyText: JSON.stringify({ message: 'Invalid apiws request' })
+			})
+			return
+		}
+
+		try {
+			const response = await fetch(this.buildInternalHttpUrl(payload.path), {
+				method: 'POST',
+				headers: this.buildApiWsForwardHeaders(payload, request),
+				body:
+					typeof payload.bodyText === 'string'
+						? payload.bodyText
+						: undefined
+			})
+			const bodyText = await response.text()
+
+			this.sendApiWsResponse(socket, {
+				id,
+				status: response.status,
+				ok: response.ok,
+				bodyText
+			})
+		} catch (error) {
+			this.logger.warn(
+				error instanceof Error
+					? error.message
+					: 'Failed to proxy apiws request'
+			)
+			this.sendApiWsResponse(socket, {
+				id,
+				status: 502,
+				ok: false,
+				bodyText: JSON.stringify({ message: 'apiws upstream failed' })
+			})
+		}
+	}
+
+	private async handleApiWsChatSubscribe(
+		socket: any,
+		payload: ApiWsRequestPayload
+	) {
+		const token = typeof payload.token === 'string' ? payload.token.trim() : ''
+		const conversationId =
+			typeof payload.conversationId === 'string'
+				? payload.conversationId.trim()
+				: ''
+		const meta = await this.authenticateChatToken(token, conversationId)
+
+		if (!meta) {
+			socket.close(1008, 'Unauthorized')
+			return
+		}
+
+		this.registerSocket(socket, meta)
+
+		if (socket.readyState === 1) {
+			socket.send(
+				JSON.stringify({
+					type: 'chat.ready',
+					conversationId: meta.conversationId
+				})
+			)
+		}
+	}
+
+	private handleApiWsChatListSubscribe(
+		socket: any,
+		payload: ApiWsRequestPayload
+	) {
+		const token = typeof payload.token === 'string' ? payload.token.trim() : ''
+		const meta = this.authenticateChatListToken(token)
+
+		if (!meta) {
+			socket.close(1008, 'Unauthorized')
+			return
+		}
+
+		this.registerChatListSocket(socket, meta)
+
+		if (socket.readyState === 1) {
+			socket.send(
+				JSON.stringify({
+					type: 'chat-list.ready'
+				})
+			)
+		}
+	}
+
+	private async handleApiWsCallSubscribe(
+		socket: any,
+		payload: ApiWsRequestPayload
+	) {
+		const token = typeof payload.token === 'string' ? payload.token.trim() : ''
+		const conversationId =
+			typeof payload.conversationId === 'string'
+				? payload.conversationId.trim()
+				: ''
+		const meta = await this.authenticateChatToken(token, conversationId)
+
+		if (!meta) {
+			socket.close(1008, 'Unauthorized')
+			return
+		}
+
+		this.registerCallSocket(socket, meta)
+
+		if (socket.readyState === 1) {
+			socket.send(
+				JSON.stringify({
+					type: 'call.ready',
+					conversationId: meta.conversationId
+				})
+			)
+		}
+	}
+
+	private isValidApiWsPostRequest(payload: ApiWsRequestPayload) {
+		if (payload.method !== 'POST') return false
+		if (typeof payload.path !== 'string') return false
+		if (!payload.path.startsWith('/')) return false
+		if (payload.path.startsWith('//')) return false
+		if (payload.path.startsWith('/apiws')) return false
+		if (payload.path.startsWith('/ws/')) return false
+		if (
+			typeof payload.bodyText !== 'undefined' &&
+			typeof payload.bodyText !== 'string'
+		) {
+			return false
+		}
+
+		return true
+	}
+
+	private buildInternalHttpUrl(path: string) {
+		const port = this.configService.get<number>('HTTP_PORT')
+		const fallbackHost = port ? `http://127.0.0.1:${port}` : 'http://127.0.0.1'
+		return new URL(path, fallbackHost).toString()
+	}
+
+	private buildApiWsForwardHeaders(
+		payload: ApiWsRequestPayload,
+		request: IncomingMessage
+	) {
+		const headers = new Headers()
+		const cookieHeader = request.headers.cookie
+
+		if (cookieHeader) {
+			headers.set('cookie', cookieHeader)
+		}
+
+		if (payload.bodyText && !headers.has('content-type')) {
+			headers.set('content-type', 'application/json')
+		}
+
+		if (!payload.headers || typeof payload.headers !== 'object') {
+			return headers
+		}
+
+		for (const [key, value] of Object.entries(payload.headers)) {
+			const normalizedKey = key.toLowerCase()
+			if (
+				normalizedKey === 'cookie' ||
+				normalizedKey === 'host' ||
+				normalizedKey === 'content-length' ||
+				normalizedKey === 'connection' ||
+				normalizedKey === 'upgrade'
+			) {
+				continue
+			}
+
+			if (typeof value === 'string') {
+				headers.set(key, value)
+			}
+		}
+
+		return headers
+	}
+
+	private sendApiWsResponse(
+		socket: any,
+		payload: {
+			id: string
+			status: number
+			ok: boolean
+			bodyText: string
+		}
+	) {
+		if (socket.readyState !== 1) return
+
+		socket.send(
+			JSON.stringify({
+				type: 'api.response',
+				...payload
+			})
+		)
 	}
 
 	private async handleChatConnection(socket: any, request: IncomingMessage) {
@@ -422,15 +740,17 @@ export class ChatRealtimeService {
 			.get('conversationId')
 			?.trim()
 
-		if (!token || !conversationId) {
-			return null
-		}
+		return this.authenticateChatToken(token ?? '', conversationId ?? '')
+	}
+
+	private async authenticateChatToken(
+		token: string,
+		conversationId: string
+	): Promise<SocketMeta | null> {
+		if (!token || !conversationId) return null
 
 		const verification = this.passportService.verify(token)
-
-		if (!verification.valid || !verification.userId) {
-			return null
-		}
+		if (!verification.valid || !verification.userId) return null
 
 		const permission = await lastValueFrom(
 			this.conversationsClient.canRead({
@@ -439,9 +759,7 @@ export class ChatRealtimeService {
 			})
 		)
 
-		if (!permission.allowed) {
-			return null
-		}
+		if (!permission.allowed) return null
 
 		return {
 			conversationId,
@@ -458,14 +776,14 @@ export class ChatRealtimeService {
 		)
 
 		const token = requestUrl.searchParams.get('token')?.trim()
-		if (!token) {
-			return null
-		}
+		return this.authenticateChatListToken(token ?? '')
+	}
+
+	private authenticateChatListToken(token: string): ChatListSocketMeta | null {
+		if (!token) return null
 
 		const verification = this.passportService.verify(token)
-		if (!verification.valid || !verification.userId) {
-			return null
-		}
+		if (!verification.valid || !verification.userId) return null
 
 		return {
 			userId: verification.userId
@@ -473,6 +791,10 @@ export class ChatRealtimeService {
 	}
 
 	private registerSocket(socket: any, meta: SocketMeta) {
+		if (this.socketMeta.get(socket)) {
+			this.unregisterSocket(socket)
+		}
+
 		const previousUserSocketCount = this.countConversationUserSockets(
 			meta.conversationId,
 			meta.userId
@@ -503,6 +825,7 @@ export class ChatRealtimeService {
 	private unregisterSocket(socket: any) {
 		const meta = this.socketMeta.get(socket)
 		if (!meta) return
+		this.socketMeta.delete(socket)
 
 		const sockets = this.socketsByConversation.get(meta.conversationId)
 		if (!sockets) return
@@ -531,6 +854,11 @@ export class ChatRealtimeService {
 	}
 
 	private registerChatListSocket(socket: any, meta: ChatListSocketMeta) {
+		const currentMeta = this.chatListSocketMeta.get(socket)
+		if (currentMeta && currentMeta.userId !== meta.userId) {
+			this.unregisterChatListSocket(socket)
+		}
+
 		const hadSockets = (this.chatListSocketsByUserId.get(meta.userId)?.size ?? 0) > 0
 		this.chatListSocketMeta.set(socket, meta)
 
@@ -547,6 +875,7 @@ export class ChatRealtimeService {
 	private unregisterChatListSocket(socket: any) {
 		const meta = this.chatListSocketMeta.get(socket)
 		if (!meta) return
+		this.chatListSocketMeta.delete(socket)
 
 		const sockets = this.chatListSocketsByUserId.get(meta.userId)
 		if (!sockets) return
@@ -559,6 +888,10 @@ export class ChatRealtimeService {
 	}
 
 	private registerCallSocket(socket: any, meta: CallSocketMeta) {
+		if (this.callSocketMeta.get(socket)) {
+			this.unregisterCallSocket(socket)
+		}
+
 		this.callSocketMeta.set(socket, meta)
 
 		const sockets =
@@ -571,6 +904,7 @@ export class ChatRealtimeService {
 	private unregisterCallSocket(socket: any) {
 		const meta = this.callSocketMeta.get(socket)
 		if (!meta) return
+		this.callSocketMeta.delete(socket)
 
 		const sockets = this.callSocketsByConversation.get(meta.conversationId)
 		if (!sockets) return

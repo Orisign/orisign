@@ -25,6 +25,7 @@ import {
   FiCheckCircle,
   FiCopy,
   FiCornerUpLeft,
+  FiCornerUpRight,
   FiDownload,
   FiEdit2,
   FiLink,
@@ -48,6 +49,7 @@ import {
   ChatMessageReadDialog,
   type ChatMessageReadReceipt,
 } from "./chat-message-read-dialog";
+import { ChatForwardMessageDialog } from "./chat-forward-message-dialog";
 import type { ChatReplyTarget } from "./chat.types";
 
 const ChatMessageContextMenuContent = forwardRef<
@@ -127,6 +129,7 @@ export function ChatMessageContextMenu({
   const t = useTranslations("chat.messages.contextMenu");
   const queryClient = useQueryClient();
   const [isReadDialogOpen, setIsReadDialogOpen] = useState(false);
+  const [isForwardDialogOpen, setIsForwardDialogOpen] = useState(false);
 
   const { mutate: deleteMessage, isPending } = useMessagesControllerDelete({
     mutation: {
@@ -159,6 +162,7 @@ export function ChatMessageContextMenu({
   const canDownloadMedia = downloadableMediaKeys.length > 0;
   const canViewReadReceipts = readReceipts.length > 0;
   const canReply = Boolean(onReply) && message.kind !== CHAT_MESSAGE_KIND.SYSTEM;
+  const canForward = message.kind !== CHAT_MESSAGE_KIND.SYSTEM;
   const previewReadReceipts = useMemo(
     () => readReceipts.slice(0, 2),
     [readReceipts],
@@ -170,6 +174,7 @@ export function ChatMessageContextMenu({
       !canDelete &&
       !canViewReadReceipts &&
       !canReply &&
+      !canForward &&
       !canSelect &&
       !canEdit &&
       !canCopyLink &&
@@ -271,6 +276,13 @@ export function ChatMessageContextMenu({
             </ChatMessageContextMenuItem>
           ) : null}
 
+          {canForward ? (
+            <ChatMessageContextMenuItem onSelect={() => setIsForwardDialogOpen(true)}>
+              <FiCornerUpRight />
+              {t("forward")}
+            </ChatMessageContextMenuItem>
+          ) : null}
+
           {canCopy ? (
             <ChatMessageContextMenuItem onSelect={() => void onCopy()}>
               <FiCopy />
@@ -361,6 +373,12 @@ export function ChatMessageContextMenu({
         open={isReadDialogOpen}
         onOpenChange={setIsReadDialogOpen}
         readReceipts={readReceipts}
+      />
+      <ChatForwardMessageDialog
+        open={isForwardDialogOpen}
+        onOpenChange={setIsForwardDialogOpen}
+        message={message}
+        sourceConversationId={conversationId}
       />
     </>
   );

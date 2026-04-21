@@ -17,7 +17,15 @@ export const ChatList = ({ activeFolder = null, searchQuery = "" }: ChatListProp
   const t = useTranslations("chat.list");
   const { data, isLoading } = useConversationsControllerMy();
 
-  const allConversations = useMemo(() => data?.conversations ?? [], [data?.conversations]);
+  const allConversations = useMemo(
+    () =>
+      [...(data?.conversations ?? [])].sort(
+        (left, right) =>
+          (right.updatedAt || right.createdAt) -
+          (left.updatedAt || left.createdAt),
+      ),
+    [data?.conversations],
+  );
   const folderFilteredConversations = useMemo(
     () => filterConversationsByChatFolder(allConversations, activeFolder),
     [activeFolder, allConversations],

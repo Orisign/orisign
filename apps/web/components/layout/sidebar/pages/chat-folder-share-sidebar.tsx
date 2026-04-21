@@ -10,7 +10,7 @@ import {
   SidebarPageTitle,
 } from "@/components/ui/sidebar-page";
 import { useChatFolders, useUpdateChatFolder } from "@/hooks/use-chat-folders";
-import { useSidebar } from "@/hooks/use-sidebar";
+import { sidebarStore } from "@/store/sidebar/sidebar.store";
 import {
   getConversationAvatarUrl,
   getConversationInitial,
@@ -46,7 +46,7 @@ export function ChatFolderShareSidebar({
   route: Extract<SidebarRoute, { screen: "chat-folder-share" }>;
 }) {
   const t = useTranslations("chatFoldersShareSidebar");
-  const { pop } = useSidebar();
+  const { pop } = sidebarStore();
   const { data: foldersData } = useChatFolders();
   const { mutateAsync: updateFolder } = useUpdateChatFolder();
   const { data } = useConversationsControllerMy();

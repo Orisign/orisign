@@ -172,7 +172,7 @@ export function RightSidebarInfoScreen({
           ) : null}
 
           <Ripple asChild>
-            <label className="flex w-full cursor-pointer items-start gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-accent">
+            <label className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-accent">
               <RightSidebarInfoIcon>
                 <IoNotificationsOutline />
               </RightSidebarInfoIcon>
