@@ -40,6 +40,7 @@ import { ChatFolderShareSidebar } from "./sidebar/pages/chat-folder-share-sideba
 import { ChatSearchSidebar } from "./sidebar/pages/chat-search-sidebar";
 import { SessionsSidebar } from "./sidebar/pages/sessions-sidebar";
 import { RightSidebar } from "./right-sidebar";
+import { ChatMusicPlayer } from "../chat/chat-music-player";
 
 function buildSidebarRouteTransitionKey(route: SidebarRoute) {
   switch (route.screen) {
@@ -492,19 +493,23 @@ export const AppShell: FC<PropsWithChildren> = ({ children }) => {
 
         <main
           ref={mainShellRef}
-          className="relative min-w-0 overflow-hidden bg-background"
+          className="relative flex min-w-0 flex-col overflow-hidden bg-background"
         >
           <div
-            className="h-full min-h-0"
+            className="flex h-full min-h-0 flex-col"
             style={chatContentStyle}
           >
-            {isConversationPage ? (
-              <div className="h-full min-h-0">{children}</div>
-            ) : (
-              <ScrollArea className="h-full w-full">
-                <div className="h-full p-6">{children}</div>
-              </ScrollArea>
-            )}
+            <ChatMusicPlayer />
+
+            <div className="min-h-0 flex-1">
+              {isConversationPage ? (
+                <div className="h-full min-h-0">{children}</div>
+              ) : (
+                <ScrollArea className="h-full w-full">
+                  <div className="h-full p-6">{children}</div>
+                </ScrollArea>
+              )}
+            </div>
           </div>
 
           <div

@@ -1,0 +1,9 @@
+{
+  "name": "media-service",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "cmd /c dev.cmd",
+    "build": "cmd /c build.cmd"
+  }
+}

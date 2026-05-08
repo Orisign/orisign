@@ -98,6 +98,7 @@ export function buildRightSidebarScreenNodes({
   adminItems,
   draftTitle,
   draftAbout,
+  draftAvatarUrl,
   draftIsPublic,
   inviteLinksCount,
   adminsCount,
@@ -107,6 +108,8 @@ export function buildRightSidebarScreenNodes({
   setSignMessages,
   setDraftTitle,
   setDraftAbout,
+  handleUploadAvatar,
+  isUploadingAvatar,
   persistConversationDraft,
   changeScreen,
   canDeleteChannel,
@@ -238,6 +241,7 @@ export function buildRightSidebarScreenNodes({
   adminItems: MemberListItem[];
   draftTitle: string;
   draftAbout: string;
+  draftAvatarUrl: string;
   draftIsPublic: boolean;
   inviteLinksCount: number;
   adminsCount: number;
@@ -247,6 +251,8 @@ export function buildRightSidebarScreenNodes({
   setSignMessages: (value: boolean) => void;
   setDraftTitle: (value: string) => void;
   setDraftAbout: (value: string) => void;
+  handleUploadAvatar: (file: File) => Promise<void>;
+  isUploadingAvatar: boolean;
   persistConversationDraft: () => void;
   changeScreen: (nextScreen: RightSidebarScreen) => void;
   canDeleteChannel: boolean;
@@ -377,6 +383,7 @@ export function buildRightSidebarScreenNodes({
     "manage-overview": (
       <RightSidebarManageOverviewScreen
         avatarUrl={avatarUrl}
+        draftAvatarUrl={draftAvatarUrl}
         avatarFallback={avatarFallback}
         title={draftTitle}
         about={draftAbout}
@@ -390,6 +397,8 @@ export function buildRightSidebarScreenNodes({
         setSignMessages={setSignMessages}
         onTitleChange={setDraftTitle}
         onAboutChange={setDraftAbout}
+        onUploadAvatar={handleUploadAvatar}
+        isUploadingAvatar={isUploadingAvatar}
         onPersist={persistConversationDraft}
         onOpenChannelType={() => changeScreen("manage-channel-type")}
         onOpenInviteLinks={() => changeScreen("manage-invite-links")}

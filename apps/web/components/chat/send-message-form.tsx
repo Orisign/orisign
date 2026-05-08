@@ -25,6 +25,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import {
   type ChangeEvent,
+  type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useEffectEvent,
@@ -33,7 +34,18 @@ import {
 } from "react";
 import { HiPaperAirplane } from "react-icons/hi2";
 import { FaTrash } from "react-icons/fa";
-import { FiFileText, FiPaperclip, FiVideo, FiX } from "react-icons/fi";
+import {
+  FiEdit3,
+  FiFileText,
+  FiMusic,
+  FiPaperclip,
+  FiPenTool,
+  FiRotateCcw,
+  FiRotateCw,
+  FiType,
+  FiVideo,
+  FiX,
+} from "react-icons/fi";
 import { TiMicrophone } from "react-icons/ti";
 import { EmojiInput } from "@/components/ui/emoji-input";
 import { useLocale, useTranslations } from "next-intl";
@@ -87,15 +99,141 @@ type PendingAttachment = {
   file: File;
   previewUrl: string | null;
   uploadedKey: string | null;
-  mediaKind: "messages" | "voice" | "ring";
+  mediaKind: "messages" | "voice" | "ring" | "music";
+  imageRotation: number;
+  imageStrokes: ImageDrawStroke[];
+  imageTexts: ImageTextOverlay[];
   progress: number;
   status: "pending" | "uploading" | "uploaded" | "error";
+};
+
+type ImageEditorTool = "draw" | "text";
+
+type ImageDrawPoint = {
+  x: number;
+  y: number;
+};
+
+type ImageDrawStroke = {
+  id: string;
+  color: string;
+  size: number;
+  createdAt: number;
+  points: ImageDrawPoint[];
+};
+
+type ImageTextOverlay = {
+  id: string;
+  text: string;
+  color: string;
+  size: number;
+  createdAt: number;
+  x: number;
+  y: number;
+  width: number;
+};
+
+type ImageTextInteraction =
+  | {
+      mode: "move";
+      id: string;
+      startX: number;
+      startY: number;
+      originX: number;
+      originY: number;
+      originWidth: number;
+    }
+  | {
+      mode: "resize";
+      id: string;
+      edge: "left" | "right";
+      startX: number;
+      originX: number;
+      originWidth: number;
+    };
+
+type HsvColor = {
+  h: number;
+  s: number;
+  v: number;
+};
+
+type PendingAttachmentMetadata = {
+  key: string;
+  kind: PendingAttachment["mediaKind"] | "file" | "image" | "video";
+  fileName: string;
+  mimeType: string;
+  size: number;
 };
 
 type ActiveBotReplyKeyboard = {
   message: ChatReplyMarkupCarrier;
   markup: ChatReplyKeyboardMarkup;
 };
+
+const IMAGE_EDITOR_COLORS = [
+  "hsl(var(--foreground))",
+  "hsl(var(--primary))",
+  "hsl(var(--destructive))",
+  "hsl(var(--muted-foreground))",
+  "hsl(var(--accent-foreground))",
+  "hsl(var(--secondary-foreground))",
+];
+const IMAGE_TEXT_PLACEMENT_CURSOR =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M7 5h14M14 5v18' stroke='white' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M7 5h14M14 5v18' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E\") 14 14, text";
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function hsvToHex({ h, s, v }: HsvColor) {
+  const normalizedHue = ((h % 360) + 360) % 360;
+  const saturation = clampNumber(s, 0, 100) / 100;
+  const value = clampNumber(v, 0, 100) / 100;
+  const chroma = value * saturation;
+  const x = chroma * (1 - Math.abs(((normalizedHue / 60) % 2) - 1));
+  const match = value - chroma;
+  const [red, green, blue] =
+    normalizedHue < 60 ? [chroma, x, 0]
+      : normalizedHue < 120 ? [x, chroma, 0]
+        : normalizedHue < 180 ? [0, chroma, x]
+          : normalizedHue < 240 ? [0, x, chroma]
+            : normalizedHue < 300 ? [x, 0, chroma]
+              : [chroma, 0, x];
+
+  return `#${
+    [red, green, blue]
+      .map((channel) => Math.round((channel + match) * 255).toString(16).padStart(2, "0"))
+      .join("")
+  }`;
+}
+
+function hexToHsv(hex: string): HsvColor | null {
+  const normalizedHex = hex.trim().replace(/^#/, "");
+  if (!/^[0-9a-f]{6}$/i.test(normalizedHex)) {
+    return null;
+  }
+
+  const red = Number.parseInt(normalizedHex.slice(0, 2), 16) / 255;
+  const green = Number.parseInt(normalizedHex.slice(2, 4), 16) / 255;
+  const blue = Number.parseInt(normalizedHex.slice(4, 6), 16) / 255;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const delta = max - min;
+  const hue = delta === 0
+    ? 0
+    : max === red
+      ? 60 * (((green - blue) / delta) % 6)
+      : max === green
+        ? 60 * ((blue - red) / delta + 2)
+        : 60 * ((red - green) / delta + 4);
+
+  return {
+    h: Math.round((hue + 360) % 360),
+    s: max === 0 ? 0 : Math.round((delta / max) * 100),
+    v: Math.round(max * 100),
+  };
+}
 
 function createAttachmentId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -111,6 +249,176 @@ function isImageFile(file: File) {
 
 function isVideoFile(file: File) {
   return file.type.startsWith("video/");
+}
+
+function isAudioFile(file: File) {
+  const normalizedName = file.name.toLowerCase();
+  return (
+    file.type.startsWith("audio/") ||
+    [".mp3", ".wav", ".ogg", ".oga", ".m4a", ".aac", ".opus", ".flac"].some(
+      (extension) => normalizedName.endsWith(extension),
+    )
+  );
+}
+
+function getAttachmentMetadataKind(attachment: PendingAttachment) {
+  if (attachment.mediaKind !== "messages") {
+    return attachment.mediaKind;
+  }
+
+  if (isImageFile(attachment.file)) {
+    return "image";
+  }
+
+  if (isVideoFile(attachment.file)) {
+    return "video";
+  }
+
+  if (isAudioFile(attachment.file)) {
+    return "music";
+  }
+
+  return "file";
+}
+
+function buildPendingAttachmentMetadata(
+  attachment: PendingAttachment,
+  key: string,
+): PendingAttachmentMetadata {
+  return {
+    key,
+    kind: getAttachmentMetadataKind(attachment),
+    fileName: attachment.file.name,
+    mimeType: attachment.file.type,
+    size: attachment.file.size,
+  };
+}
+
+function createPendingAttachment(file: File): PendingAttachment {
+  return {
+    id: createAttachmentId(),
+    file,
+    previewUrl: isImageFile(file) || isVideoFile(file) ? URL.createObjectURL(file) : null,
+    uploadedKey: null,
+    mediaKind: isAudioFile(file) ? "music" : "messages",
+    imageRotation: 0,
+    imageStrokes: [],
+    imageTexts: [],
+    progress: 0,
+    status: "pending",
+  };
+}
+
+function hasDraggedFiles(event: DragEvent) {
+  return Array.from(event.dataTransfer?.types ?? []).includes("Files");
+}
+
+async function createEditedImageFile(attachment: PendingAttachment) {
+  if (
+    !isImageFile(attachment.file) ||
+    (
+      attachment.imageRotation % 360 === 0 &&
+      attachment.imageStrokes.length === 0 &&
+      attachment.imageTexts.length === 0
+    )
+  ) {
+    return attachment.file;
+  }
+
+  const sourceUrl = attachment.previewUrl ?? URL.createObjectURL(attachment.file);
+  const shouldRevokeSourceUrl = !attachment.previewUrl;
+
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const nextImage = new Image();
+      nextImage.onload = () => resolve(nextImage);
+      nextImage.onerror = reject;
+      nextImage.src = sourceUrl;
+    });
+    const normalizedRotation = ((attachment.imageRotation % 360) + 360) % 360;
+    const swapsDimensions = normalizedRotation === 90 || normalizedRotation === 270;
+    const canvas = document.createElement("canvas");
+    canvas.width = swapsDimensions ? image.naturalHeight : image.naturalWidth;
+    canvas.height = swapsDimensions ? image.naturalWidth : image.naturalHeight;
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return attachment.file;
+    }
+
+    context.save();
+    context.translate(canvas.width / 2, canvas.height / 2);
+    context.rotate((normalizedRotation * Math.PI) / 180);
+    context.drawImage(
+      image,
+      -image.naturalWidth / 2,
+      -image.naturalHeight / 2,
+      image.naturalWidth,
+      image.naturalHeight,
+    );
+    context.restore();
+
+    const annotationScaleX = canvas.width;
+    const annotationScaleY = canvas.height;
+
+    for (const stroke of attachment.imageStrokes) {
+      if (stroke.points.length < 2) continue;
+
+      context.save();
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.strokeStyle = stroke.color;
+      context.lineWidth = Math.max(2, stroke.size);
+      context.beginPath();
+      stroke.points.forEach((point, index) => {
+        const x = point.x * annotationScaleX;
+        const y = point.y * annotationScaleY;
+        if (index === 0) {
+          context.moveTo(x, y);
+        } else {
+          context.lineTo(x, y);
+        }
+      });
+      context.stroke();
+      context.restore();
+    }
+
+    for (const textLayer of attachment.imageTexts) {
+      const text = textLayer.text.trim();
+      if (!text) continue;
+
+      context.save();
+      context.font = `700 ${textLayer.size}px Inter, system-ui, sans-serif`;
+      context.textAlign = "left";
+      context.textBaseline = "top";
+      context.lineWidth = Math.max(4, textLayer.size * 0.12);
+      context.strokeStyle = "rgba(0, 0, 0, 0.55)";
+      context.fillStyle = textLayer.color;
+      const x = textLayer.x * annotationScaleX;
+      const y = textLayer.y * annotationScaleY;
+      const maxWidth = Math.max(24, textLayer.width * annotationScaleX);
+      context.strokeText(text, x, y, maxWidth);
+      context.fillText(text, x, y, maxWidth);
+      context.restore();
+    }
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, attachment.file.type || "image/png", 0.92);
+    });
+
+    if (!blob) {
+      return attachment.file;
+    }
+
+    return new File([blob], attachment.file.name, {
+      type: blob.type || attachment.file.type,
+      lastModified: Date.now(),
+    });
+  } finally {
+    if (shouldRevokeSourceUrl) {
+      URL.revokeObjectURL(sourceUrl);
+    }
+  }
 }
 
 function formatRecordDuration(totalSeconds: number) {
@@ -221,6 +529,9 @@ export function SendMessageForm({
   });
   const queryClient = useQueryClient();
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
+  const imageEditorCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const imageTextInteractionRef = useRef<ImageTextInteraction | null>(null);
+  const activeDrawStrokeIdRef = useRef<string | null>(null);
   const ringPreviewRef = useRef<HTMLVideoElement | null>(null);
   const attachmentsRef = useRef<PendingAttachment[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -233,6 +544,19 @@ export function SendMessageForm({
   const recordingAnalyserRef = useRef<AnalyserNode | null>(null);
   const recordProbeArrayRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const [editingAttachmentId, setEditingAttachmentId] = useState<string | null>(null);
+  const [imageEditorTool, setImageEditorTool] = useState<ImageEditorTool>("draw");
+  const [imageEditorColor, setImageEditorColor] = useState(IMAGE_EDITOR_COLORS[0]);
+  const [imageEditorCustomColor, setImageEditorCustomColor] = useState("#ff3366");
+  const [imageEditorBrushSize, setImageEditorBrushSize] = useState(8);
+  const [activeImageTextId, setActiveImageTextId] = useState<string | null>(null);
+  const [isImageTextPlacementArmed, setIsImageTextPlacementArmed] = useState(false);
+  const [imageEditorCanvasScale, setImageEditorCanvasScale] = useState(1);
+  const [imageEditorCanvasSize, setImageEditorCanvasSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const [isUploadingRecordedMedia, setIsUploadingRecordedMedia] = useState(false);
   const [recordedMediaUploadProgress, setRecordedMediaUploadProgress] = useState<number | null>(null);
   const [recordMode] = useState<"voice" | "ring">("voice");
@@ -518,6 +842,81 @@ export function SendMessageForm({
   const shouldShowReplyKeyboard = Boolean(activeReplyKeyboardMarkup && !isRecording);
   const showUploadRow = isUploadingRecordedMedia && !isRecording;
   const hasBlockedOverlay = isBlockedByCurrentUser || isBlockedByPeer;
+  const editingAttachment = attachments.find(
+    (attachment) => attachment.id === editingAttachmentId,
+  );
+
+  const renderImageEditorCanvas = useCallback(async (attachment: PendingAttachment) => {
+    const canvas = imageEditorCanvasRef.current;
+    if (!canvas || !attachment.previewUrl) return;
+
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const nextImage = new Image();
+      nextImage.onload = () => resolve(nextImage);
+      nextImage.onerror = reject;
+      nextImage.src = attachment.previewUrl ?? "";
+    });
+
+    const normalizedRotation = ((attachment.imageRotation % 360) + 360) % 360;
+    const swapsDimensions = normalizedRotation === 90 || normalizedRotation === 270;
+    const width = swapsDimensions ? image.naturalHeight : image.naturalWidth;
+    const height = swapsDimensions ? image.naturalWidth : image.naturalHeight;
+    const maxSide = 1600;
+    const scale = Math.min(1, maxSide / Math.max(width, height));
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    setImageEditorCanvasSize({
+      width: canvas.width,
+      height: canvas.height,
+    });
+
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    window.requestAnimationFrame(() => {
+      const rect = canvas.getBoundingClientRect();
+      setImageEditorCanvasScale(canvas.width > 0 ? rect.width / canvas.width : 1);
+    });
+    context.save();
+    context.translate(canvas.width / 2, canvas.height / 2);
+    context.rotate((normalizedRotation * Math.PI) / 180);
+    context.drawImage(
+      image,
+      -(image.naturalWidth * scale) / 2,
+      -(image.naturalHeight * scale) / 2,
+      image.naturalWidth * scale,
+      image.naturalHeight * scale,
+    );
+    context.restore();
+
+    for (const stroke of attachment.imageStrokes) {
+      if (stroke.points.length < 2) continue;
+      context.save();
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.strokeStyle = stroke.color;
+      context.lineWidth = stroke.size * scale;
+      context.beginPath();
+      stroke.points.forEach((point, index) => {
+        const x = point.x * canvas.width;
+        const y = point.y * canvas.height;
+        if (index === 0) context.moveTo(x, y);
+        else context.lineTo(x, y);
+      });
+      context.stroke();
+      context.restore();
+    }
+
+  }, []);
+
+  useEffect(() => {
+    if (!editingAttachment?.previewUrl || !isImageFile(editingAttachment.file)) {
+      return;
+    }
+
+    void renderImageEditorCanvas(editingAttachment);
+  }, [editingAttachment, renderImageEditorCanvas]);
 
   useEffect(() => {
     onTypingStateChange?.(isTypingStateActive);
@@ -832,6 +1231,58 @@ export function SendMessageForm({
   useEffect(() => {
     attachmentsRef.current = attachments;
   }, [attachments]);
+
+  useEffect(() => {
+    if (!hasSendTarget || isBlockedByCurrentUser || isBlockedByPeer || isEditing) {
+      return;
+    }
+
+    let dragDepth = 0;
+
+    const handleDragEnter = (event: DragEvent) => {
+      if (!hasDraggedFiles(event)) return;
+      event.preventDefault();
+      dragDepth += 1;
+      setIsDraggingFiles(true);
+    };
+
+    const handleDragOver = (event: DragEvent) => {
+      if (!hasDraggedFiles(event)) return;
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "copy";
+      }
+      setIsDraggingFiles(true);
+    };
+
+    const handleDragLeave = (event: DragEvent) => {
+      if (!hasDraggedFiles(event)) return;
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) {
+        setIsDraggingFiles(false);
+      }
+    };
+
+    const handleDrop = (event: DragEvent) => {
+      if (!hasDraggedFiles(event)) return;
+      event.preventDefault();
+      dragDepth = 0;
+      setIsDraggingFiles(false);
+      addPendingFiles(Array.from(event.dataTransfer?.files ?? []));
+    };
+
+    window.addEventListener("dragenter", handleDragEnter);
+    window.addEventListener("dragover", handleDragOver);
+    window.addEventListener("dragleave", handleDragLeave);
+    window.addEventListener("drop", handleDrop);
+
+    return () => {
+      window.removeEventListener("dragenter", handleDragEnter);
+      window.removeEventListener("dragover", handleDragOver);
+      window.removeEventListener("dragleave", handleDragLeave);
+      window.removeEventListener("drop", handleDrop);
+    };
+  }, [hasSendTarget, isBlockedByCurrentUser, isBlockedByPeer, isEditing]);
 
   useEffect(() => {
     return () => {
@@ -1149,10 +1600,13 @@ export function SendMessageForm({
     }
 
     let uploadedMediaKeys: string[] = [];
+    let uploadedAttachmentMetadata: PendingAttachmentMetadata[] = [];
 
     try {
       if (hasAttachedMedia) {
-        uploadedMediaKeys = await uploadPendingAttachments(attachments);
+        const uploadResult = await uploadPendingAttachments(attachments);
+        uploadedMediaKeys = uploadResult.keys;
+        uploadedAttachmentMetadata = uploadResult.metadata;
       }
 
       await sendMessagePayload({
@@ -1162,6 +1616,9 @@ export function SendMessageForm({
         text: text || undefined,
         replyToId: data.replyToId || undefined,
         mediaKeys: uploadedMediaKeys.length > 0 ? uploadedMediaKeys : undefined,
+        attachmentsJson: uploadedAttachmentMetadata.length > 0
+          ? JSON.stringify(uploadedAttachmentMetadata)
+          : undefined,
         locale,
       });
     } catch {
@@ -1255,7 +1712,12 @@ export function SendMessageForm({
         ),
       );
 
-      const uploaded = await uploadConversationMedia(attachment.file, (progress) => {
+      const uploadMediaKind = attachment.mediaKind === "music" && !conversationId
+        ? "messages"
+        : attachment.mediaKind;
+
+      const fileToUpload = await createEditedImageFile(attachment);
+      const uploaded = await uploadConversationMedia(fileToUpload, (progress) => {
         setAttachments((currentAttachments) =>
           currentAttachments.map((currentAttachment) =>
             currentAttachment.id === attachmentId
@@ -1264,8 +1726,8 @@ export function SendMessageForm({
           ),
         );
       }, {
-        mediaKind: attachment.mediaKind,
-        conversationId: attachment.mediaKind === "messages" ? undefined : conversationId,
+        mediaKind: uploadMediaKind,
+        conversationId: uploadMediaKind === "messages" ? undefined : conversationId,
       });
 
       setAttachments((currentAttachments) =>
@@ -1296,31 +1758,28 @@ export function SendMessageForm({
 
   async function uploadPendingAttachments(sourceAttachments: PendingAttachment[]) {
     const snapshot = [...sourceAttachments];
-    const uploadedKeys: string[] = [];
+    const keys: string[] = [];
+    const metadata: PendingAttachmentMetadata[] = [];
 
     for (const attachment of snapshot) {
       const uploadedKey = await uploadAttachment(attachment);
-      uploadedKeys.push(uploadedKey);
+      keys.push(uploadedKey);
+      metadata.push(buildPendingAttachmentMetadata(attachment, uploadedKey));
     }
 
-    return uploadedKeys;
+    return { keys, metadata };
+  }
+
+  function addPendingFiles(files: File[]) {
+    if (files.length === 0) return;
+
+    const nextAttachments = files.map(createPendingAttachment);
+
+    setAttachments((currentAttachments) => [...currentAttachments, ...nextAttachments]);
   }
 
   function handleSelectFiles(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
-    if (files.length === 0) return;
-
-    const nextAttachments: PendingAttachment[] = files.map((file) => ({
-      id: createAttachmentId(),
-      file,
-      previewUrl: isImageFile(file) || isVideoFile(file) ? URL.createObjectURL(file) : null,
-      uploadedKey: null,
-      mediaKind: "messages",
-      progress: 0,
-      status: "pending",
-    }));
-
-    setAttachments((currentAttachments) => [...currentAttachments, ...nextAttachments]);
+    addPendingFiles(Array.from(event.target.files ?? []));
 
     event.currentTarget.value = "";
   }
@@ -1343,11 +1802,316 @@ export function SendMessageForm({
     });
   }
 
+  function updateImageAttachment(
+    attachmentId: string,
+    patch: Partial<
+      Pick<PendingAttachment, "imageRotation" | "imageStrokes" | "imageTexts">
+    >,
+  ) {
+    setAttachments((currentAttachments) =>
+      currentAttachments.map((attachment) =>
+        attachment.id === attachmentId
+          ? {
+              ...attachment,
+              ...patch,
+            }
+          : attachment,
+      ),
+    );
+  }
+
+  function getImageEditorCanvasPoint(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const canvas = event.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0 || canvas.width === 0 || canvas.height === 0) {
+      return { x: 0, y: 0 };
+    }
+
+    const bitmapX = (event.clientX - rect.left) * (canvas.width / rect.width);
+    const bitmapY = (event.clientY - rect.top) * (canvas.height / rect.height);
+
+    return {
+      x: Math.min(1, Math.max(0, bitmapX / canvas.width)),
+      y: Math.min(1, Math.max(0, bitmapY / canvas.height)),
+    };
+  }
+
+  function getImageEditorPointFromCanvasRect(clientX: number, clientY: number) {
+    const canvas = imageEditorCanvasRef.current;
+    const rect = canvas?.getBoundingClientRect();
+    if (!canvas || !rect || rect.width === 0 || rect.height === 0 || canvas.width === 0 || canvas.height === 0) {
+      return { x: 0, y: 0 };
+    }
+
+    const bitmapX = (clientX - rect.left) * (canvas.width / rect.width);
+    const bitmapY = (clientY - rect.top) * (canvas.height / rect.height);
+
+    return {
+      x: Math.min(1, Math.max(0, bitmapX / canvas.width)),
+      y: Math.min(1, Math.max(0, bitmapY / canvas.height)),
+    };
+  }
+
+  function updateImageTextOverlay(
+    attachmentId: string,
+    textId: string,
+    patch: Partial<Pick<ImageTextOverlay, "text" | "color" | "x" | "y" | "width">>,
+  ) {
+    setAttachments((currentAttachments) =>
+      currentAttachments.map((attachment) =>
+        attachment.id === attachmentId
+          ? {
+              ...attachment,
+              imageTexts: attachment.imageTexts.map((textLayer) =>
+                textLayer.id === textId
+                  ? {
+                      ...textLayer,
+                      ...patch,
+                    }
+                  : textLayer,
+              ),
+            }
+          : attachment,
+      ),
+    );
+  }
+
+  function applyImageEditorColor(color: string) {
+    setImageEditorColor(color);
+    if (editingAttachment && activeImageTextId) {
+      updateImageTextOverlay(editingAttachment.id, activeImageTextId, {
+        color,
+      });
+    }
+  }
+
+  function handleImageTextLayerCreate(event: ReactPointerEvent<HTMLDivElement>) {
+    if (
+      !editingAttachment ||
+      imageEditorTool !== "text" ||
+      !isImageTextPlacementArmed ||
+      event.target !== event.currentTarget
+    ) {
+      return;
+    }
+
+    const point = getImageEditorPointFromCanvasRect(event.clientX, event.clientY);
+    const textId = createAttachmentId();
+    updateImageAttachment(editingAttachment.id, {
+      imageTexts: [
+        ...editingAttachment.imageTexts,
+        {
+          id: textId,
+          text: "",
+          color: imageEditorColor,
+          size: 42,
+          createdAt: Date.now(),
+          x: point.x,
+          y: point.y,
+          width: 0.28,
+        },
+      ],
+    });
+    setActiveImageTextId(textId);
+    setIsImageTextPlacementArmed(false);
+  }
+
+  function handleImageCanvasPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
+    if (!editingAttachment) return;
+
+    const point = getImageEditorCanvasPoint(event);
+    event.currentTarget.setPointerCapture(event.pointerId);
+
+    if (imageEditorTool === "text") {
+      return;
+    }
+
+    const strokeId = createAttachmentId();
+    activeDrawStrokeIdRef.current = strokeId;
+    updateImageAttachment(editingAttachment.id, {
+      imageStrokes: [
+        ...editingAttachment.imageStrokes,
+        {
+          id: strokeId,
+          color: imageEditorColor,
+          size: imageEditorBrushSize,
+          createdAt: Date.now(),
+          points: [point],
+        },
+      ],
+    });
+  }
+
+  function handleImageCanvasPointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
+    if (!editingAttachment || imageEditorTool !== "draw") return;
+
+    const activeStrokeId = activeDrawStrokeIdRef.current;
+    if (!activeStrokeId) return;
+
+    const point = getImageEditorCanvasPoint(event);
+    setAttachments((currentAttachments) =>
+      currentAttachments.map((attachment) =>
+        attachment.id === editingAttachment.id
+          ? {
+              ...attachment,
+              imageStrokes: attachment.imageStrokes.map((stroke) =>
+                stroke.id === activeStrokeId
+                  ? {
+                      ...stroke,
+                      points: [...stroke.points, point],
+                    }
+                  : stroke,
+              ),
+            }
+          : attachment,
+      ),
+    );
+  }
+
+  function handleImageCanvasPointerUp(event: ReactPointerEvent<HTMLCanvasElement>) {
+    activeDrawStrokeIdRef.current = null;
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function handleImageTextMoveStart(
+    event: ReactPointerEvent<HTMLDivElement>,
+    textLayer: ImageTextOverlay,
+  ) {
+    if (!editingAttachment) return;
+
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setActiveImageTextId(textLayer.id);
+    imageTextInteractionRef.current = {
+      mode: "move",
+      id: textLayer.id,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: textLayer.x,
+      originY: textLayer.y,
+      originWidth: textLayer.width,
+    };
+  }
+
+  function handleImageTextResizeStart(
+    event: ReactPointerEvent<HTMLButtonElement>,
+    textLayer: ImageTextOverlay,
+    edge: "left" | "right",
+  ) {
+    if (!editingAttachment) return;
+
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setActiveImageTextId(textLayer.id);
+    imageTextInteractionRef.current = {
+      mode: "resize",
+      id: textLayer.id,
+      edge,
+      startX: event.clientX,
+      originX: textLayer.x,
+      originWidth: textLayer.width,
+    };
+  }
+
+  function handleImageTextPointerMove(event: ReactPointerEvent<HTMLElement>) {
+    if (!editingAttachment) return;
+
+    const interaction = imageTextInteractionRef.current;
+    const canvasRect = imageEditorCanvasRef.current?.getBoundingClientRect();
+    if (!interaction || !canvasRect || canvasRect.width === 0 || canvasRect.height === 0) {
+      return;
+    }
+
+    const deltaX = (event.clientX - interaction.startX) / canvasRect.width;
+
+    if (interaction.mode === "move") {
+      const deltaY = (event.clientY - interaction.startY) / canvasRect.height;
+      const maxX = Math.max(0, 1 - interaction.originWidth);
+      updateImageTextOverlay(editingAttachment.id, interaction.id, {
+        x: Math.min(maxX, Math.max(0, interaction.originX + deltaX)),
+        y: Math.min(0.95, Math.max(0, interaction.originY + deltaY)),
+      });
+      return;
+    }
+
+    if (interaction.edge === "right") {
+      updateImageTextOverlay(editingAttachment.id, interaction.id, {
+        width: Math.min(0.9, Math.max(0.12, interaction.originWidth + deltaX)),
+      });
+      return;
+    }
+
+    const nextWidth = Math.min(0.9, Math.max(0.12, interaction.originWidth - deltaX));
+    const widthDelta = interaction.originWidth - nextWidth;
+    updateImageTextOverlay(editingAttachment.id, interaction.id, {
+      x: Math.min(0.95, Math.max(0, interaction.originX + widthDelta)),
+      width: nextWidth,
+    });
+  }
+
+  function handleImageTextPointerUp(event: ReactPointerEvent<HTMLElement>) {
+    imageTextInteractionRef.current = null;
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function undoLastImageEdit(attachment: PendingAttachment) {
+    const lastStroke = attachment.imageStrokes.at(-1);
+    const lastText = attachment.imageTexts.at(-1);
+
+    if (lastStroke && (!lastText || lastStroke.createdAt >= lastText.createdAt)) {
+      updateImageAttachment(attachment.id, {
+        imageStrokes: attachment.imageStrokes.slice(0, -1),
+      });
+      return;
+    }
+
+    if (attachment.imageTexts.length > 0) {
+      if (activeImageTextId === lastText?.id) {
+        setActiveImageTextId(null);
+      }
+      updateImageAttachment(attachment.id, {
+        imageTexts: attachment.imageTexts.slice(0, -1),
+      });
+    }
+  }
+
+  function clearImageEdits(attachment: PendingAttachment) {
+    setActiveImageTextId(null);
+    updateImageAttachment(attachment.id, {
+      imageStrokes: [],
+      imageTexts: [],
+    });
+  }
+
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       className="flex min-w-0 items-start justify-center gap-2"
     >
+      <AnimatePresence>
+        {isDraggingFiles ? (
+          <motion.div
+            key="chat-file-drop-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="pointer-events-none fixed inset-0 z-[120] flex items-center justify-center bg-background/45 backdrop-blur-[2px]"
+          >
+            <div className="rounded-2xl border border-primary/35 bg-sidebar/95 px-6 py-5 text-center shadow-2xl">
+              <FiPaperclip className="mx-auto size-8 text-primary" />
+              <p className="mt-2 text-sm font-semibold">{t("dropFilesTitle")}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("dropFilesSubtitle")}</p>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-end gap-2">
           <motion.div
@@ -1398,16 +2162,25 @@ export function SendMessageForm({
                         }}
                         className={cn(
                           "relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl border bg-background/85",
+                          isImageFile(attachment.file) && "cursor-pointer",
                           attachment.status === "error"
                             ? "border-destructive/70"
                             : "border-border/60",
                         )}
+                        onClick={() => {
+                          if (isImageFile(attachment.file)) {
+                            setEditingAttachmentId(attachment.id);
+                          }
+                        }}
                       >
                         {attachment.previewUrl && isImageFile(attachment.file) ? (
                           <img
                             src={attachment.previewUrl}
                             alt=""
                             className="h-full w-full object-cover"
+                            style={{
+                              transform: `rotate(${attachment.imageRotation}deg)`,
+                            }}
                           />
                         ) : null}
 
@@ -1423,7 +2196,9 @@ export function SendMessageForm({
 
                         {!attachment.previewUrl ? (
                           <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-1.5 text-center">
-                            {attachment.file.type.startsWith("video/") ? (
+                            {isAudioFile(attachment.file) ? (
+                              <FiMusic className="size-5 text-muted-foreground" />
+                            ) : attachment.file.type.startsWith("video/") ? (
                               <FiVideo className="size-5 text-muted-foreground" />
                             ) : (
                               <FiFileText className="size-5 text-muted-foreground" />
@@ -1434,16 +2209,25 @@ export function SendMessageForm({
                           </div>
                         ) : null}
 
-                        <Button
+                        <button
                           type="button"
-                          variant="secondary"
-                          size="icon"
-                          className="absolute right-1 top-1 size-6 rounded-full"
-                          onClick={() => handleRemoveAttachment(attachment.id)}
-                          disabled={attachment.status === "uploading" || isBusyComposer}
+                          className="absolute right-1 top-1 z-30 flex size-7 items-center justify-center rounded-full border border-border bg-popover text-popover-foreground shadow-lg transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-60"
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleRemoveAttachment(attachment.id);
+                          }}
+                          disabled={attachment.status === "uploading"}
+                          aria-label={t("removeAttachment")}
                         >
-                          <FiX className="size-3.5" />
-                        </Button>
+                          <FiX className="size-4" />
+                        </button>
+
+                        {isImageFile(attachment.file) ? (
+                          <span className="absolute left-1 top-1 z-10 rounded-full bg-background/80 p-1 text-foreground shadow-sm">
+                            <FiEdit3 className="size-3.5" />
+                          </span>
+                        ) : null}
 
                         <div className="absolute inset-x-1.5 bottom-1.5 overflow-hidden rounded-full bg-background/70">
                           <div
@@ -1882,9 +2666,314 @@ export function SendMessageForm({
         onChange={handleSelectFiles}
       />
 
+      <AnimatePresence>
+        {editingAttachment?.previewUrl && isImageFile(editingAttachment.file) ? (
+          <motion.div
+            key="attachment-image-editor"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[130] flex items-center justify-center bg-background/95 text-foreground"
+            onClick={() => setEditingAttachmentId(null)}
+          >
+            <motion.div
+              initial={{ y: 18, scale: 0.985 }}
+              animate={{ y: 0, scale: 1 }}
+              exit={{ y: 14, scale: 0.985 }}
+              className="relative flex h-[min(92vh,48rem)] w-[min(94vw,60rem)] flex-col overflow-hidden rounded-[1.25rem] border border-border bg-card shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between border-b border-border bg-card/95 px-4 py-3 backdrop-blur-md">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-10 rounded-full bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground"
+                  onClick={() => setEditingAttachmentId(null)}
+                  aria-label={t("editorCancel")}
+                >
+                  <FiX className="size-5" />
+                </Button>
+
+                <div className="flex items-center gap-1 rounded-full border border-border bg-muted p-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-9 rounded-full text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() =>
+                      updateImageAttachment(editingAttachment.id, {
+                        imageRotation: editingAttachment.imageRotation - 90,
+                      })
+                    }
+                    title={t("rotateLeft")}
+                  >
+                    <FiRotateCcw className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-9 rounded-full text-foreground hover:bg-accent hover:text-accent-foreground"
+                    onClick={() =>
+                      updateImageAttachment(editingAttachment.id, {
+                        imageRotation: editingAttachment.imageRotation + 90,
+                      })
+                    }
+                    title={t("rotateRight")}
+                  >
+                    <FiRotateCw className="size-4" />
+                  </Button>
+                </div>
+
+                <Button
+                  type="button"
+                  className="h-10 rounded-full px-5 font-semibold"
+                  onClick={() => setEditingAttachmentId(null)}
+                >
+                  {t("editorApply")}
+                </Button>
+              </div>
+
+              <div className="flex min-h-0 flex-1 items-center justify-center px-4 pb-44 pt-16 sm:px-8">
+                <div className="relative inline-flex max-h-full max-w-full">
+                  <canvas
+                    ref={imageEditorCanvasRef}
+                    className={cn(
+                      "h-auto max-h-full max-w-full touch-none rounded-lg shadow-xl",
+                      imageEditorTool === "draw" ? "cursor-crosshair" : "pointer-events-none",
+                    )}
+                    style={imageEditorCanvasSize
+                      ? {
+                          aspectRatio: `${imageEditorCanvasSize.width} / ${imageEditorCanvasSize.height}`,
+                          width: imageEditorCanvasSize.width,
+                          height: imageEditorCanvasSize.height,
+                        }
+                      : undefined}
+                    onPointerDown={handleImageCanvasPointerDown}
+                    onPointerMove={handleImageCanvasPointerMove}
+                    onPointerUp={handleImageCanvasPointerUp}
+                    onPointerCancel={handleImageCanvasPointerUp}
+                  />
+                  <div
+                    className={cn(
+                      "absolute inset-0 rounded-lg",
+                      isImageTextPlacementArmed ? "pointer-events-auto" : "pointer-events-none",
+                    )}
+                    style={isImageTextPlacementArmed ? { cursor: IMAGE_TEXT_PLACEMENT_CURSOR } : undefined}
+                    onPointerDown={handleImageTextLayerCreate}
+                  >
+                    {editingAttachment.imageTexts.map((textLayer) => {
+                      const isActiveText = activeImageTextId === textLayer.id;
+                      const fontSize = Math.max(14, textLayer.size * imageEditorCanvasScale);
+
+                      return (
+                        <div
+                          key={textLayer.id}
+                          className={cn(
+                            "pointer-events-auto absolute touch-none rounded-md border px-1.5 py-1 transition-colors",
+                            isActiveText
+                              ? "border-primary bg-background/20"
+                              : "border-transparent bg-transparent hover:border-border",
+                          )}
+                          style={{
+                            left: `${textLayer.x * 100}%`,
+                            top: `${textLayer.y * 100}%`,
+                            width: `${textLayer.width * 100}%`,
+                            color: textLayer.color,
+                          }}
+                          onPointerDown={(event) => handleImageTextMoveStart(event, textLayer)}
+                          onPointerMove={handleImageTextPointerMove}
+                          onPointerUp={handleImageTextPointerUp}
+                          onPointerCancel={handleImageTextPointerUp}
+                        >
+                          <input
+                            value={textLayer.text}
+                            autoFocus={isActiveText}
+                            onFocus={() => setActiveImageTextId(textLayer.id)}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onChange={(event) =>
+                              updateImageTextOverlay(editingAttachment.id, textLayer.id, {
+                                text: event.target.value,
+                              })
+                            }
+                            placeholder={t("textOnImagePlaceholder")}
+                            className="w-full bg-transparent font-bold leading-tight text-current outline-none placeholder:text-muted-foreground"
+                            style={{
+                              fontSize,
+                              textShadow: "0 2px 6px hsl(var(--background) / 0.65)",
+                            }}
+                          />
+                          {isActiveText ? (
+                            <>
+                              <button
+                                type="button"
+                                className="absolute -left-2 top-1/2 size-4 -translate-y-1/2 rounded-full border border-border bg-popover"
+                                onPointerDown={(event) =>
+                                  handleImageTextResizeStart(event, textLayer, "left")
+                                }
+                                onPointerMove={handleImageTextPointerMove}
+                                onPointerUp={handleImageTextPointerUp}
+                                onPointerCancel={handleImageTextPointerUp}
+                                aria-label={t("resizeText")}
+                              />
+                              <button
+                                type="button"
+                                className="absolute -right-2 top-1/2 size-4 -translate-y-1/2 rounded-full border border-border bg-popover"
+                                onPointerDown={(event) =>
+                                  handleImageTextResizeStart(event, textLayer, "right")
+                                }
+                                onPointerMove={handleImageTextPointerMove}
+                                onPointerUp={handleImageTextPointerUp}
+                                onPointerCancel={handleImageTextPointerUp}
+                                aria-label={t("resizeText")}
+                              />
+                            </>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="absolute inset-x-0 bottom-0 z-20 border-t border-border bg-card/95 px-4 pb-4 pt-4 backdrop-blur-md">
+                <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 rounded-[1.35rem] border border-border bg-popover p-3 shadow-2xl">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex rounded-full bg-muted p-1">
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+                          imageEditorTool === "draw" && "bg-background text-foreground",
+                        )}
+                        onClick={() => {
+                          setImageEditorTool("draw");
+                          setIsImageTextPlacementArmed(false);
+                          setActiveImageTextId(null);
+                          imageTextInteractionRef.current = null;
+                        }}
+                      >
+                        <FiPenTool className="size-4" />
+                        {t("drawTool")}
+                      </button>
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+                          imageEditorTool === "text" && isImageTextPlacementArmed &&
+                            "bg-background text-foreground",
+                        )}
+                        onClick={() => {
+                          setImageEditorTool("text");
+                          setIsImageTextPlacementArmed(true);
+                        }}
+                      >
+                        <FiType className="size-4" />
+                        {t("textTool")}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-9 rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        onClick={() => undoLastImageEdit(editingAttachment)}
+                        title={t("undoEdit")}
+                        disabled={
+                          editingAttachment.imageStrokes.length === 0 &&
+                          editingAttachment.imageTexts.length === 0
+                        }
+                      >
+                        <FiRotateCcw className="size-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-9 rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        onClick={() => clearImageEdits(editingAttachment)}
+                        title={t("clearEdits")}
+                        disabled={
+                          editingAttachment.imageStrokes.length === 0 &&
+                          editingAttachment.imageTexts.length === 0
+                        }
+                      >
+                        <FaTrash className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {IMAGE_EDITOR_COLORS.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        className={cn(
+                          "size-8 rounded-full border-2 border-border shadow transition-transform hover:scale-105",
+                          imageEditorColor === color && "border-foreground ring-2 ring-primary",
+                        )}
+                        style={{ backgroundColor: color }}
+                        onClick={() => applyImageEditorColor(color)}
+                        aria-label={color}
+                      />
+                    ))}
+
+                    <label
+                      className={cn(
+                        "relative flex size-8 items-center justify-center overflow-hidden rounded-full border-2 border-border shadow transition-transform hover:scale-105",
+                        imageEditorColor === imageEditorCustomColor &&
+                          "border-foreground ring-2 ring-primary",
+                      )}
+                      style={{ backgroundColor: imageEditorCustomColor }}
+                      title={t("customColor")}
+                    >
+                      <input
+                        type="color"
+                        value={imageEditorCustomColor}
+                        onChange={(event) => {
+                          const color = event.target.value;
+                          setImageEditorCustomColor(color);
+                          applyImageEditorColor(color);
+                        }}
+                        className="absolute inset-0 size-full cursor-pointer opacity-0"
+                        aria-label={t("customColor")}
+                      />
+                    </label>
+
+                    {imageEditorTool === "draw" ? (
+                      <label className="ml-auto flex min-w-44 items-center gap-3 rounded-full bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">
+                        {t("brushSize")}
+                        <input
+                          type="range"
+                          min={3}
+                          max={28}
+                          value={imageEditorBrushSize}
+                          onChange={(event) => setImageEditorBrushSize(Number(event.target.value))}
+                          className="w-24 accent-primary"
+                        />
+                      </label>
+                    ) : (
+                      <div className="ml-auto flex min-w-0 flex-1 items-center gap-2 rounded-full bg-muted px-3 py-2">
+                        <FiType className="size-4 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-muted-foreground">
+                          {t(isImageTextPlacementArmed ? "placeTextHint" : "armTextHint")}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
       {isVideoRecording ? (
           <div className="pointer-events-none fixed inset-0 z-[125] flex items-center justify-center">
-            <div className="relative size-[min(22rem,72vw)] overflow-hidden rounded-full border border-white/15 bg-black/75 shadow-[0_20px_50px_rgb(0_0_0_/_0.45)]">
+            <div className="relative size-[min(22rem,72vw)] overflow-hidden rounded-full border border-border bg-card shadow-2xl">
               <video
                 ref={ringPreviewRef}
                 muted
@@ -1892,10 +2981,10 @@ export function SendMessageForm({
                 autoPlay
                 className="size-full object-cover"
               />
-              <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-black/25 via-transparent to-black/45" />
+              <div className="pointer-events-none absolute inset-0 bg-background/20" />
               <div className="absolute inset-x-0 top-0 flex justify-center p-3">
-                <span className="inline-flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-semibold text-white">
-                  <span className="size-1.5 rounded-full bg-red-400" />
+                <span className="inline-flex items-center gap-1 rounded-full bg-popover/90 px-2.5 py-1 text-[11px] font-semibold text-popover-foreground">
+                  <span className="size-1.5 rounded-full bg-destructive" />
                   {formatRecordDuration(recordElapsedSeconds)}
                 </span>
               </div>

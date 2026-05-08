@@ -144,6 +144,8 @@
       },
       "saveError": "Failed to save changes",
       "saveChanges": "Save changes",
+      "uploadAvatar": "Upload avatar",
+      "avatarUploadError": "Failed to upload avatar",
       "deleteError": "Failed to delete channel",
       "titleRequired": "Enter a title",
       "usernameRequired": "Enter a public link",
@@ -303,6 +305,7 @@
       "empty": "No chats",
       "ownPrefix": "You:",
       "unknownAuthor": "User",
+      "newMessage": "New message",
       "call": {
         "title": "Call",
         "status": {
@@ -314,6 +317,7 @@
       },
       "media": {
         "photo": "Photo",
+        "music": "Music",
         "file": "File",
         "attachment": "Attachment"
       }
@@ -333,6 +337,24 @@
       "typingByUser": "{name} is typing...",
       "uploadingMedia": "uploading media...",
       "uploadingMediaByUser": "{name} is uploading media..."
+    },
+    "musicPlayer": {
+      "previous": "Previous track",
+      "next": "Next track",
+      "play": "Play",
+      "pause": "Pause",
+      "close": "Close player",
+      "seek": "Seek track",
+      "openPlaylist": "Open playlist",
+      "playlist": "Playlist",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "unknownArtist": "Unknown artist",
+      "repeat": {
+        "off": "Repeat off",
+        "all": "Repeat queue",
+        "one": "Repeat track"
+      }
     },
     "callWindow": {
       "secured": "End-to-end encrypted",
@@ -395,7 +417,25 @@
       "recordButtonHintVoice": "Tap to switch to video circle. Drag up to start and pin voice recording",
       "recordButtonHintRing": "Tap to switch to voice message. Drag up to start and pin video circle",
       "recordingRingLabel": "Video circle recording",
-      "recordingRingLimit": "Max 60s"
+      "recordingRingLimit": "Max 60s",
+      "dropFilesTitle": "Drop files to attach",
+      "dropFilesSubtitle": "They will appear above the message field",
+      "removeAttachment": "Remove attachment",
+      "imageEditorTitle": "Edit image",
+      "rotateLeft": "Left",
+      "rotateRight": "Right",
+      "editorCancel": "Cancel",
+      "editorApply": "Done",
+      "drawTool": "Draw",
+      "textTool": "Text",
+      "brushSize": "Size",
+      "customColor": "Choose color",
+      "textOnImagePlaceholder": "Text on photo",
+      "placeTextHint": "Click the photo to add text",
+      "armTextHint": "Press T to place new text",
+      "undoEdit": "Undo",
+      "clearEdits": "Clear",
+      "resizeText": "Resize text"
     },
     "messages": {
       "empty": "No messages yet",
@@ -437,8 +477,13 @@
         "unmuteVideo": "Unmute",
         "pauseVoice": "Pause voice message",
         "playVoice": "Play voice message",
+        "pauseMusic": "Pause track",
+        "playMusic": "Play track",
+        "unknownArtist": "Unknown artist",
         "pauseCircle": "Pause video circle",
         "playCircle": "Play video circle",
+        "previousMedia": "Previous media",
+        "nextMedia": "Next media",
         "delete": "Delete message",
         "deleteError": "Failed to delete message"
       },
@@ -523,6 +568,8 @@
     "details": {
       "titleGroup": "Create group",
       "titleChannel": "Create channel",
+      "uploadGroupAvatar": "Upload group avatar",
+      "uploadChannelAvatar": "Upload channel avatar",
       "recently": "recently seen",
       "membersCount": "{count, plural, one {# member} other {# members}}",
       "fields": {
@@ -621,6 +668,10 @@
     "messageTextSize": "Message text size",
     "chatWallpapers": "Chat wallpapers",
     "animations": "Animations",
+    "browserNotifications": "Browser notifications",
+    "browserNotificationsUnsupported": "This browser does not support notifications",
+    "browserNotificationsDenied": "Allow notifications in your browser settings",
+    "browserNotificationsEnabledTest": "Notifications are enabled",
     "powerSavingMode": "Power saving mode",
     "enabled": "On",
     "disabled": "Off",
@@ -809,7 +860,13 @@
       "copied": "{field} copied"
     },
     "avatarUploadButton": {
-      "ariaLabel": "Upload avatar"
+      "ariaLabel": "Upload avatar",
+      "cropTitle": "Choose area",
+      "cropDescription": "Move the image and adjust zoom.",
+      "zoom": "Zoom",
+      "cancel": "Cancel",
+      "apply": "Apply",
+      "uploadError": "Failed to upload avatar"
     },
     "avatarCarousel": {
       "previousAriaLabel": "Previous avatar",

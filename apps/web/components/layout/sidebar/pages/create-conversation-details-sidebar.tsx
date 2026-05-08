@@ -8,6 +8,7 @@ import {
   useUsersControllerMe,
 } from "@/api/generated";
 import { CreateConversationUserRow } from "@/components/chat/create-conversation-user-row";
+import { AvatarUploadButton } from "@/components/shared/avatar-upload-button";
 import { EmojiInput } from "@/components/ui/emoji-input";
 import {
   SidebarPage,
@@ -17,21 +18,19 @@ import {
 } from "@/components/ui/sidebar-page";
 import { useChatAuthors } from "@/hooks/use-chat";
 import { sidebarStore } from "@/store/sidebar/sidebar.store";
-import { buildApiUrl } from "@/lib/app-config";
 import { buildConversationPathFromConversation } from "@/lib/chat-routes";
-import { customFetch } from "@/lib/fetcher";
+import { uploadConversationAvatar } from "@/lib/upload-conversation-avatar";
 import { createCreateChannelSchema } from "@/schemas/chat/create-channel.schema";
 import { createCreateGroupSchema } from "@/schemas/chat/create-group.schema";
 import type { SidebarRoute } from "@/store/sidebar/sidebar-state.types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Field, Input } from "@repo/ui";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Camera, ImagePlus } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
-import { cn } from "@/lib/utils";
 
 interface CreateConversationDetailsSidebarProps {
   route: Extract<SidebarRoute, { screen: "create-conversation-details" }>;
@@ -46,14 +45,6 @@ type ChannelFormValues = {
   username?: string;
   about?: string;
 };
-
-interface UploadConversationAvatarResponseDto {
-  ok: boolean;
-  avatar?: {
-    key?: string;
-    url?: string;
-  };
-}
 
 type CreateConversationPayloadWithAvatar = CreateConversationRequestDto & {
   avatarKey?: string;
@@ -72,7 +63,6 @@ export function CreateConversationDetailsSidebar({
   const memberIds = route.memberIds;
   const isChannel = route.type === "channel";
   const selectedUsersQuery = useChatAuthors(memberIds);
-  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
   const [avatar, setAvatar] = useState<{
     key: string;
@@ -165,38 +155,24 @@ export function CreateConversationDetailsSidebar({
     });
   }
 
-  async function handleAvatarChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  async function handleAvatarUpload(file: File) {
     if (!file || isAvatarUploading) return;
 
     setIsAvatarUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await customFetch<UploadConversationAvatarResponseDto>(
-        buildApiUrl("/conversations/avatar"),
-        {
-          method: "POST",
-          body: formData,
-        },
-      );
-
-      const key = response.avatar?.key;
+      const response = await uploadConversationAvatar(file);
+      const key = response.key;
       if (!key) {
         return;
       }
 
       setAvatar({
         key,
-        previewUrl: response.avatar?.url || key,
+        previewUrl: response.url || key,
       });
     } finally {
       setIsAvatarUploading(false);
-      if (avatarInputRef.current) {
-        avatarInputRef.current.value = "";
-      }
     }
   }
 
@@ -211,35 +187,22 @@ export function CreateConversationDetailsSidebar({
 
       <SidebarPageContent className="gap-5">
         <div className="flex w-full justify-center pt-4">
-          <input
-            ref={avatarInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="sr-only"
-            onChange={handleAvatarChange}
-            disabled={isAvatarUploading}
-          />
-          <button
-            type="button"
-            onClick={() => avatarInputRef.current?.click()}
-            disabled={isAvatarUploading}
-            className={cn(
-              "relative flex size-32 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-violet-300 to-violet-500 text-white transition-opacity",
-              isAvatarUploading ? "opacity-70" : "",
-            )}
-          >
+          <div className="relative flex size-32 items-center justify-center overflow-hidden rounded-full bg-muted text-primary">
             {avatar?.previewUrl ? (
               <img
                 src={avatar.previewUrl}
                 alt=""
                 className="size-full object-cover"
               />
-            ) : isChannel ? (
-              <Camera className="size-12" strokeWidth={2.2} />
-            ) : (
-              <ImagePlus className="size-12" strokeWidth={2.2} />
-            )}
-          </button>
+            ) : null}
+            <AvatarUploadButton
+              className="absolute inset-0 flex items-center justify-center"
+              buttonClassName="h-13 w-13 rounded-full p-1"
+              disabled={isAvatarUploading}
+              ariaLabel={t(isChannel ? "uploadChannelAvatar" : "uploadGroupAvatar")}
+              onUpload={handleAvatarUpload}
+            />
+          </div>
         </div>
 
         {isChannel ? (

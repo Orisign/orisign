@@ -332,6 +332,22 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
     });
   }, [conversationRouteParam]);
 
+  const selectMessageRange = useCallback((messageIds: string[]) => {
+    if (messageIds.length === 0) return;
+
+    setSelectionState((currentState) => {
+      const currentIds =
+        currentState.conversationId === conversationRouteParam
+          ? currentState.ids
+          : new Set<string>();
+
+      return {
+        conversationId: conversationRouteParam,
+        ids: new Set([...currentIds, ...messageIds]),
+      };
+    });
+  }, [conversationRouteParam]);
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -1031,6 +1047,7 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
           selectedMessageIds={selectedMessageIds}
           onStartSelectMessage={startSelectionMode}
           onToggleMessageSelect={toggleMessageSelection}
+          onSelectMessageRange={selectMessageRange}
           onOpenComments={
             isChannel && currentMember
               ? handleOpenComments

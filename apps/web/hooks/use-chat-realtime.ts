@@ -95,6 +95,7 @@ export function useChatRealtime(
   const typingRef = useRef(false);
   const uploadRef = useRef(false);
   const groupRef = useRef<Map<string, ChatGroupUserActivity>>(new Map());
+  const mountedAtRef = useRef(Date.now());
   const [peerState, setPeerState] = useState<ChatPeerRealtimeState>(
     DEFAULT_CHAT_PEER_STATE,
   );
@@ -244,6 +245,7 @@ export function useChatRealtime(
   );
 
   useEffect(() => {
+    mountedAtRef.current = Date.now();
     const token = getCookie("accessToken");
 
     const resetPeerStateFrame = window.requestAnimationFrame(() => {
@@ -414,13 +416,24 @@ export function useChatRealtime(
             const message = normalizeChatMessage(payload.message as Record<string, unknown>);
             if (!message) return;
 
+            const cachedMessagesData =
+              queryClient.getQueryData<ChatMessagesQueryData>(msgsKey);
             const hasMessageInCache = (
-              queryClient.getQueryData<ChatMessagesQueryData>(
-                msgsKey,
-              )?.messages ?? []
+              cachedMessagesData?.messages ?? []
             ).some((entry) => entry.id === message.id);
+            const messageCreatedAt =
+              typeof message.createdAt === "number" && Number.isFinite(message.createdAt)
+                ? message.createdAt
+                : Date.now();
+            const isRealtimeNewMessage =
+              Boolean(cachedMessagesData) &&
+              messageCreatedAt >= mountedAtRef.current - 2_000;
 
-            if (!hasMessageInCache && message.authorId !== currentUserId) {
+            if (
+              isRealtimeNewMessage &&
+              !hasMessageInCache &&
+              message.authorId !== currentUserId
+            ) {
               playChatSound("receive");
             }
 

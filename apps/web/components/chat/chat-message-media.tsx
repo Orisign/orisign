@@ -17,6 +17,10 @@ import {
 import { downloadMediaByKey } from "@/lib/download-media";
 import { cn } from "@/lib/utils";
 import {
+  CHAT_SHARED_MEDIA_FILTER,
+  useChatSharedMedia,
+} from "@/hooks/use-chat-shared-media";
+import {
   CHAT_MEDIA_KIND,
   getMediaLabel,
   resolveChatMediaKind,
@@ -30,12 +34,15 @@ import {
   type MouseEvent,
   type ReactNode,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
 import {
   IoAdd,
+  IoChevronBack,
+  IoChevronForward,
   IoClose,
   IoDownloadOutline,
   IoPause,
@@ -46,13 +53,34 @@ import {
   IoVolumeMute,
 } from "react-icons/io5";
 import { useGeneralSettingsStore } from "@/store/settings/general-settings.store";
+import { musicPlayerStore, type MusicTrack } from "@/store/music-player.store";
 
 interface ChatMessageMediaProps {
   conversationId: string;
   messageId: string;
   canDelete?: boolean;
+  isOwn?: boolean;
   mediaKeys: string[];
+  attachmentsJson?: string;
   inlineMeta?: ReactNode;
+}
+
+interface ChatMediaAttachmentMetadata {
+  key: string;
+  kind: string;
+  fileName: string;
+  name: string;
+  mimeType: string;
+  title: string;
+  artist: string;
+  size: number;
+  duration: number;
+}
+
+interface ChatPreviewMediaItem {
+  key: string;
+  url: string;
+  kind: typeof CHAT_MEDIA_KIND.IMAGE | typeof CHAT_MEDIA_KIND.VIDEO;
 }
 
 function formatMediaTime(value: number) {
@@ -65,6 +93,23 @@ function formatMediaTime(value: number) {
   const seconds = rounded % 60;
 
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function formatFileSize(size: number | undefined) {
+  if (!Number.isFinite(size) || !size || size <= 0) {
+    return "";
+  }
+
+  const units = ["B", "KB", "MB", "GB"];
+  let value = size;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${value >= 10 || unitIndex === 0 ? Math.round(value) : value.toFixed(1)} ${units[unitIndex]}`;
 }
 
 function hashValue(value: string) {
@@ -165,11 +210,136 @@ async function getCachedWaveformForAudioUrl(url: string, bars = 34) {
 
 const videoControlButtonClass = "inline-flex size-11 items-center justify-center border-0 bg-transparent p-0 text-primary outline-none ring-0 transition-colors duration-150 hover:text-primary/80 active:text-primary/70 focus-visible:text-primary [&_svg]:size-7";
 
+function safeDecodeMediaLabel(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function stripMediaExtension(value: string) {
+  return value.replace(/\.[a-z0-9]{2,6}$/i, "");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function readMetadataString(
+  metadata: Record<string, unknown>,
+  keys: string[],
+) {
+  for (const key of keys) {
+    const value = metadata[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return "";
+}
+
+function readMetadataNumber(
+  metadata: Record<string, unknown>,
+  keys: string[],
+) {
+  for (const key of keys) {
+    const value = metadata[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+  }
+
+  return 0;
+}
+
+function normalizeAttachmentMetadata(value: unknown): ChatMediaAttachmentMetadata | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const key = readMetadataString(value, ["key", "mediaKey", "storageKey"]);
+  if (!key) {
+    return null;
+  }
+
+  return {
+    key,
+    kind: readMetadataString(value, ["kind", "type"]),
+    fileName: readMetadataString(value, ["fileName", "filename", "originalName"]),
+    name: readMetadataString(value, ["name"]),
+    mimeType: readMetadataString(value, ["mimeType", "mime"]),
+    title: readMetadataString(value, ["title"]),
+    artist: readMetadataString(value, ["artist", "performer"]),
+    size: readMetadataNumber(value, ["size"]),
+    duration: readMetadataNumber(value, ["duration"]),
+  };
+}
+
+function parseAttachmentMetadataMap(attachmentsJson: string | undefined) {
+  const metadataByKey = new Map<string, ChatMediaAttachmentMetadata>();
+  const normalizedValue = attachmentsJson?.trim();
+
+  if (!normalizedValue) {
+    return metadataByKey;
+  }
+
+  try {
+    const parsed = JSON.parse(normalizedValue) as unknown;
+    const entries = Array.isArray(parsed)
+      ? parsed
+      : isRecord(parsed) && Array.isArray(parsed.attachments)
+        ? parsed.attachments
+        : [];
+
+    entries.forEach((entry) => {
+      const metadata = normalizeAttachmentMetadata(entry);
+      if (metadata) {
+        metadataByKey.set(metadata.key, metadata);
+      }
+    });
+  } catch {
+    return metadataByKey;
+  }
+
+  return metadataByKey;
+}
+
+function getMediaDisplayLabel(
+  key: string,
+  metadata: ChatMediaAttachmentMetadata | undefined,
+) {
+  return metadata?.title ||
+    metadata?.fileName ||
+    metadata?.name ||
+    getMediaLabel(key);
+}
+
+function getMusicTrackMeta(label: string) {
+  const normalizedLabel = stripMediaExtension(safeDecodeMediaLabel(label)).replace(/[_]+/g, " ");
+  const parts = normalizedLabel.split(/\s+-\s+/);
+
+  if (parts.length >= 2) {
+    return {
+      artist: parts[0]?.trim() ?? "",
+      title: parts.slice(1).join(" - ").trim() || normalizedLabel,
+    };
+  }
+
+  return {
+    artist: "",
+    title: normalizedLabel || "Audio",
+  };
+}
+
 export function ChatMessageMedia({
   conversationId,
   messageId,
   canDelete = false,
+  isOwn = false,
   mediaKeys,
+  attachmentsJson,
   inlineMeta = null,
 }: ChatMessageMediaProps) {
   const t = useTranslations("chat.messages.mediaPreview");
@@ -197,6 +367,17 @@ export function ChatMessageMedia({
   const [activeRingKey, setActiveRingKey] = useState<string | null>(null);
   const [ringCurrentTime, setRingCurrentTime] = useState<Record<string, number>>({});
   const [ringDuration, setRingDuration] = useState<Record<string, number>>({});
+  const activeMusicKey = musicPlayerStore((state) => state.currentTrack?.key ?? null);
+  const isMusicPlaying = musicPlayerStore((state) => state.isPlaying);
+  const musicDuration = musicPlayerStore((state) => state.duration);
+  const playMusicTrack = musicPlayerStore((state) => state.playTrack);
+  const pauseMusic = musicPlayerStore((state) => state.pause);
+  const resumeMusic = musicPlayerStore((state) => state.resume);
+  const registerMusicTracks = musicPlayerStore((state) => state.registerTracks);
+  const attachmentMetadataByKey = useMemo(
+    () => parseAttachmentMetadataMap(attachmentsJson),
+    [attachmentsJson],
+  );
 
   const mediaItems = mediaKeys
     .filter(Boolean)
@@ -204,7 +385,7 @@ export function ChatMessageMedia({
       key,
       url: resolveStorageFileUrl(key),
       kind: resolveChatMediaKind(key),
-      label: getMediaLabel(key),
+      label: getMediaDisplayLabel(key, attachmentMetadataByKey.get(key)),
     }));
 
   const imageItems = mediaItems.filter(
@@ -216,29 +397,67 @@ export function ChatMessageMedia({
   const ringItems = mediaItems.filter(
     (item) => item.kind === CHAT_MEDIA_KIND.RING && item.url,
   );
+  const musicItems = mediaItems.filter(
+    (item) => item.kind === CHAT_MEDIA_KIND.MUSIC && item.url,
+  );
   const videoItems = mediaItems.filter(
     (item) => item.kind === CHAT_MEDIA_KIND.VIDEO && item.url,
   );
   const fileItems = mediaItems.filter((item) => item.kind === CHAT_MEDIA_KIND.FILE && item.url);
 
-  const activeImage = imageItems.find((item) => item.key === activeImageKey) ?? null;
-  const activeVideo = videoItems.find((item) => item.key === activeVideoKey) ?? null;
-
-  const activeImageLayoutId = activeImage
-    ? (() => {
-        const imageIndex = imageItems.findIndex((item) => item.key === activeImage.key);
-        return imageIndex < 0 ? null : `chat-media-${messageId}-${imageIndex}`;
-      })()
+  const localActiveImage = imageItems.find((item) => item.key === activeImageKey) ?? null;
+  const localActiveVideo = videoItems.find((item) => item.key === activeVideoKey) ?? null;
+  const isPreviewOpen = Boolean(activeImageKey || activeVideoKey);
+  const sharedMediaQuery = useChatSharedMedia(
+    conversationId,
+    CHAT_SHARED_MEDIA_FILTER.MEDIA,
+    100,
+    isPreviewOpen,
+  );
+  const localPreviewItems: ChatPreviewMediaItem[] = mediaItems
+    .filter((item) =>
+      (item.kind === CHAT_MEDIA_KIND.IMAGE || item.kind === CHAT_MEDIA_KIND.VIDEO) &&
+      Boolean(item.url),
+    )
+    .map((item) => ({
+      key: item.key,
+      url: item.url,
+      kind: item.kind as ChatPreviewMediaItem["kind"],
+    }));
+  const sharedPreviewItems = (sharedMediaQuery.data?.pages ?? [])
+    .flatMap((page) => page.items)
+    .flatMap((item) => item.mediaKeys)
+    .filter(Boolean)
+    .map((key) => ({
+      key,
+      url: resolveStorageFileUrl(key),
+      kind: resolveChatMediaKind(key),
+    }))
+    .filter(
+      (item): item is ChatPreviewMediaItem =>
+        (item.kind === CHAT_MEDIA_KIND.IMAGE || item.kind === CHAT_MEDIA_KIND.VIDEO) &&
+        Boolean(item.url),
+    );
+  const previewItems = (sharedPreviewItems.length > 0 ? sharedPreviewItems : localPreviewItems)
+    .reduce<ChatPreviewMediaItem[]>((items, item) => {
+      if (!items.some((currentItem) => currentItem.key === item.key)) {
+        items.push(item);
+      }
+      return items;
+    }, []);
+  const activePreviewKey = activeImageKey ?? activeVideoKey;
+  const activePreviewItem = activePreviewKey
+    ? previewItems.find((item) => item.key === activePreviewKey) ?? null
     : null;
+  const activeImage =
+    activePreviewItem?.kind === CHAT_MEDIA_KIND.IMAGE ? activePreviewItem : localActiveImage;
+  const activeVideo =
+    activePreviewItem?.kind === CHAT_MEDIA_KIND.VIDEO ? activePreviewItem : localActiveVideo;
+  const activePreviewIndex = activePreviewKey
+    ? previewItems.findIndex((item) => item.key === activePreviewKey)
+    : -1;
+  const canNavigatePreview = previewItems.length > 1 && activePreviewIndex >= 0;
 
-  const activeVideoLayoutId = activeVideo
-    ? (() => {
-        const videoIndex = videoItems.findIndex((item) => item.key === activeVideo.key);
-        return videoIndex < 0 ? null : `chat-video-${messageId}-${videoIndex}`;
-      })()
-    : null;
-
-  const isPreviewOpen = Boolean(activeImage || activeVideo);
   const canUsePortal = typeof document !== "undefined";
 
   const shouldInlineMetaWithVoice = Boolean(inlineMeta) &&
@@ -246,17 +465,61 @@ export function ChatMessageMedia({
     ringItems.length === 0 &&
     imageItems.length === 0 &&
     videoItems.length === 0 &&
+    musicItems.length === 0 &&
     fileItems.length === 0;
   const shouldInlineMetaWithRing = Boolean(inlineMeta) &&
     ringItems.length === 1 &&
     voiceItems.length === 0 &&
     imageItems.length === 0 &&
     videoItems.length === 0 &&
+    musicItems.length === 0 &&
     fileItems.length === 0;
+  const shouldInlineMetaWithMusic = Boolean(inlineMeta) &&
+    musicItems.length === 1 &&
+    voiceItems.length === 0 &&
+    ringItems.length === 0 &&
+    imageItems.length === 0 &&
+    videoItems.length === 0 &&
+    fileItems.length === 0;
+  const musicQueue: MusicTrack[] = musicItems.map((item) => {
+    const metadata = attachmentMetadataByKey.get(item.key);
+    const meta = getMusicTrackMeta(metadata?.title || metadata?.fileName || item.label);
+
+    return {
+      key: item.key,
+      url: item.url,
+      title: metadata?.title || meta.title,
+      artist: metadata?.artist || meta.artist,
+      size: metadata?.size || undefined,
+      duration: metadata?.duration || undefined,
+      conversationId,
+      messageId,
+    };
+  });
+  const musicQueueSignature = musicQueue
+    .map((track) =>
+      [
+        track.key,
+        track.title,
+        track.artist,
+        track.size ?? "",
+        track.duration ?? "",
+      ].join("\u001f"),
+    )
+    .join("\u001e");
 
   const [waveformByKey, setWaveformByKey] = useState<Record<string, number[]>>({});
   const [ringReadyByKey, setRingReadyByKey] = useState<Record<string, boolean>>({});
   const [ringBufferingByKey, setRingBufferingByKey] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (musicQueue.length === 0) {
+      return;
+    }
+
+    registerMusicTracks(musicQueue);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- musicQueue is represented by musicQueueSignature to avoid re-registering on every render.
+  }, [musicQueueSignature, registerMusicTracks]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -311,6 +574,11 @@ export function ChatMessageMedia({
     setPreviewVideoDuration(0);
   };
 
+  function getPreviewVideoElement() {
+    return previewVideoRef.current ??
+      (document.getElementById("chat-video-preview-player") as HTMLVideoElement | null);
+  }
+
   useEffect(() => {
     if (!isPreviewOpen) {
       return;
@@ -323,6 +591,16 @@ export function ChatMessageMedia({
       if (event.key === "Escape") {
         closePreview();
       }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        openAdjacentPreviewMedia("previous");
+      }
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        openAdjacentPreviewMedia("next");
+      }
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -331,7 +609,7 @@ export function ChatMessageMedia({
       window.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [isPreviewOpen]);
+  }, [isPreviewOpen, canNavigatePreview, activePreviewIndex, previewItems]);
 
   useEffect(() => {
     if (!activeVideoKey) return;
@@ -398,6 +676,30 @@ export function ChatMessageMedia({
     setPreviewVideoDuration(0);
   }
 
+  function openPreviewMediaItem(item: ChatPreviewMediaItem) {
+    if (item.kind === CHAT_MEDIA_KIND.IMAGE) {
+      openImagePreview(item.key);
+      return;
+    }
+
+    openVideoPreview(item.key);
+  }
+
+  function openAdjacentPreviewMedia(direction: "previous" | "next") {
+    if (!canNavigatePreview || activePreviewIndex < 0) {
+      return;
+    }
+
+    const delta = direction === "previous" ? -1 : 1;
+    const nextIndex = (activePreviewIndex + delta + previewItems.length) % previewItems.length;
+    const nextItem = previewItems[nextIndex];
+    if (!nextItem) {
+      return;
+    }
+
+    openPreviewMediaItem(nextItem);
+  }
+
   function handleTogglePreviewVideoPlay() {
     setShouldPreviewVideoPlay((currentValue) => !currentValue);
   }
@@ -421,11 +723,6 @@ export function ChatMessageMedia({
     );
     video.currentTime = ratio * previewVideoDuration;
     setPreviewVideoCurrentTime(video.currentTime);
-  }
-
-  function getPreviewVideoElement() {
-    return previewVideoRef.current ??
-      (document.getElementById("chat-video-preview-player") as HTMLVideoElement | null);
   }
 
   function pauseAllVoices(exceptKey?: string) {
@@ -482,6 +779,25 @@ export function ChatMessageMedia({
     } catch {
       setActiveRingKey(null);
     }
+  }
+
+  function handleToggleMusic(track: MusicTrack) {
+    if (activeMusicKey === track.key) {
+      if (isMusicPlaying) {
+        pauseMusic();
+      } else {
+        resumeMusic();
+      }
+      return;
+    }
+
+    pauseAllVoices();
+    pauseAllRings();
+    const registeredMusicQueue = musicPlayerStore.getState().library;
+    const playbackQueue = registeredMusicQueue.some((item) => item.key === track.key)
+      ? registeredMusicQueue
+      : musicQueue;
+    playMusicTrack(track, playbackQueue);
   }
 
   async function handleDownloadByKey(mediaKey: string) {
@@ -558,8 +874,7 @@ export function ChatMessageMedia({
               imageItems.length === 1 ? "grid-cols-1" : "grid-cols-2",
             )}
           >
-            {imageItems.map((item, index) => {
-              const layoutId = `chat-media-${messageId}-${index}`;
+            {imageItems.map((item) => {
               const isSingleImage = imageItems.length === 1;
 
               return (
@@ -576,7 +891,6 @@ export function ChatMessageMedia({
                   )}
                 >
                   <motion.img
-                    layoutId={layoutId}
                     src={item.url}
                     alt=""
                     loading="lazy"
@@ -595,7 +909,6 @@ export function ChatMessageMedia({
               const duration = voiceDuration[item.key] ?? 0;
               const current = voiceCurrentTime[item.key] ?? 0;
               const progress = duration > 0 ? Math.min(1, current / duration) : 0;
-              const activeBars = Math.max(0, Math.round(waveform.length * progress));
               const isPlaying = activeVoiceKey === item.key;
 
               return (
@@ -603,7 +916,7 @@ export function ChatMessageMedia({
                   key={item.key}
                   layout
                   transition={{ type: "spring", stiffness: 360, damping: 30 }}
-                  className="flex items-end gap-2"
+                  className="flex items-center gap-2.5"
                 >
                   <audio
                     ref={(element) => {
@@ -644,7 +957,7 @@ export function ChatMessageMedia({
                     type="button"
                     whileTap={{ scale: 0.94 }}
                     onClick={() => void handleToggleVoice(item.key)}
-                    className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+                    className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
                     aria-label={isPlaying ? t("pauseVoice") : t("playVoice")}
                   >
                     {isPlaying ? (
@@ -654,22 +967,53 @@ export function ChatMessageMedia({
                     )}
                   </motion.button>
 
-                  <div className="min-w-[8.5rem] flex-1">
-                    <div className="flex h-8 items-end gap-[2px]">
-                      {waveform.map((height, index) => (
-                        <span
-                          key={`${item.key}-${index}`}
-                          className={cn(
-                            "w-[2px] rounded-full transition-colors duration-200",
-                            index < activeBars
-                              ? "bg-primary"
-                              : "bg-muted-foreground/40",
-                          )}
-                          style={{ height: `${height}%` }}
-                        />
-                      ))}
+                  <div className="min-w-0 flex-1">
+                    {/* Waveform container */}
+                    <div className="relative mb-1.5 flex h-[23px] items-center">
+                      {/* Background waveform */}
+                      <svg
+                        className="h-full w-full"
+                        viewBox={`0 0 ${waveform.length * 4} 23`}
+                        preserveAspectRatio="none"
+                      >
+                        {waveform.map((height, index) => (
+                          <rect
+                            key={`bg-${item.key}-${index}`}
+                            x={index * 4}
+                            y={23 - (height / 100) * 23}
+                            width={2}
+                            height={(height / 100) * 23}
+                            rx={1}
+                            ry={1}
+                            className="fill-muted-foreground/30 transition-opacity duration-150 hover:opacity-100"
+                          />
+                        ))}
+                      </svg>
+
+                      {/* Progress waveform overlay */}
+                      <svg
+                        className="pointer-events-none absolute inset-0 h-full overflow-hidden"
+                        viewBox={`0 0 ${waveform.length * 4} 23`}
+                        preserveAspectRatio="none"
+                        style={{ width: `${progress * 100}%` }}
+                      >
+                        {waveform.map((height, index) => (
+                          <rect
+                            key={`fg-${item.key}-${index}`}
+                            x={index * 4}
+                            y={23 - (height / 100) * 23}
+                            width={2}
+                            height={(height / 100) * 23}
+                            rx={1}
+                            ry={1}
+                            className="fill-primary"
+                          />
+                        ))}
+                      </svg>
                     </div>
-                    <div className="mt-1 text-[11px] font-medium tabular-nums text-muted-foreground">
+
+                    {/* Time display */}
+                    <div className="text-[13px] font-medium tabular-nums leading-none text-muted-foreground">
                       {formatMediaTime(isPlaying ? current : duration || current)}
                     </div>
                   </div>
@@ -701,7 +1045,7 @@ export function ChatMessageMedia({
                     type="button"
                     whileTap={{ scale: 0.985 }}
                     onClick={() => void handleToggleRing(item.key)}
-                    className="relative block size-[19.2rem] overflow-hidden rounded-full bg-black"
+                    className="relative block size-[19.2rem] overflow-hidden rounded-full bg-card"
                     aria-label={isPlaying ? t("pauseCircle") : t("playCircle")}
                   >
                     <video
@@ -782,7 +1126,7 @@ export function ChatMessageMedia({
                     />
 
                     <span
-                      className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-white/20"
+                      className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-border"
                       style={{
                         background:
                           progress > 0
@@ -791,7 +1135,7 @@ export function ChatMessageMedia({
                         maskImage: "radial-gradient(circle at center, transparent 87%, black 88%)",
                       }}
                     />
-                    <span className="pointer-events-none absolute bottom-1.5 right-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-white/90">
+                    <span className="pointer-events-none absolute bottom-1.5 right-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-primary-foreground">
                       Orisign
                     </span>
                     <AnimatePresence initial={false}>
@@ -801,10 +1145,10 @@ export function ChatMessageMedia({
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
-                          className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/32"
+                          className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/40"
                         >
                           <motion.span
-                            className="size-4 rounded-full border-2 border-white/85 border-t-transparent"
+                            className="size-4 rounded-full border-2 border-primary border-t-transparent"
                             animate={{ rotate: 360 }}
                             transition={{ duration: 0.85, ease: "linear", repeat: Infinity }}
                           />
@@ -814,6 +1158,77 @@ export function ChatMessageMedia({
                   </motion.button>
 
                   {shouldInlineMetaWithRing ? (
+                    <div className="pb-[2px]">
+                      {inlineMeta}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {musicItems.length > 0 ? (
+          <div className="space-y-1 py-0.5">
+            {musicQueue.map((track) => {
+              const isCurrent = activeMusicKey === track.key;
+              const isPlaying = isCurrent && isMusicPlaying;
+              const displayDuration = isCurrent && musicDuration > 0
+                ? musicDuration
+                : (track.duration ?? 0);
+              const fileSize = formatFileSize(track.size);
+              const subtitle = [
+                displayDuration > 0 ? formatMediaTime(displayDuration) : "",
+                track.artist || "",
+                !track.artist ? fileSize : "",
+              ].filter(Boolean).join(" · ");
+
+              return (
+                <div key={track.key} className="flex items-end gap-2">
+                  <div
+                    className={cn(
+                      "group flex w-[min(20.9375rem,70vw)] max-w-full items-center gap-2.5 py-1",
+                      isOwn ? "text-primary-foreground" : "text-foreground",
+                    )}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleToggleMusic(track)}
+                      className={cn(
+                        "relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full",
+                        isOwn ? "text-primary-foreground" : "text-primary",
+                      )}
+                      aria-label={isPlaying ? t("pauseMusic") : t("playMusic")}
+                    >
+                      <span className="absolute inset-0 rounded-full bg-current opacity-15" />
+                      {isPlaying ? (
+                        <IoPause className="relative size-5" />
+                      ) : (
+                        <IoPlay className="relative size-5 translate-x-[1px]" />
+                      )}
+                    </button>
+
+                    <div className="min-w-0 flex-1 text-left">
+                      <span
+                        className={cn(
+                          "block truncate text-[15px] font-semibold leading-[18px]",
+                          isOwn ? "text-primary-foreground" : "text-foreground",
+                        )}
+                      >
+                        {track.title}
+                      </span>
+                      <span
+                        className={cn(
+                          "mt-0.5 block truncate text-[13px] leading-[16px]",
+                          isOwn ? "text-primary-foreground/70" : "text-muted-foreground",
+                        )}
+                      >
+                        {subtitle || t("unknownArtist")}
+                      </span>
+                    </div>
+                  </div>
+
+                  {shouldInlineMetaWithMusic ? (
                     <div className="pb-[2px]">
                       {inlineMeta}
                     </div>
@@ -841,19 +1256,16 @@ export function ChatMessageMedia({
 
         {videoItems.length > 0 ? (
           <div className="grid gap-1.5">
-            {videoItems.map((item, index) => {
-              const layoutId = `chat-video-${messageId}-${index}`;
-
+            {videoItems.map((item) => {
               return (
                 <motion.button
                   key={item.key}
                   type="button"
                   onClick={() => openVideoPreview(item.key)}
                   whileTap={{ scale: 0.99 }}
-                  className="group relative overflow-hidden rounded-2xl bg-black"
+                  className="group relative overflow-hidden rounded-2xl bg-card"
                 >
                   <motion.video
-                    layoutId={layoutId}
                     src={item.url}
                     muted
                     preload="metadata"
@@ -861,7 +1273,7 @@ export function ChatMessageMedia({
                     className="aspect-video w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                   />
 
-                  <div className="pointer-events-none absolute inset-0 bg-black/25" />
+                  <div className="pointer-events-none absolute inset-0 bg-background/20" />
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                     <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
                       <IoPlay className="size-7 translate-x-[1px]" />
@@ -887,17 +1299,17 @@ export function ChatMessageMedia({
                   <motion.button
                     type="button"
                     aria-label={t("close")}
-                    className="absolute inset-0 bg-black/80"
+                    className="absolute inset-0 bg-background/95"
                     onClick={closePreview}
                   />
 
                   <div className="pointer-events-none absolute inset-x-0 top-0 z-[130] flex justify-end p-3 sm:p-4">
-                    <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/15 bg-black/65 p-1.5">
+                    <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-popover/90 p-1.5">
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="size-10 rounded-full text-white hover:bg-white/15 hover:text-white"
+                        className="size-10 rounded-full text-popover-foreground hover:bg-accent hover:text-accent-foreground"
                         onClick={closePreview}
                         aria-label={t("close")}
                       >
@@ -908,7 +1320,7 @@ export function ChatMessageMedia({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="size-10 rounded-full text-white hover:bg-white/15 hover:text-white"
+                        className="size-10 rounded-full text-popover-foreground hover:bg-accent hover:text-accent-foreground"
                         onClick={() => setZoomed((currentValue) => !currentValue)}
                         aria-label={zoomed ? t("zoomOut") : t("zoomIn")}
                       >
@@ -923,7 +1335,7 @@ export function ChatMessageMedia({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="size-10 rounded-full text-white hover:bg-white/15 hover:text-white"
+                        className="size-10 rounded-full text-popover-foreground hover:bg-accent hover:text-accent-foreground"
                         onClick={() => void handleDownloadFromPreview()}
                         aria-label={t("download")}
                       >
@@ -935,7 +1347,7 @@ export function ChatMessageMedia({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="size-10 rounded-full text-red-300 hover:bg-red-400/20 hover:text-red-200"
+                          className="size-10 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
                           onClick={() => void handleDeleteMessageFromPreview()}
                           disabled={isDeleting}
                           aria-label={t("delete")}
@@ -946,13 +1358,48 @@ export function ChatMessageMedia({
                     </div>
                   </div>
 
+                  {canNavigatePreview ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute left-3 top-1/2 z-[130] size-12 -translate-y-1/2 rounded-full border border-border bg-popover/90 text-popover-foreground shadow-xl backdrop-blur-md hover:bg-accent hover:text-accent-foreground sm:left-6"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openAdjacentPreviewMedia("previous");
+                        }}
+                        aria-label={t("previousMedia")}
+                      >
+                        <IoChevronBack className="size-7" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-3 top-1/2 z-[130] size-12 -translate-y-1/2 rounded-full border border-border bg-popover/90 text-popover-foreground shadow-xl backdrop-blur-md hover:bg-accent hover:text-accent-foreground sm:right-6"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openAdjacentPreviewMedia("next");
+                        }}
+                        aria-label={t("nextMedia")}
+                      >
+                        <IoChevronForward className="size-7" />
+                      </Button>
+                    </>
+                  ) : null}
+
                   <motion.img
-                    layoutId={activeImageLayoutId ?? undefined}
+                    key={activeImage.key}
                     src={activeImage.url}
                     alt=""
+                    initial={{ opacity: 0, scale: 0.94 }}
+                    animate={{ opacity: 1, scale: zoomed ? 1.15 : 1 }}
+                    exit={{ opacity: 0, scale: 0.94 }}
+                    transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.9 }}
                     className={cn(
-                      "relative z-[122] max-h-[84vh] max-w-[84vw] rounded-2xl object-contain transition-transform duration-250 ease-out",
-                      zoomed ? "scale-[1.15] cursor-zoom-out" : "scale-100 cursor-zoom-in",
+                      "relative z-[122] max-h-[84vh] max-w-[84vw] rounded-2xl object-contain",
+                      zoomed ? "cursor-zoom-out" : "cursor-zoom-in",
                     )}
                     onClick={() => setZoomed((currentValue) => !currentValue)}
                   />
@@ -969,19 +1416,54 @@ export function ChatMessageMedia({
                   <motion.button
                     type="button"
                     aria-label={t("close")}
-                    className="absolute inset-0 bg-black/85"
+                    className="absolute inset-0 bg-background/95"
                     onClick={closePreview}
                   />
 
                   <div className="relative z-[122] flex w-full flex-col items-center px-4 pb-5 pt-16">
+                    {canNavigatePreview ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute left-3 top-1/2 z-[130] size-12 -translate-y-1/2 rounded-full border border-border bg-popover/90 text-popover-foreground shadow-xl backdrop-blur-md hover:bg-accent hover:text-accent-foreground sm:left-6"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openAdjacentPreviewMedia("previous");
+                          }}
+                          aria-label={t("previousMedia")}
+                        >
+                          <IoChevronBack className="size-7" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-3 top-1/2 z-[130] size-12 -translate-y-1/2 rounded-full border border-border bg-popover/90 text-popover-foreground shadow-xl backdrop-blur-md hover:bg-accent hover:text-accent-foreground sm:right-6"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openAdjacentPreviewMedia("next");
+                          }}
+                          aria-label={t("nextMedia")}
+                        >
+                          <IoChevronForward className="size-7" />
+                        </Button>
+                      </>
+                    ) : null}
+
                     <motion.video
+                      key={activeVideo.key}
                       id="chat-video-preview-player"
                       ref={previewVideoRef}
-                      layoutId={activeVideoLayoutId ?? undefined}
                       src={activeVideo.url}
+                      initial={{ opacity: 0, scale: 0.94 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.94 }}
+                      transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.9 }}
                       playsInline
                       preload="metadata"
-                      className="max-h-[70vh] w-full max-w-[84vw] rounded-2xl bg-black object-contain"
+                      className="max-h-[70vh] w-full max-w-[84vw] rounded-2xl bg-card object-contain"
                       onClick={(event) => {
                         event.stopPropagation();
                         handleTogglePreviewVideoPlay();
@@ -1011,12 +1493,12 @@ export function ChatMessageMedia({
                     />
 
                     <div
-                      className="mt-4 w-full max-w-[84vw] rounded-[1.3rem] border border-white/15 bg-black/65 p-3 sm:max-w-3xl"
+                      className="mt-4 w-full max-w-[84vw] rounded-[1.3rem] border border-border bg-popover/90 p-3 sm:max-w-3xl"
                       onClick={(event) => event.stopPropagation()}
                     >
                       <button
                         type="button"
-                        className="relative block h-2.5 w-full overflow-hidden rounded-full bg-white/20"
+                        className="relative block h-2.5 w-full overflow-hidden rounded-full bg-muted"
                         onClick={handlePreviewVideoTimelineClick}
                         aria-label={t("seekVideo")}
                       >
@@ -1062,7 +1544,7 @@ export function ChatMessageMedia({
                           {canDelete ? (
                             <button
                               type="button"
-                              className={cn(videoControlButtonClass, "text-red-300 hover:text-red-200")}
+                              className={cn(videoControlButtonClass, "text-destructive hover:text-destructive")}
                               onClick={() => void handleDeleteMessageFromPreview()}
                               aria-label={t("delete")}
                             >
@@ -1071,7 +1553,7 @@ export function ChatMessageMedia({
                           ) : null}
                         </div>
 
-                        <span className="text-sm font-semibold tabular-nums text-white/90">
+                        <span className="text-sm font-semibold tabular-nums text-popover-foreground">
                           {formatMediaTime(previewVideoCurrentTime)} / {formatMediaTime(previewVideoDuration)}
                         </span>
 
@@ -1094,6 +1576,7 @@ export function ChatMessageMedia({
             document.body,
           )
         : null}
+
     </>
   );
 }

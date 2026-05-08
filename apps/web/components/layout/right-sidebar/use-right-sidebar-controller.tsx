@@ -221,6 +221,7 @@ export function usePanel(conversationId: string) {
   const [draftDiscussionConversationId, setDraftDiscussionConversationId] = useState("");
   const [draftDiscussionTitle, setDraftDiscussionTitle] = useState("");
   const [draftDiscussionAvatarKey, setDraftDiscussionAvatarKey] = useState("");
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isUploadingDiscussionAvatar, setIsUploadingDiscussionAvatar] = useState(false);
   const [isCreatingDiscussion, setIsCreatingDiscussion] = useState(false);
   const [contentProtectionEnabled, setContentProtectionEnabled] = useState(false);
@@ -484,6 +485,7 @@ export function usePanel(conversationId: string) {
     : conversation
       ? getConversationInitial(conversation)
       : "#";
+  const draftAvatarUrl = resolveStorageFileUrl(draftAvatarKey);
   const discussionDraftAvatarUrl = resolveStorageFileUrl(draftDiscussionAvatarKey);
   const discussionDraftAvatarFallback =
     (draftDiscussionTitle.trim() || draftTitle.trim() || title || "#").charAt(0).toUpperCase() ||
@@ -579,6 +581,7 @@ export function usePanel(conversationId: string) {
         : `${(conversation?.title ?? "").trim() || t("manage.discussionGroupDefaultTitle")} Chat`,
     );
     setDraftDiscussionAvatarKey(conversation?.avatarKey ?? "");
+    setIsUploadingAvatar(false);
     setIsUploadingDiscussionAvatar(false);
     setIsCreatingDiscussion(false);
     setContentProtectionEnabled(false);
@@ -1370,6 +1373,33 @@ export function usePanel(conversationId: string) {
     changeScreen("manage-discussion-create");
   };
 
+  const handleUploadAvatar = async (file: File) => {
+    const previousDraftAvatarKey = draftAvatarKey.trim();
+    const persistedAvatarKey = conversation?.avatarKey?.trim() ?? "";
+
+    try {
+      setIsUploadingAvatar(true);
+      const uploadedAvatar = await uploadConversationAvatar(file);
+
+      setDraftAvatarKey(uploadedAvatar.key);
+
+      if (
+        previousDraftAvatarKey &&
+        previousDraftAvatarKey !== uploadedAvatar.key &&
+        previousDraftAvatarKey !== persistedAvatarKey
+      ) {
+        await deleteConversationMedia(previousDraftAvatarKey).catch(() => undefined);
+      }
+    } catch {
+      toast({
+        title: t("manage.avatarUploadError"),
+        type: "error",
+      });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   const handleUploadDiscussionAvatar = async (file: File) => {
     const previousDraftAvatarKey = draftDiscussionAvatarKey.trim();
 
@@ -1786,6 +1816,7 @@ export function usePanel(conversationId: string) {
     adminItems,
     draftTitle,
     draftAbout,
+    draftAvatarUrl,
     draftIsPublic,
     inviteLinksCount,
     adminsCount,
@@ -1795,6 +1826,8 @@ export function usePanel(conversationId: string) {
     setSignMessages,
     setDraftTitle,
     setDraftAbout,
+    handleUploadAvatar,
+    isUploadingAvatar,
     persistConversationDraft,
     changeScreen,
     canDeleteChannel: currentUser?.id === conversation.ownerId,

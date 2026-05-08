@@ -21,6 +21,7 @@ interface GeneralSettingsState {
   interactiveEffectsLevel: number;
   chatAnimationsLevel: number;
   interfaceAnimationsEnabled: boolean;
+  browserNotificationsEnabled: boolean;
   setMessageTextSize: (value: number) => void;
   setAnimationsEnabled: (value: boolean) => void;
   setSelectedWallpaper: (value: string) => void;
@@ -34,6 +35,7 @@ interface GeneralSettingsState {
   setInteractiveEffectsLevel: (value: number) => void;
   setChatAnimationsLevel: (value: number) => void;
   setInterfaceAnimationsEnabled: (value: boolean) => void;
+  setBrowserNotificationsEnabled: (value: boolean) => void;
 }
 
 export const useGeneralSettingsStore = create<GeneralSettingsState>()(
@@ -52,6 +54,7 @@ export const useGeneralSettingsStore = create<GeneralSettingsState>()(
       interactiveEffectsLevel: 7,
       chatAnimationsLevel: 3,
       interfaceAnimationsEnabled: true,
+      browserNotificationsEnabled: false,
       setMessageTextSize: (value) => set({ messageTextSize: value }),
       setAnimationsEnabled: (value) =>
         set((state) =>
@@ -91,21 +94,30 @@ export const useGeneralSettingsStore = create<GeneralSettingsState>()(
       setChatAnimationsLevel: (value) => set({ chatAnimationsLevel: value }),
       setInterfaceAnimationsEnabled: (value) =>
         set({ interfaceAnimationsEnabled: value }),
+      setBrowserNotificationsEnabled: (value) =>
+        set({ browserNotificationsEnabled: value }),
     }),
     {
       name: "general-settings",
       storage: createJSONStorage(() => localStorage),
-      version: 2,
+      version: 3,
       migrate: (persistedState, version) => {
         if (!persistedState || typeof persistedState !== "object") {
           return persistedState as GeneralSettingsState;
         }
 
-        if (version >= 2) {
+        if (version >= 3) {
           return persistedState as GeneralSettingsState;
         }
 
         const state = persistedState as Partial<GeneralSettingsState>;
+        if (version >= 2) {
+          return {
+            ...state,
+            browserNotificationsEnabled: Boolean(state.browserNotificationsEnabled),
+          } as GeneralSettingsState;
+        }
+
         const countToMask = (value: unknown, maxCount: number) => {
           const count = Number.isFinite(value) ? Math.max(0, Math.floor(Number(value))) : 0;
           const clamped = Math.min(maxCount, count);
@@ -117,6 +129,7 @@ export const useGeneralSettingsStore = create<GeneralSettingsState>()(
           animatedStickersLevel: countToMask(state.animatedStickersLevel, 2),
           interactiveEffectsLevel: countToMask(state.interactiveEffectsLevel, 3),
           chatAnimationsLevel: countToMask(state.chatAnimationsLevel, 2),
+          browserNotificationsEnabled: Boolean(state.browserNotificationsEnabled),
         } as GeneralSettingsState;
       },
     },
