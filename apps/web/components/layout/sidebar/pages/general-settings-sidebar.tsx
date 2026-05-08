@@ -1,6 +1,7 @@
 "use client";
 
 import { SECTION_BUTTON_CLASSNAME } from "@/components/shared/shared.constants";
+import { showBrowserNotification } from "@/hooks/use-browser-notifications";
 import {
   SidebarPage,
   SidebarPageContent,
@@ -18,8 +19,9 @@ import {
   RadioGroupItem,
   Ripple,
   Slider,
+  toast,
 } from "@repo/ui";
-import { ArrowLeft, ImageIcon, Leaf, ChevronRight } from "lucide-react";
+import { ArrowLeft, Bell, ImageIcon, Leaf, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { useEffect } from "react";
@@ -53,12 +55,14 @@ export const GeneralSettingsSidebar = () => {
     sendShortcut,
     timeFormat,
     powerSavingEnabled,
+    browserNotificationsEnabled,
     setMessageTextSize,
     setAnimationsEnabled,
     setSelectedWallpaper,
     setThemeMode,
     setSendShortcut,
     setTimeFormat,
+    setBrowserNotificationsEnabled,
   } = useGeneralSettingsStore();
   const activeThemePreset =
     LEGACY_THEME_PRESET_ALIASES[selectedWallpaper] ?? selectedWallpaper;
@@ -68,6 +72,41 @@ export const GeneralSettingsSidebar = () => {
   useEffect(() => {
     setTheme(themeMode);
   }, [setTheme, themeMode]);
+
+  const handleToggleBrowserNotifications = async () => {
+    if (browserNotificationsEnabled) {
+      setBrowserNotificationsEnabled(false);
+      return;
+    }
+
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      toast({
+        title: t("browserNotificationsUnsupported"),
+        type: "error",
+      });
+      return;
+    }
+
+    const permission =
+      Notification.permission === "default"
+        ? await Notification.requestPermission()
+        : Notification.permission;
+
+    if (permission !== "granted") {
+      toast({
+        title: t("browserNotificationsDenied"),
+        type: "error",
+      });
+      setBrowserNotificationsEnabled(false);
+      return;
+    }
+
+    setBrowserNotificationsEnabled(true);
+    void showBrowserNotification("Orisign", {
+      body: t("browserNotificationsEnabledTest"),
+      tag: "orisign-browser-notifications-test",
+    });
+  };
 
   return (
     <SidebarPage>
@@ -115,6 +154,22 @@ export const GeneralSettingsSidebar = () => {
             <Checkbox checked={uiAnimationsEnabled} />
             <span className="min-w-0 break-words font-semibold">{t("animations")}</span>
           </div>
+        </Ripple>
+
+        <Ripple
+          className={cn(
+            SECTION_BUTTON_CLASSNAME,
+            "flex items-center justify-between",
+          )}
+          onClick={() => void handleToggleBrowserNotifications()}
+        >
+          <div className="flex min-w-0 items-center gap-4">
+            <Bell className="size-5 text-muted-foreground" />
+            <span className="min-w-0 break-words font-semibold">
+              {t("browserNotifications")}
+            </span>
+          </div>
+          <Checkbox checked={browserNotificationsEnabled} />
         </Ripple>
 
         <Ripple className={cn(SECTION_BUTTON_CLASSNAME, "block")}>

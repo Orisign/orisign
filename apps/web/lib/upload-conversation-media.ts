@@ -15,7 +15,7 @@ interface UploadConversationMediaResponse {
   media: UploadedConversationMedia | null;
 }
 
-type UploadConversationMediaKind = "messages" | "voice" | "ring";
+type UploadConversationMediaKind = "messages" | "voice" | "ring" | "music";
 
 interface UploadConversationMediaOptions {
   mediaKind?: UploadConversationMediaKind;

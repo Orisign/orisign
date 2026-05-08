@@ -469,7 +469,8 @@ export const SHARED_MEDIA_FILTERS = [
 	'media',
 	'files',
 	'links',
-	'voice'
+	'voice',
+	'music'
 ] as const
 
 export type SharedMediaFilter = (typeof SHARED_MEDIA_FILTERS)[number]

@@ -144,6 +144,8 @@
       },
       "saveError": "Не удалось сохранить изменения",
       "saveChanges": "Сохранить изменения",
+      "uploadAvatar": "Загрузить аватар",
+      "avatarUploadError": "Не удалось загрузить аватар",
       "deleteError": "Не удалось удалить канал",
       "titleRequired": "Укажите название",
       "usernameRequired": "Укажите публичную ссылку",
@@ -303,6 +305,7 @@
       "empty": "Нет бесед",
       "ownPrefix": "Вы:",
       "unknownAuthor": "Пользователь",
+      "newMessage": "Новое сообщение",
       "call": {
         "title": "Звонок",
         "status": {
@@ -314,6 +317,7 @@
       },
       "media": {
         "photo": "Фото",
+        "music": "Музыка",
         "file": "Файл",
         "attachment": "Вложение"
       }
@@ -333,6 +337,24 @@
       "typingByUser": "{name} печатает...",
       "uploadingMedia": "отправляет медиа файл...",
       "uploadingMediaByUser": "{name} отправляет медиа файл..."
+    },
+    "musicPlayer": {
+      "previous": "Предыдущий трек",
+      "next": "Следующий трек",
+      "play": "Воспроизвести",
+      "pause": "Пауза",
+      "close": "Закрыть плеер",
+      "seek": "Перемотать трек",
+      "openPlaylist": "Открыть плейлист",
+      "playlist": "Плейлист",
+      "mute": "Выключить звук",
+      "unmute": "Включить звук",
+      "unknownArtist": "Неизвестный исполнитель",
+      "repeat": {
+        "off": "Повтор выключен",
+        "all": "Повторять очередь",
+        "one": "Повторять трек"
+      }
     },
     "callWindow": {
       "secured": "Защищено сквозным шифрованием",
@@ -395,7 +417,25 @@
       "recordButtonHintVoice": "Нажмите для переключения на видеокружок. Потяните вверх, чтобы начать и закрепить голосовое",
       "recordButtonHintRing": "Нажмите для переключения на голосовое. Потяните вверх, чтобы начать и закрепить видеокружок",
       "recordingRingLabel": "Запись видеокружка",
-      "recordingRingLimit": "Макс. 60 сек"
+      "recordingRingLimit": "Макс. 60 сек",
+      "dropFilesTitle": "Отпустите файлы, чтобы прикрепить",
+      "dropFilesSubtitle": "Они появятся над полем сообщения",
+      "removeAttachment": "Удалить вложение",
+      "imageEditorTitle": "Редактирование изображения",
+      "rotateLeft": "Влево",
+      "rotateRight": "Вправо",
+      "editorCancel": "Отмена",
+      "editorApply": "Готово",
+      "drawTool": "Рисование",
+      "textTool": "Текст",
+      "brushSize": "Размер",
+      "customColor": "Выбрать цвет",
+      "textOnImagePlaceholder": "Текст на фото",
+      "placeTextHint": "Нажмите на фото, чтобы добавить текст",
+      "armTextHint": "Нажмите T, чтобы поставить новый текст",
+      "undoEdit": "Отменить",
+      "clearEdits": "Очистить",
+      "resizeText": "Изменить размер текста"
     },
     "messages": {
       "empty": "Пока нет сообщений",
@@ -437,8 +477,13 @@
         "unmuteVideo": "Включить звук",
         "pauseVoice": "Пауза голосового",
         "playVoice": "Воспроизвести голосовое",
+        "pauseMusic": "Пауза трека",
+        "playMusic": "Воспроизвести трек",
+        "unknownArtist": "Неизвестный исполнитель",
         "pauseCircle": "Пауза видеокружка",
         "playCircle": "Воспроизвести видеокружок",
+        "previousMedia": "Предыдущее медиа",
+        "nextMedia": "Следующее медиа",
         "delete": "Удалить сообщение",
         "deleteError": "Не удалось удалить сообщение"
       },
@@ -523,6 +568,8 @@
     "details": {
       "titleGroup": "Создать группу",
       "titleChannel": "Создать канал",
+      "uploadGroupAvatar": "Загрузить аватар группы",
+      "uploadChannelAvatar": "Загрузить аватар канала",
       "recently": "был(а) недавно",
       "membersCount": "{count, plural, one {# участник} few {# участника} many {# участников} other {# участника}}",
       "fields": {
@@ -621,6 +668,10 @@
     "messageTextSize": "Размер текста сообщений",
     "chatWallpapers": "Обои для чатов",
     "animations": "Анимация",
+    "browserNotifications": "Уведомления браузера",
+    "browserNotificationsUnsupported": "Браузер не поддерживает уведомления",
+    "browserNotificationsDenied": "Разрешите уведомления в настройках браузера",
+    "browserNotificationsEnabledTest": "Уведомления включены",
     "powerSavingMode": "Режим энергосбережения",
     "enabled": "Вкл.",
     "disabled": "Выкл.",
@@ -809,7 +860,13 @@
       "copied": "{field} скопировано"
     },
     "avatarUploadButton": {
-      "ariaLabel": "Загрузка аватара"
+      "ariaLabel": "Загрузка аватара",
+      "cropTitle": "Выберите область",
+      "cropDescription": "Передвиньте изображение и настройте масштаб.",
+      "zoom": "Масштаб",
+      "cancel": "Отмена",
+      "apply": "Применить",
+      "uploadError": "Не удалось загрузить аватар"
     },
     "avatarCarousel": {
       "previousAriaLabel": "Предыдущий аватар",

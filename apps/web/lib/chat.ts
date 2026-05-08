@@ -232,6 +232,7 @@ const AUDIO_MEDIA_EXTENSIONS = [
   ".aac",
   ".webm",
   ".opus",
+  ".flac",
 ] as const;
 
 export const CHAT_MEDIA_KIND = {
@@ -239,6 +240,7 @@ export const CHAT_MEDIA_KIND = {
   VIDEO: "video",
   VOICE: "voice",
   RING: "ring",
+  MUSIC: "music",
   FILE: "file",
 } as const;
 
@@ -302,6 +304,17 @@ export function isVoiceMediaKey(value: string | null | undefined) {
   );
 }
 
+export function isMusicMediaKey(value: string | null | undefined) {
+  if (!value) return false;
+
+  const normalized = value.toLowerCase().split("?")[0];
+  return (
+    normalized.includes("media/music/") ||
+    normalized.includes("/media/music/") ||
+    normalized.includes("\\media\\music\\")
+  );
+}
+
 export function isRingMediaKey(value: string | null | undefined) {
   if (!value) return false;
 
@@ -319,7 +332,7 @@ export function resolveChatMediaKind(value: string | null | undefined): ChatMedi
   if (isRingMediaKey(value)) return CHAT_MEDIA_KIND.RING;
   if (isImageMediaKey(value)) return CHAT_MEDIA_KIND.IMAGE;
   if (isVideoMediaKey(value)) return CHAT_MEDIA_KIND.VIDEO;
-  if (isAudioMediaKey(value)) return CHAT_MEDIA_KIND.VOICE;
+  if (isMusicMediaKey(value) || isAudioMediaKey(value)) return CHAT_MEDIA_KIND.MUSIC;
   return CHAT_MEDIA_KIND.FILE;
 }
 
@@ -345,6 +358,7 @@ export function formatChatListMessagePreview(
     };
     mediaLabels: {
       photo: string;
+      music?: string;
       file: string;
       attachment: string;
     };
@@ -371,6 +385,8 @@ export function formatChatListMessagePreview(
   if (!basePreview && firstMediaKey) {
     if (isImageMediaKey(firstMediaKey)) {
       basePreview = options.mediaLabels.photo;
+    } else if (isMusicMediaKey(firstMediaKey)) {
+      basePreview = options.mediaLabels.music ?? options.mediaLabels.file;
     } else if (getMediaLabel(firstMediaKey)) {
       basePreview = options.mediaLabels.file;
     } else {

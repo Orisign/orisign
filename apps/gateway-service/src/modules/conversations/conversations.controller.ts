@@ -50,17 +50,21 @@ const CHAT_MEDIA_UPLOAD_PREFIX = 'chat-media::'
 const CHAT_MEDIA_UPLOAD_KIND_MESSAGES = 'messages'
 const CHAT_MEDIA_UPLOAD_KIND_VOICE = 'voice'
 const CHAT_MEDIA_UPLOAD_KIND_RING = 'ring'
+const CHAT_MEDIA_UPLOAD_KIND_MUSIC = 'music'
 
 type ChatMediaUploadKind =
 	| typeof CHAT_MEDIA_UPLOAD_KIND_MESSAGES
 	| typeof CHAT_MEDIA_UPLOAD_KIND_VOICE
 	| typeof CHAT_MEDIA_UPLOAD_KIND_RING
+	| typeof CHAT_MEDIA_UPLOAD_KIND_MUSIC
 
 function normalizeMediaUploadKind(value?: string): ChatMediaUploadKind {
 	if (value === CHAT_MEDIA_UPLOAD_KIND_VOICE)
 		return CHAT_MEDIA_UPLOAD_KIND_VOICE
 	if (value === CHAT_MEDIA_UPLOAD_KIND_RING)
 		return CHAT_MEDIA_UPLOAD_KIND_RING
+	if (value === CHAT_MEDIA_UPLOAD_KIND_MUSIC)
+		return CHAT_MEDIA_UPLOAD_KIND_MUSIC
 	return CHAT_MEDIA_UPLOAD_KIND_MESSAGES
 }
 
@@ -84,7 +88,8 @@ function buildChatMediaUploadFileName(
 
 	if (
 		(kind === CHAT_MEDIA_UPLOAD_KIND_VOICE ||
-			kind === CHAT_MEDIA_UPLOAD_KIND_RING) &&
+			kind === CHAT_MEDIA_UPLOAD_KIND_RING ||
+			kind === CHAT_MEDIA_UPLOAD_KIND_MUSIC) &&
 		conversationId
 	) {
 		return `${CHAT_MEDIA_UPLOAD_PREFIX}${kind}::${conversationId}::${safeFileName}`
@@ -230,11 +235,12 @@ export class ConversationsController {
 
 		if (
 			(mediaKind === CHAT_MEDIA_UPLOAD_KIND_VOICE ||
-				mediaKind === CHAT_MEDIA_UPLOAD_KIND_RING) &&
+				mediaKind === CHAT_MEDIA_UPLOAD_KIND_RING ||
+				mediaKind === CHAT_MEDIA_UPLOAD_KIND_MUSIC) &&
 			!conversationId
 		) {
 			throw new BadRequestException(
-				'conversationId is required for voice/ring media'
+				'conversationId is required for voice/ring/music media'
 			)
 		}
 
@@ -274,7 +280,8 @@ export class ConversationsController {
 		const canDeleteByKey =
 			dto.key.startsWith(`media/messages/${id}/`) ||
 			dto.key.startsWith('media/voice/') ||
-			dto.key.startsWith('media/ring/')
+			dto.key.startsWith('media/ring/') ||
+			dto.key.startsWith('media/music/')
 
 		if (!canDeleteByKey) {
 			throw new BadRequestException('Invalid media key')

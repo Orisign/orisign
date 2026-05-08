@@ -14,7 +14,10 @@ import {
 	ApiOperation,
 	ApiTags
 } from '@nestjs/swagger'
-import { ConversationType } from '@repo/contracts/gen/ts/conversations'
+import {
+	ConversationType,
+	MemberState
+} from '@repo/contracts/gen/ts/conversations'
 import { MessageKind } from '@repo/contracts/gen/ts/messages'
 import { lastValueFrom } from 'rxjs'
 import { CurrentUser, Protected } from 'src/shared/decorators'
@@ -110,8 +113,19 @@ function isVoiceMediaKey(value?: string) {
 
 	return (
 		normalized.includes('/media/voice/') ||
-		normalized.includes('\\media\\voice\\') ||
-		AUDIO_MEDIA_EXTENSIONS.some(extension => normalized.endsWith(extension))
+		normalized.includes('\\media\\voice\\')
+	)
+}
+
+function isMusicMediaKey(value?: string) {
+	const normalized = normalizeMediaKey(value)
+	if (!normalized) return false
+
+	return (
+		normalized.includes('/media/music/') ||
+		normalized.includes('\\media\\music\\') ||
+		(!isVoiceMediaKey(value) &&
+			AUDIO_MEDIA_EXTENSIONS.some(extension => normalized.endsWith(extension)))
 	)
 }
 
@@ -141,13 +155,16 @@ function matchesSharedMediaFilter(
 			return hasLinks(message.text)
 		case 'voice':
 			return mediaKeys.some(mediaKey => isVoiceMediaKey(mediaKey))
+		case 'music':
+			return mediaKeys.some(mediaKey => isMusicMediaKey(mediaKey))
 		case 'files':
 			return mediaKeys.some(mediaKey => {
 				return (
 					!isImageMediaKey(mediaKey) &&
 					!isVideoMediaKey(mediaKey) &&
 					!isVoiceMediaKey(mediaKey) &&
-					!isRingMediaKey(mediaKey)
+					!isRingMediaKey(mediaKey) &&
+					!isMusicMediaKey(mediaKey)
 				)
 			})
 		case 'media':
@@ -254,6 +271,27 @@ export class MessagesController {
 		}
 
 		return fallback
+	}
+
+	private resolveActiveConversationMemberIds(
+		conversation:
+			| {
+					members?: Array<{ userId?: string; state?: MemberState }>
+			  }
+			| null
+			| undefined
+	) {
+		return [
+			...new Set(
+				(conversation?.members ?? [])
+					.filter(
+						member =>
+							member.userId &&
+							(!member.state || member.state === MemberState.ACTIVE)
+					)
+					.map(member => member.userId as string)
+			)
+		]
 	}
 
 	private async emitBotExternalEvent(
@@ -486,7 +524,18 @@ export class MessagesController {
 			this.chatRealtimeService.emitChatListInvalidate({
 				conversationId: response.message.conversationId,
 				actorId: id,
-				reason: 'message.sent'
+				reason: 'message.sent',
+				targetUserIds: this.resolveActiveConversationMemberIds(
+					discussionLink.conversation
+				),
+				notification: {
+					conversationId: response.message.conversationId,
+					messageId: response.message.id ?? '',
+					authorId: response.message.authorId ?? id,
+					text: response.message.text ?? '',
+					mediaKeys: response.message.mediaKeys ?? [],
+					createdAt: response.message.createdAt ?? Date.now()
+				}
 			})
 			if (discussionLink.discussionConversationId) {
 				this.chatRealtimeService.emitChatListInvalidate({

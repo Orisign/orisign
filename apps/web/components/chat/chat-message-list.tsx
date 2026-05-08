@@ -61,6 +61,7 @@ interface ChatMessageListProps {
   selectedMessageIds?: Set<string>;
   onStartSelectMessage?: (messageId: string) => void;
   onToggleMessageSelect?: (messageId: string) => void;
+  onSelectMessageRange?: (messageIds: string[]) => void;
 }
 
 export function ChatMessageList({
@@ -80,6 +81,7 @@ export function ChatMessageList({
   selectedMessageIds,
   onStartSelectMessage,
   onToggleMessageSelect,
+  onSelectMessageRange,
 }: ChatMessageListProps) {
   const t = useTranslations("chat.messages");
   const locale = useLocale();
@@ -117,6 +119,7 @@ export function ChatMessageList({
   const shouldStickToBottomRef = useRef(true);
   const didInitialScrollRef = useRef(false);
   const lastMarkedReadMessageIdRef = useRef("");
+  const lastSelectedMessageIdRef = useRef("");
 
   const messagesQuery = useChatMessages(conversationId, messagesFilter);
   const messages = useMemo(
@@ -136,19 +139,24 @@ export function ChatMessageList({
     ? getConversationTitle(discussionChannelConversation)
     : "";
   const lastMessageId = messages.at(-1)?.id ?? "";
-  const latestIncomingMessage = useMemo(
-    () =>
-      currentUserId
-        ? [...messages]
-            .reverse()
-            .find(
-              (message) =>
-                message.authorId !== currentUserId &&
-                message.kind !== CHAT_MESSAGE_KIND.SYSTEM,
-            ) ?? null
-        : null,
-    [currentUserId, messages],
-  );
+  const latestIncomingMessage = useMemo(() => {
+    if (!currentUserId) {
+      return null;
+    }
+
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (
+        message &&
+        message.authorId !== currentUserId &&
+        message.kind !== CHAT_MESSAGE_KIND.SYSTEM
+      ) {
+        return message;
+      }
+    }
+
+    return null;
+  }, [currentUserId, messages]);
   const readStateQuery = useChatReadState(conversationId);
   const readCursors = useMemo(
     () => readStateQuery.data?.cursors ?? [],
@@ -409,10 +417,35 @@ export function ChatMessageList({
   );
 
   const handleToggleSelect = useCallback(
-    (messageId: string) => {
+    (messageId: string, options?: { shiftKey?: boolean }) => {
+      if (options?.shiftKey && lastSelectedMessageIdRef.current) {
+        const startIndex = messageIndexById.get(lastSelectedMessageIdRef.current);
+        const endIndex = messageIndexById.get(messageId);
+
+        if (typeof startIndex === "number" && typeof endIndex === "number") {
+          const [fromIndex, toIndex] =
+            startIndex <= endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
+          const rangeIds = messages
+            .slice(fromIndex, toIndex + 1)
+            .filter((message) =>
+              message.kind !== CHAT_MESSAGE_KIND.SYSTEM &&
+              message.authorId === currentUserId &&
+              !message.deletedAt,
+            )
+            .map((message) => message.id);
+
+          if (rangeIds.length > 0) {
+            onSelectMessageRange?.(rangeIds);
+            lastSelectedMessageIdRef.current = messageId;
+            return;
+          }
+        }
+      }
+
       onToggleMessageSelect?.(messageId);
+      lastSelectedMessageIdRef.current = messageId;
     },
-    [onToggleMessageSelect],
+    [currentUserId, messageIndexById, messages, onSelectMessageRange, onToggleMessageSelect],
   );
 
   const tryMarkConversationRead = useCallback((nearBottomOverride?: boolean) => {
@@ -519,6 +552,7 @@ export function ChatMessageList({
     setHasMoreOlder(true);
     setIsLoadingOlder(false);
     messageNodeRefs.current.clear();
+    lastSelectedMessageIdRef.current = "";
   }, [conversationId]);
 
   useEffect(() => {
@@ -766,7 +800,6 @@ export function ChatMessageList({
   const registerMessageNode = useCallback(
     (node: HTMLDivElement | null) => {
       if (!node) {
-        rowVirtualizer.measureElement(null);
         return;
       }
 
@@ -949,7 +982,6 @@ export function ChatMessageList({
                     ) : null}
 
                     <ChatMessageItem
-                      index={index}
                       conversationId={conversationId}
                       message={message}
                       previousMessage={previousMessage}

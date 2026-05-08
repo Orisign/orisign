@@ -49,12 +49,11 @@ import type { ChatMessageReadReceipt } from "./chat-message-read-dialog";
 import type { ChatEditTarget, ChatReplyTarget } from "./chat.types";
 import { useGeneralSettingsStore } from "@/store/settings/general-settings.store";
 import { useTranslations } from "next-intl";
-import { memo, useEffect, useRef } from "react";
+import { memo, type MouseEvent } from "react";
 import { ChatMessageReplyMarkup } from "./chat-message-reply-markup";
 import Link from "next/link";
 
 interface ChatMessageItemProps {
-  index?: number;
   conversationId: string;
   message: ChatMessageDto;
   previousMessage?: ChatMessageDto;
@@ -69,7 +68,7 @@ interface ChatMessageItemProps {
   onReply?: (message: ChatReplyTarget) => void;
   onEdit?: (message: ChatEditTarget) => void;
   onStartSelect?: (messageId: string) => void;
-  onToggleSelect?: (messageId: string) => void;
+  onToggleSelect?: (messageId: string, options?: { shiftKey?: boolean }) => void;
   onJumpToMessage?: (messageId: string) => void;
   onOpenComments?: (message: ChatReplyTarget) => void;
   repliedMessage?: ChatMessageDto | null;
@@ -227,7 +226,6 @@ function parseForwardedFromMetadata(metadataJson: string) {
 }
 
 export const ChatMessageItem = memo(function ChatMessageItem({
-  index = 0,
   conversationId,
   message,
   previousMessage,
@@ -265,28 +263,6 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   unknownAuthorLabel,
   replyUnavailableLabel,
 }: ChatMessageItemProps) {
-  const bubbleRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const element = bubbleRef.current;
-    if (!element) return;
-
-    const keyframes: Keyframe[] = [
-      { opacity: 0, transform: 'translateY(8px)' },
-      { opacity: 1, transform: 'translateY(0)' }
-    ];
-
-    const animation = element.animate(keyframes, {
-      duration: 150,
-      easing: 'cubic-bezier(0.32, 0.72, 0, 1)',
-      fill: 'forwards'
-    });
-
-    return () => {
-      animation.cancel();
-    };
-  }, []);
-
   const tCallLog = useTranslations("chat.messages.callLog");
   const tMessages = useTranslations("chat.messages");
   const timeFormat = useGeneralSettingsStore((state) => state.timeFormat);
@@ -433,9 +409,9 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     </span>
   );
 
-  function handleToggleSelect() {
+  function handleToggleSelect(event?: MouseEvent) {
     if (!canSelectMessage) return;
-    onToggleSelect?.(message.id);
+    onToggleSelect?.(message.id, { shiftKey: Boolean(event?.shiftKey) });
   }
 
   const commentsVisual = (
@@ -679,6 +655,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                     conversationId={conversationId}
                     messageId={message.id}
                     mediaKeys={mediaKeys}
+                    attachmentsJson={message.attachmentsJson}
+                    isOwn={isOwn}
                     canDelete={isOwn && !isDeleted}
                     inlineMeta={showInlineMediaMeta ? messageMeta : null}
                   />
@@ -854,7 +832,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   );
 
   return (
-    <div ref={bubbleRef}>
+    <div>
       <ChatMessageContextMenu
         conversationId={conversationId}
         message={message}

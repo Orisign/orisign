@@ -64,6 +64,15 @@ type ApiWsRequestPayload = {
 	conversationId?: string
 }
 
+type ChatListNotificationPayload = {
+	conversationId: string
+	messageId: string
+	authorId: string
+	text: string
+	mediaKeys: string[]
+	createdAt: number
+}
+
 @Injectable()
 export class ChatRealtimeService {
 	private readonly logger = new Logger(ChatRealtimeService.name)
@@ -266,13 +275,36 @@ export class ChatRealtimeService {
 		conversationId?: string
 		actorId?: string
 		reason?: string
+		targetUserIds?: string[]
+		notification?: ChatListNotificationPayload
 	}) {
 		const body = JSON.stringify({
 			type: 'chat-list.invalidate',
 			conversationId: params?.conversationId ?? '',
 			actorId: params?.actorId ?? '',
-			reason: params?.reason ?? ''
+			reason: params?.reason ?? '',
+			notification: params?.notification
 		})
+		const targetUserIds =
+			params?.targetUserIds !== undefined
+				? new Set(params.targetUserIds.filter(Boolean))
+				: null
+
+		if (targetUserIds) {
+			if (targetUserIds.size === 0) return
+
+			for (const userId of targetUserIds) {
+				const sockets = this.chatListSocketsByUserId.get(userId)
+				if (!sockets) continue
+
+				for (const socket of sockets) {
+					if (socket.readyState !== 1) continue
+					socket.send(body)
+				}
+			}
+
+			return
+		}
 
 		for (const sockets of this.chatListSocketsByUserId.values()) {
 			for (const socket of sockets) {

@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useBrowserNotifications } from "@/hooks/use-browser-notifications";
 import { useChatListRealtime } from "@/hooks/use-chat-list-realtime";
 import { useChatSound } from "@/hooks/use-chat-sound";
 import { useGeneralSettingsSync } from "@/hooks/use-general-settings-sync";
@@ -15,6 +16,7 @@ import { useMessages } from "next-intl";
 function AuthBootstrap() {
   const { user } = useAuth();
   useChatListRealtime(user?.id);
+  useBrowserNotifications(user?.id);
   return null;
 }
 

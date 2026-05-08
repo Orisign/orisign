@@ -2,6 +2,7 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EmojiInput } from "@/components/ui/emoji-input";
+import { AvatarUploadButton } from "@/components/shared/avatar-upload-button";
 import { fadeScale, SPRING_LAYOUT } from "@/lib/animations";
 import {
   Button,
@@ -21,11 +22,10 @@ import {
   cn,
 } from "@repo/ui";
 import { AnimatePresence, motion } from "motion/react";
-import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Check } from "lucide-react";
 import {
   IoBanOutline,
-  IoCameraOutline,
   IoChatbubbleEllipsesOutline,
   IoChevronForward,
   IoLinkOutline,
@@ -38,7 +38,6 @@ import {
   IoTrashOutline,
 } from "react-icons/io5";
 import { RightSidebarInfoIcon } from "./primitives";
-import { SIDEBAR_FALLBACK_AVATAR_CLASS } from "./utils";
 
 export interface SidebarInviteLinkItem {
   id: string;
@@ -112,6 +111,7 @@ function SectionCard({
 
 export function RightSidebarManageOverviewScreen({
   avatarUrl,
+  draftAvatarUrl,
   avatarFallback,
   title,
   about,
@@ -125,6 +125,8 @@ export function RightSidebarManageOverviewScreen({
   setSignMessages,
   onTitleChange,
   onAboutChange,
+  onUploadAvatar,
+  isUploadingAvatar,
   onPersist,
   onOpenChannelType,
   onOpenInviteLinks,
@@ -141,6 +143,7 @@ export function RightSidebarManageOverviewScreen({
   t,
 }: {
   avatarUrl: string;
+  draftAvatarUrl: string;
   avatarFallback: string;
   title: string;
   about: string;
@@ -154,6 +157,8 @@ export function RightSidebarManageOverviewScreen({
   setSignMessages: (value: boolean) => void;
   onTitleChange: (value: string) => void;
   onAboutChange: (value: string) => void;
+  onUploadAvatar: (file: File) => Promise<void>;
+  isUploadingAvatar: boolean;
   onPersist: () => void;
   onOpenChannelType: () => void;
   onOpenInviteLinks: () => void;
@@ -170,6 +175,7 @@ export function RightSidebarManageOverviewScreen({
   t: (key: string, values?: Record<string, string | number>) => string;
 }) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const displayedAvatarUrl = draftAvatarUrl || avatarUrl;
 
   return (
     <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -177,16 +183,27 @@ export function RightSidebarManageOverviewScreen({
         <ScrollArea className="h-full">
         <section className="border-b px-4 pb-5 pt-5">
           <div className="flex flex-col items-center text-center">
-            <div className="relative">
-              <Avatar className={`size-28 ${!avatarUrl ? SIDEBAR_FALLBACK_AVATAR_CLASS : ""}`}>
-                {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
-                <AvatarFallback className={!avatarUrl ? "bg-transparent text-[1.75rem] text-primary-foreground" : ""}>
+            <div className="relative mx-auto size-40 overflow-hidden rounded-full bg-accent">
+              <Avatar className="absolute inset-0 size-full bg-muted">
+                {displayedAvatarUrl ? (
+                  <AvatarImage src={displayedAvatarUrl} alt="" className="object-cover" />
+                ) : null}
+                <AvatarFallback className={!displayedAvatarUrl ? "bg-muted text-[2.25rem] text-primary" : ""}>
                   {avatarFallback}
                 </AvatarFallback>
               </Avatar>
-              <span className="absolute inset-0 flex items-center justify-center text-white drop-shadow-[0_4px_14px_rgba(0,0,0,0.45)]">
-                <IoCameraOutline className="size-11" />
-              </span>
+              {isUploadingAvatar ? (
+                <span className="absolute inset-x-5 bottom-4 h-1 overflow-hidden rounded-full bg-white/30">
+                  <span className="block h-full w-2/3 animate-pulse rounded-full bg-white" />
+                </span>
+              ) : null}
+              <AvatarUploadButton
+                className="absolute inset-0 flex items-center justify-center"
+                buttonClassName="h-13 w-13 rounded-full p-1"
+                disabled={isUploadingAvatar}
+                ariaLabel={t("manage.uploadAvatar")}
+                onUpload={onUploadAvatar}
+              />
             </div>
 
             <div className="mt-5 w-full space-y-3 text-left">
@@ -854,55 +871,26 @@ export function RightSidebarDiscussionCreateScreen({
   onSubmit: () => void;
   t: (key: string, values?: Record<string, string | number>) => string;
 }) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    try {
-      await onUploadAvatar(file);
-    } finally {
-      if (inputRef.current) {
-        inputRef.current.value = "";
-      }
-    }
-  };
-
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-sidebar">
       <ScrollArea className="h-full">
         <section className="border-b px-4 py-6">
           <div className="flex flex-col items-center text-center">
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={(event) => {
-                void handleFileChange(event);
-              }}
-              disabled={isUploadingAvatar || isSubmitting}
-            />
-
-            <button
-              type="button"
-              className="relative rounded-full"
-              onClick={() => inputRef.current?.click()}
-              disabled={isUploadingAvatar || isSubmitting}
-            >
-              <Avatar className={`size-28 ${!avatarUrl ? SIDEBAR_FALLBACK_AVATAR_CLASS : ""}`}>
+            <div className="relative rounded-full">
+              <Avatar className="size-28 bg-muted">
                 {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
-                <AvatarFallback className={!avatarUrl ? "bg-transparent text-[1.75rem] text-primary-foreground" : ""}>
+                <AvatarFallback className={!avatarUrl ? "bg-muted text-[1.75rem] text-primary" : ""}>
                   {avatarFallback}
                 </AvatarFallback>
               </Avatar>
-              <span className="absolute inset-0 flex items-center justify-center text-white drop-shadow-[0_4px_14px_rgba(0,0,0,0.45)]">
-                <IoCameraOutline className="size-11" />
-              </span>
-            </button>
+              <AvatarUploadButton
+                className="absolute inset-0 flex items-center justify-center"
+                buttonClassName="h-13 w-13 rounded-full p-1"
+                disabled={isUploadingAvatar || isSubmitting}
+                ariaLabel={t("manage.uploadAvatar")}
+                onUpload={onUploadAvatar}
+              />
+            </div>
 
             <div className="mt-5 w-full">
               <Input

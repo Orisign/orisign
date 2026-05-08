@@ -92,6 +92,7 @@ export function ChatItem({ conversation }: ChatItemProps) {
     },
     mediaLabels: {
       photo: t("media.photo"),
+      music: t("media.music"),
       file: t("media.file"),
       attachment: t("media.attachment"),
     },

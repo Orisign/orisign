@@ -25,6 +25,7 @@ const chatMediaFileNamePrefix = "chat-media::"
 const (
 	chatMediaKindVoice = "voice"
 	chatMediaKindRing  = "ring"
+	chatMediaKindMusic = "music"
 )
 
 func NewMediaService(storageClient *storage.S3Storage, logger *slog.Logger) *MediaService {
@@ -202,7 +203,7 @@ func buildMessageMediaKey(accountID string, kind string, conversationID string, 
 		extension = ".bin"
 	}
 
-	if kind == chatMediaKindVoice || kind == chatMediaKindRing {
+	if kind == chatMediaKindVoice || kind == chatMediaKindRing || kind == chatMediaKindMusic {
 		ownerScope := conversationID
 		if ownerScope == "" {
 			ownerScope = accountID
