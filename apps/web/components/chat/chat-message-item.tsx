@@ -267,6 +267,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   const tMessages = useTranslations("chat.messages");
   const timeFormat = useGeneralSettingsStore((state) => state.timeFormat);
   const mediaKeys = message.mediaKeys ?? [];
+  const hasPendingMediaUpload = message.metadataJson.includes("pendingMediaUpload");
   const messageText = message.text ?? "";
   const isDeleted = normalizeTimestamp(message.deletedAt) !== null;
   const callLogPayload = parseCallLogMessageText(messageText);
@@ -649,13 +650,14 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 </button>
               ) : null}
 
-              {mediaKeys.length > 0 ? (
+              {mediaKeys.length > 0 || hasPendingMediaUpload ? (
                 <div className={cn(messageText ? "mb-1.5" : "")}>
                   <ChatMessageMedia
                     conversationId={conversationId}
                     messageId={message.id}
                     mediaKeys={mediaKeys}
                     attachmentsJson={message.attachmentsJson}
+                    metadataJson={message.metadataJson}
                     isOwn={isOwn}
                     canDelete={isOwn && !isDeleted}
                     inlineMeta={showInlineMediaMeta ? messageMeta : null}

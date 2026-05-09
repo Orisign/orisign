@@ -39,11 +39,11 @@ export interface SharedMessageEntry {
 }
 
 export interface SidebarPreviewState {
+  id: string;
   messageId: string;
   mediaKey: string;
   url: string;
   kind: string;
-  layoutId: string;
 }
 
 export interface RightSidebarContextAction {
@@ -116,8 +116,8 @@ export interface RightSidebarTabsProps {
   formatCreatedAt: (value: number) => string;
   renderEmptyState: (label: string) => ReactNode;
   openMessage: (messageId: string) => void;
-  openImagePreview: (item: SharedMediaAsset, layoutId: string) => void;
-  openVideoPreview: (item: SharedMediaAsset, layoutId: string) => void;
+  openImagePreview: (item: SharedMediaAsset) => void;
+  openVideoPreview: (item: SharedMediaAsset) => void;
   playVoice: (voiceId: string, url: string) => Promise<void>;
   voiceProgress: Record<string, number>;
   voiceDuration: Record<string, number>;

@@ -57,6 +57,7 @@ import {
 } from "@/lib/chat";
 import {
   CHAT_SELECT_EVENT,
+  CHAT_QUERY_SCOPE,
   CHAT_SELECT_STORAGE_KEY_PREFIX,
 } from "@/lib/chat.constants";
 import {
@@ -91,6 +92,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { FiCheckCircle, FiMessageCircle, FiTrash2 } from "react-icons/fi";
 import type { SidebarInviteLinkItem } from "./manage-overview-screen";
@@ -116,6 +118,7 @@ import {
   normalizePublicLink,
   resolveLinkEntries,
   resolveMediaEntries,
+  uniqueById,
 } from "./utils";
 
 const SIDEBAR_TAB_FILTER_MAP: Record<RightSidebarTab, ChatSharedMediaFilter> = {
@@ -163,6 +166,82 @@ function updateConversationInCache(
 
 function getConversationMembers(conversation: ConversationLike | null) {
   return conversation?.members ?? [];
+}
+
+function isChatMessagesQueryKey(queryKey: readonly unknown[], conversationId: string) {
+  return (
+    queryKey[0] === CHAT_QUERY_SCOPE &&
+    queryKey[1] === "messages" &&
+    queryKey[2] === conversationId
+  );
+}
+
+function parsePendingSidebarMediaEntries(
+  messages: ChatMessagesQueryData["messages"],
+): SharedMediaAsset[] {
+  return messages.flatMap((message) => {
+    const normalizedMetadata = message.metadataJson.trim();
+    if (!normalizedMetadata) return [];
+
+    try {
+      const metadata = JSON.parse(normalizedMetadata) as {
+        pendingMediaUpload?: {
+          items?: Array<{
+            id?: string;
+            url?: string | null;
+            kind?: string;
+          }>;
+        };
+      };
+      const items = Array.isArray(metadata.pendingMediaUpload?.items)
+        ? metadata.pendingMediaUpload.items
+        : [];
+
+      return items
+        .filter((item) =>
+          Boolean(item.id) &&
+          Boolean(item.url) &&
+          (
+            item.kind === CHAT_MEDIA_KIND.IMAGE ||
+            item.kind === CHAT_MEDIA_KIND.VIDEO ||
+            item.kind === CHAT_MEDIA_KIND.RING
+          ),
+        )
+        .map((item, index) => ({
+          id: `${message.id}:pending:${item.id ?? index}`,
+          messageId: message.id,
+          mediaKey: `pending:${item.id ?? index}`,
+          url: item.url ?? "",
+          kind: item.kind ?? CHAT_MEDIA_KIND.IMAGE,
+          createdAt: message.createdAt,
+          authorId: message.authorId,
+          text: message.text,
+        }));
+    } catch {
+      return [];
+    }
+  });
+}
+
+function sortSidebarMediaEntries(items: SharedMediaAsset[]) {
+  return [...items].sort((left, right) => {
+    const createdAtDelta = right.createdAt - left.createdAt;
+    if (createdAtDelta !== 0) return createdAtDelta;
+
+    return left.id.localeCompare(right.id);
+  });
+}
+
+function uniqueSharedMediaItems<T extends { messageId: string }>(items: T[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.messageId)) {
+      return false;
+    }
+
+    seen.add(item.messageId);
+    return true;
+  });
 }
 
 export function usePanel(conversationId: string) {
@@ -367,34 +446,81 @@ export function usePanel(conversationId: string) {
     () => sharedMediaQuery.data?.pages.flatMap((page) => page.items) ?? [],
     [sharedMediaQuery.data?.pages],
   );
+  const cachedMessagesQueryKey = useMemo(
+    () => getChatMessagesQueryKey(resolvedConversationId),
+    [resolvedConversationId],
+  );
+  const cachedMessagesData = useSyncExternalStore(
+    useCallback(
+      (onStoreChange) =>
+        queryClient.getQueryCache().subscribe((event) => {
+          const queryKey = event.query.queryKey;
+          if (
+            resolvedConversationId &&
+            Array.isArray(queryKey) &&
+            isChatMessagesQueryKey(queryKey, resolvedConversationId)
+          ) {
+            onStoreChange();
+          }
+        }),
+      [queryClient, resolvedConversationId],
+    ),
+    () => queryClient.getQueryData<ChatMessagesQueryData>(cachedMessagesQueryKey) ?? null,
+    () => null,
+  );
+  const cachedSharedMediaItems = useMemo(
+    () =>
+      (cachedMessagesData?.messages ?? [])
+        .filter((message) => message.conversationId === resolvedConversationId)
+        .map((message) => ({
+          messageId: message.id,
+          conversationId: message.conversationId,
+          authorId: message.authorId,
+          text: message.text,
+          mediaKeys: message.mediaKeys,
+          createdAt: message.createdAt,
+        })),
+    [cachedMessagesData?.messages, resolvedConversationId],
+  );
+  const mergedSharedMediaItems = useMemo(
+    () => uniqueSharedMediaItems([...cachedSharedMediaItems, ...sharedMediaItems]),
+    [cachedSharedMediaItems, sharedMediaItems],
+  );
+  const pendingMediaEntries = useMemo(
+    () => parsePendingSidebarMediaEntries(cachedMessagesData?.messages ?? []),
+    [cachedMessagesData?.messages],
+  );
 
   const mediaEntries = useMemo(
-    () =>
-      resolveMediaEntries(sharedMediaItems).filter(
+    () => {
+      const resolvedEntries = resolveMediaEntries(mergedSharedMediaItems).filter(
         (item) =>
           item.kind === CHAT_MEDIA_KIND.IMAGE ||
           item.kind === CHAT_MEDIA_KIND.VIDEO ||
           item.kind === CHAT_MEDIA_KIND.RING,
-      ),
-    [sharedMediaItems],
+      );
+
+      return sortSidebarMediaEntries(uniqueById([...pendingMediaEntries, ...resolvedEntries]));
+    },
+    [mergedSharedMediaItems, pendingMediaEntries],
   );
   const fileEntries = useMemo(
     () =>
-      resolveMediaEntries(sharedMediaItems).filter(
+      resolveMediaEntries(mergedSharedMediaItems).filter(
         (item) => item.kind === CHAT_MEDIA_KIND.FILE,
       ),
-    [sharedMediaItems],
+    [mergedSharedMediaItems],
   );
   const voiceEntries = useMemo(
     () =>
-      resolveMediaEntries(sharedMediaItems).filter(
+      resolveMediaEntries(mergedSharedMediaItems).filter(
         (item) => item.kind === CHAT_MEDIA_KIND.VOICE,
       ),
-    [sharedMediaItems],
+    [mergedSharedMediaItems],
   );
   const linkEntries = useMemo(
-    () => resolveLinkEntries(sharedMediaItems),
-    [sharedMediaItems],
+    () => resolveLinkEntries(mergedSharedMediaItems),
+    [mergedSharedMediaItems],
   );
 
   const authorIds = useMemo(
@@ -933,26 +1059,26 @@ export function usePanel(conversationId: string) {
     setPreviewVideoDuration(0);
   };
 
-  const openImagePreview = (item: SharedMediaAsset, layoutId: string) => {
+  const openImagePreview = (item: SharedMediaAsset) => {
     setActiveVideoPreview(null);
     setActiveImagePreview({
+      id: item.id,
       messageId: item.messageId,
       mediaKey: item.mediaKey,
       url: item.url,
       kind: item.kind,
-      layoutId,
     });
     setPreviewZoomed(false);
   };
 
-  const openVideoPreview = (item: SharedMediaAsset, layoutId: string) => {
+  const openVideoPreview = (item: SharedMediaAsset) => {
     setActiveImagePreview(null);
     setActiveVideoPreview({
+      id: item.id,
       messageId: item.messageId,
       mediaKey: item.mediaKey,
       url: item.url,
       kind: item.kind,
-      layoutId,
     });
     setPreviewZoomed(false);
     setShouldPreviewVideoPlay(autoplayVideo);
@@ -1017,6 +1143,26 @@ export function usePanel(conversationId: string) {
   };
 
   const isPreviewOpen = Boolean(activeImagePreview || activeVideoPreview);
+  const activePreviewId = activeImagePreview?.id ?? activeVideoPreview?.id ?? "";
+  const activePreviewIndex = activePreviewId
+    ? mediaEntries.findIndex((entry) => entry.id === activePreviewId)
+    : -1;
+  const canNavigateMediaPreview = mediaEntries.length > 1 && activePreviewIndex >= 0;
+  const navigateMediaPreview = (direction: "previous" | "next") => {
+    if (!canNavigateMediaPreview) return;
+
+    const delta = direction === "previous" ? -1 : 1;
+    const nextIndex = (activePreviewIndex + delta + mediaEntries.length) % mediaEntries.length;
+    const nextItem = mediaEntries[nextIndex];
+    if (!nextItem) return;
+
+    if (nextItem.kind === CHAT_MEDIA_KIND.IMAGE) {
+      openImagePreview(nextItem);
+      return;
+    }
+
+    openVideoPreview(nextItem);
+  };
   const canUsePortal = typeof document !== "undefined";
   const previewVideoProgress =
     previewVideoDuration > 0
@@ -1920,6 +2066,8 @@ export function usePanel(conversationId: string) {
       previewZoomed,
       setPreviewZoomed,
       closeMediaPreview,
+      canNavigateMediaPreview,
+      navigateMediaPreview,
       handleDownloadFromPreview,
       handleDeleteFromPreview,
       canDeleteActivePreviewMessage,

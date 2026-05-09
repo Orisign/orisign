@@ -89,7 +89,12 @@ export function resolveMediaEntries(
 
   return all
     .filter((entry) => Boolean(entry.url))
-    .sort((left, right) => right.createdAt - left.createdAt);
+    .sort((left, right) => {
+      const createdAtDelta = right.createdAt - left.createdAt;
+      if (createdAtDelta !== 0) return createdAtDelta;
+
+      return left.id.localeCompare(right.id);
+    });
 }
 
 export function resolveLinkEntries(
@@ -118,7 +123,9 @@ export function buildMonthGroups<T>(
   getTimestamp: (item: T) => number,
   locale: string,
 ): MonthGroup<T>[] {
-  const formatter = new Intl.DateTimeFormat(locale, {
+  const currentYear = new Date().getFullYear();
+  const monthFormatter = new Intl.DateTimeFormat(locale, { month: "long" });
+  const monthYearFormatter = new Intl.DateTimeFormat(locale, {
     month: "long",
     year: "numeric",
   });
@@ -128,7 +135,14 @@ export function buildMonthGroups<T>(
     const normalized = normalizeTimestamp(getTimestamp(item));
     const date = normalized ? new Date(normalized) : null;
     const key = date ? `${date.getFullYear()}-${date.getMonth()}` : "undated";
-    const label = date ? formatter.format(date) : "";
+    const label = date
+      ? date.getFullYear() === currentYear
+        ? monthFormatter.format(date)
+        : monthYearFormatter.format(date)
+      : "";
+    const normalizedLabel = label
+      ? `${label.charAt(0).toLocaleUpperCase(locale)}${label.slice(1)}`
+      : "";
     const existing = groups.get(key);
 
     if (existing) {
@@ -138,7 +152,7 @@ export function buildMonthGroups<T>(
 
     groups.set(key, {
       key,
-      label,
+      label: normalizedLabel,
       items: [item],
     });
   });

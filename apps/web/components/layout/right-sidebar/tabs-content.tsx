@@ -9,7 +9,7 @@ import { stripMessageFormatting } from "@/lib/chat-message-format";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, Skeleton, Ripple } from "@repo/ui";
 import { AnimatePresence, motion } from "motion/react";
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import {
   FiCopy,
   FiDownload,
@@ -18,17 +18,19 @@ import {
 import {
   IoDocumentTextOutline,
   IoLinkOutline,
+  IoCloudDownloadOutline,
 } from "react-icons/io5";
 import { RIGHT_SIDEBAR_TAB } from "@/store/right-sidebar/right-sidebar.types";
 import { CHAT_MEDIA_KIND } from "@/lib/chat";
+import { useGeneralSettingsStore } from "@/store/settings/general-settings.store";
 import { RightSidebarItemContextMenu } from "./primitives";
 import type { RightSidebarTabsProps } from "./types";
 import { RightSidebarVoiceRow } from "./voice-row";
-import { RIGHT_SIDEBAR_TRANSITION } from "./utils";
+import { formatDuration, RIGHT_SIDEBAR_TRANSITION } from "./utils";
 
 function renderMonthLabel(label: string) {
   return label ? (
-    <p className="mb-2 mt-4 px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground first:mt-0">
+    <p className="mb-2 mt-4 px-1 text-[15px] font-semibold text-foreground first:mt-0">
       {label}
     </p>
   ) : null;
@@ -64,6 +66,16 @@ export function RightSidebarTabs({
   copyText,
   t,
 }: RightSidebarTabsProps) {
+  const [mediaDurationById, setMediaDurationById] = useState<Record<string, number>>({});
+  const [loadedMediaKeys, setLoadedMediaKeys] = useState<Set<string>>(new Set());
+  const autoDownloadMedia = useGeneralSettingsStore((state) => state.autoDownloadMedia);
+
+  const allowMediaDownload = (key: string) => {
+    setLoadedMediaKeys((currentValue) => new Set(currentValue).add(key));
+  };
+
+  const canRenderMedia = (key: string) => autoDownloadMedia || loadedMediaKeys.has(key);
+
   const renderTabContent = () => {
     if (activeTab === RIGHT_SIDEBAR_TAB.MEDIA) {
       if (isSharedMediaLoading) {
@@ -88,12 +100,11 @@ export function RightSidebarTabs({
           {mediaMonthGroups.map((group) => (
             <Fragment key={group.key}>
               {group.label ? (
-                <p className="col-span-3 mb-1 mt-4 px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground first:mt-0">
-                  {group.label}
-                </p>
+                <div className="col-span-3">{renderMonthLabel(group.label)}</div>
               ) : null}
               {group.items.map((item) => {
-                const layoutId = `right-sidebar-media-${item.id}`;
+                const duration = mediaDurationById[item.id] ?? 0;
+                const isLoaded = canRenderMedia(item.mediaKey);
                 const actions = buildMessageContextActions(
                   {
                     messageId: item.messageId,
@@ -116,19 +127,35 @@ export function RightSidebarTabs({
                         type="button"
                         className="group relative aspect-square overflow-hidden rounded-xl bg-sidebar"
                         onClick={() => {
+                          if (!isLoaded) return;
+
                           if (item.kind === CHAT_MEDIA_KIND.IMAGE) {
-                            openImagePreview(item, layoutId);
+                            openImagePreview(item);
                             return;
                           }
 
-                          openVideoPreview(item, layoutId);
+                          openVideoPreview(item);
                         }}
                         whileTap={{ scale: 0.98 }}
                         transition={RIGHT_SIDEBAR_TRANSITION}
                       >
-                        {item.kind === CHAT_MEDIA_KIND.IMAGE ? (
+                        {!isLoaded ? (
+                          <div className="flex size-full items-center justify-center bg-muted">
+                            <div className="absolute inset-0 scale-110 bg-sidebar opacity-90 blur-xl" />
+                            <button
+                              type="button"
+                              className="relative z-10 flex size-11 items-center justify-center rounded-xl border border-border bg-popover/90 text-popover-foreground shadow-xl"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                allowMediaDownload(item.mediaKey);
+                              }}
+                              aria-label={t("context.download")}
+                            >
+                              <IoCloudDownloadOutline className="size-6" />
+                            </button>
+                          </div>
+                        ) : item.kind === CHAT_MEDIA_KIND.IMAGE ? (
                           <motion.img
-                            layoutId={layoutId}
                             src={item.url}
                             alt=""
                             className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
@@ -136,7 +163,6 @@ export function RightSidebarTabs({
                           />
                         ) : (
                           <motion.video
-                            layoutId={layoutId}
                             src={item.url}
                             className={cn(
                               "size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]",
@@ -145,11 +171,22 @@ export function RightSidebarTabs({
                             muted
                             playsInline
                             preload="metadata"
+                            onLoadedMetadata={(event) => {
+                              const nextDuration = Number.isFinite(event.currentTarget.duration)
+                                ? event.currentTarget.duration
+                                : 0;
+                              setMediaDurationById((currentValue) => ({
+                                ...currentValue,
+                                [item.id]: nextDuration,
+                              }));
+                            }}
                           />
                         )}
-                        <span className="pointer-events-none absolute inset-x-1 bottom-1 rounded-md bg-black/55 px-1 py-0.5 text-[10px] text-white">
-                          {formatCreatedAt(item.createdAt)}
-                        </span>
+                        {item.kind !== CHAT_MEDIA_KIND.IMAGE && duration > 0 ? (
+                          <span className="pointer-events-none absolute right-1 top-1 rounded-md bg-popover/90 px-1.5 py-0.5 text-[10px] font-semibold text-popover-foreground">
+                            {formatDuration(duration)}
+                          </span>
+                        ) : null}
                       </motion.button>
                     </Ripple>
                   </RightSidebarItemContextMenu>

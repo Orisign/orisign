@@ -186,8 +186,8 @@ export function buildRightSidebarScreenNodes({
   formatCreatedAt: (value: number) => string;
   renderEmptyState: (label: string) => ReactNode;
   openMessage: (messageId: string) => void;
-  openImagePreview: (item: SharedMediaAsset, layoutId: string) => void;
-  openVideoPreview: (item: SharedMediaAsset, layoutId: string) => void;
+  openImagePreview: (item: SharedMediaAsset) => void;
+  openVideoPreview: (item: SharedMediaAsset) => void;
   playVoice: (voiceId: string, url: string) => Promise<void>;
   voiceProgress: Record<string, number>;
   voiceDuration: Record<string, number>;

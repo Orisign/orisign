@@ -15,6 +15,7 @@ import {
   removeChatMessageFromData,
 } from "@/hooks/use-chat";
 import { downloadMediaByKey } from "@/lib/download-media";
+import { cacheMedia, readCachedMedia } from "@/lib/cache/media-cache";
 import { cn } from "@/lib/utils";
 import {
   CHAT_SHARED_MEDIA_FILTER,
@@ -28,7 +29,7 @@ import {
 } from "@/lib/chat";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, toast } from "@repo/ui";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, type Variants } from "motion/react";
 import { useTranslations } from "next-intl";
 import {
   type MouseEvent,
@@ -45,6 +46,7 @@ import {
   IoChevronForward,
   IoClose,
   IoDownloadOutline,
+  IoCloudDownloadOutline,
   IoPause,
   IoPlay,
   IoRemove,
@@ -62,6 +64,7 @@ interface ChatMessageMediaProps {
   isOwn?: boolean;
   mediaKeys: string[];
   attachmentsJson?: string;
+  metadataJson?: string;
   inlineMeta?: ReactNode;
 }
 
@@ -82,6 +85,49 @@ interface ChatPreviewMediaItem {
   url: string;
   kind: typeof CHAT_MEDIA_KIND.IMAGE | typeof CHAT_MEDIA_KIND.VIDEO;
 }
+
+type MediaLoadState = {
+  status: "checking" | "loading" | "loaded" | "error";
+  url: string;
+};
+
+interface PendingMediaUploadItem {
+  id: string;
+  url: string;
+  kind: string;
+  fileName: string;
+  progress: number;
+}
+
+const PREVIEW_MEDIA_VARIANTS: Variants = {
+  enter: (direction: number) => ({
+    opacity: 0,
+    x: direction === 0 ? 0 : direction * 96,
+    scale: 0.96,
+  }),
+  center: {
+    opacity: 1,
+    x: 0,
+    scale: 1,
+  },
+  zoomed: {
+    opacity: 1,
+    x: 0,
+    scale: 1.15,
+  },
+  exit: (direction: number) => ({
+    opacity: 0,
+    x: direction === 0 ? 0 : direction * -96,
+    scale: 0.96,
+  }),
+};
+
+const PREVIEW_MEDIA_TRANSITION = {
+  type: "spring",
+  stiffness: 420,
+  damping: 34,
+  mass: 0.9,
+} as const;
 
 function formatMediaTime(value: number) {
   if (!Number.isFinite(value) || value <= 0) {
@@ -306,6 +352,44 @@ function parseAttachmentMetadataMap(attachmentsJson: string | undefined) {
   return metadataByKey;
 }
 
+function parsePendingMediaUploadItems(metadataJson: string | undefined) {
+  const normalizedValue = metadataJson?.trim();
+  if (!normalizedValue) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(normalizedValue) as unknown;
+    const pendingMediaUpload = isRecord(parsed) ? parsed.pendingMediaUpload : null;
+    const rawItems = isRecord(pendingMediaUpload) && Array.isArray(pendingMediaUpload.items)
+      ? pendingMediaUpload.items
+      : [];
+
+    return rawItems
+      .filter(isRecord)
+      .map((item): PendingMediaUploadItem | null => {
+        const id = readMetadataString(item, ["id"]);
+        const url = readMetadataString(item, ["url"]);
+        if (!id || !url) return null;
+
+        return {
+          id,
+          url,
+          kind: readMetadataString(item, ["kind"]),
+          fileName: readMetadataString(item, ["fileName", "name"]),
+          progress: clampMediaProgress(readMetadataNumber(item, ["progress"])),
+        };
+      })
+      .filter((item): item is PendingMediaUploadItem => item !== null);
+  } catch {
+    return [];
+  }
+}
+
+function clampMediaProgress(value: number) {
+  return Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0));
+}
+
 function getMediaDisplayLabel(
   key: string,
   metadata: ChatMediaAttachmentMetadata | undefined,
@@ -340,6 +424,7 @@ export function ChatMessageMedia({
   isOwn = false,
   mediaKeys,
   attachmentsJson,
+  metadataJson,
   inlineMeta = null,
 }: ChatMessageMediaProps) {
   const t = useTranslations("chat.messages.mediaPreview");
@@ -347,9 +432,15 @@ export function ChatMessageMedia({
   const [activeImageKey, setActiveImageKey] = useState<string | null>(null);
   const [activeVideoKey, setActiveVideoKey] = useState<string | null>(null);
   const [zoomed, setZoomed] = useState(false);
+  const [previewSlideDirection, setPreviewSlideDirection] = useState(0);
+  const [mediaLoadByKey, setMediaLoadByKey] = useState<Record<string, MediaLoadState>>({});
+  const cachedObjectUrlsRef = useRef<Set<string>>(new Set());
+  const activeMediaLoadsRef = useRef<Set<string>>(new Set());
+  const checkedMediaKeysRef = useRef<Set<string>>(new Set());
   const autoplayVideo = useGeneralSettingsStore(
     (state) => state.autoplayVideo && !state.powerSavingEnabled,
   );
+  const autoDownloadMedia = useGeneralSettingsStore((state) => state.autoDownloadMedia);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const [shouldPreviewVideoPlay, setShouldPreviewVideoPlay] = useState(false);
   const [isPreviewVideoPlaying, setIsPreviewVideoPlaying] = useState(false);
@@ -378,6 +469,10 @@ export function ChatMessageMedia({
     () => parseAttachmentMetadataMap(attachmentsJson),
     [attachmentsJson],
   );
+  const pendingUploadItems = useMemo(
+    () => parsePendingMediaUploadItems(metadataJson),
+    [metadataJson],
+  );
 
   const mediaItems = mediaKeys
     .filter(Boolean)
@@ -402,6 +497,11 @@ export function ChatMessageMedia({
   );
   const videoItems = mediaItems.filter(
     (item) => item.kind === CHAT_MEDIA_KIND.VIDEO && item.url,
+  );
+  const visualItems = mediaItems.filter(
+    (item) =>
+      (item.kind === CHAT_MEDIA_KIND.IMAGE || item.kind === CHAT_MEDIA_KIND.VIDEO) &&
+      item.url,
   );
   const fileItems = mediaItems.filter((item) => item.kind === CHAT_MEDIA_KIND.FILE && item.url);
 
@@ -463,23 +563,20 @@ export function ChatMessageMedia({
   const shouldInlineMetaWithVoice = Boolean(inlineMeta) &&
     voiceItems.length === 1 &&
     ringItems.length === 0 &&
-    imageItems.length === 0 &&
-    videoItems.length === 0 &&
+    visualItems.length === 0 &&
     musicItems.length === 0 &&
     fileItems.length === 0;
   const shouldInlineMetaWithRing = Boolean(inlineMeta) &&
     ringItems.length === 1 &&
     voiceItems.length === 0 &&
-    imageItems.length === 0 &&
-    videoItems.length === 0 &&
+    visualItems.length === 0 &&
     musicItems.length === 0 &&
     fileItems.length === 0;
   const shouldInlineMetaWithMusic = Boolean(inlineMeta) &&
     musicItems.length === 1 &&
     voiceItems.length === 0 &&
     ringItems.length === 0 &&
-    imageItems.length === 0 &&
-    videoItems.length === 0 &&
+    visualItems.length === 0 &&
     fileItems.length === 0;
   const musicQueue: MusicTrack[] = musicItems.map((item) => {
     const metadata = attachmentMetadataByKey.get(item.key);
@@ -567,6 +664,7 @@ export function ChatMessageMedia({
     setActiveImageKey(null);
     setActiveVideoKey(null);
     setZoomed(false);
+    setPreviewSlideDirection(0);
     setShouldPreviewVideoPlay(false);
     setIsPreviewVideoPlaying(false);
     setIsPreviewVideoMuted(false);
@@ -659,16 +757,18 @@ export function ChatMessageMedia({
     };
   }, []);
 
-  function openImagePreview(key: string) {
+  function openImagePreview(key: string, slideDirection = 0) {
     setActiveVideoKey(null);
     setActiveImageKey(key);
     setZoomed(false);
+    setPreviewSlideDirection(slideDirection);
   }
 
-  function openVideoPreview(key: string) {
+  function openVideoPreview(key: string, slideDirection = 0) {
     setActiveImageKey(null);
     setActiveVideoKey(key);
     setZoomed(false);
+    setPreviewSlideDirection(slideDirection);
     setShouldPreviewVideoPlay(autoplayVideo);
     setIsPreviewVideoMuted(autoplayVideo);
     setIsPreviewVideoPlaying(false);
@@ -676,13 +776,13 @@ export function ChatMessageMedia({
     setPreviewVideoDuration(0);
   }
 
-  function openPreviewMediaItem(item: ChatPreviewMediaItem) {
+  function openPreviewMediaItem(item: ChatPreviewMediaItem, slideDirection = 0) {
     if (item.kind === CHAT_MEDIA_KIND.IMAGE) {
-      openImagePreview(item.key);
+      openImagePreview(item.key, slideDirection);
       return;
     }
 
-    openVideoPreview(item.key);
+    openVideoPreview(item.key, slideDirection);
   }
 
   function openAdjacentPreviewMedia(direction: "previous" | "next") {
@@ -690,15 +790,107 @@ export function ChatMessageMedia({
       return;
     }
 
-    const delta = direction === "previous" ? -1 : 1;
+    const delta = direction === "previous" ? 1 : -1;
     const nextIndex = (activePreviewIndex + delta + previewItems.length) % previewItems.length;
     const nextItem = previewItems[nextIndex];
     if (!nextItem) {
       return;
     }
 
-    openPreviewMediaItem(nextItem);
+    openPreviewMediaItem(nextItem, direction === "previous" ? -1 : 1);
   }
+
+  function rememberCachedObjectUrl(url: string) {
+    if (url.startsWith("blob:")) {
+      cachedObjectUrlsRef.current.add(url);
+    }
+  }
+
+  async function loadMedia(key: string, url: string) {
+    if (!url) return;
+    if (activeMediaLoadsRef.current.has(key)) {
+      return;
+    }
+
+    activeMediaLoadsRef.current.add(key);
+    setMediaLoadByKey((currentValue) => ({
+      ...currentValue,
+      [key]: { status: "loading", url: "" },
+    }));
+
+    const cachedUrl = await cacheMedia(url);
+    rememberCachedObjectUrl(cachedUrl);
+    setMediaLoadByKey((currentValue) => ({
+      ...currentValue,
+      [key]: {
+        status: cachedUrl ? "loaded" : "error",
+        url: cachedUrl || url,
+      },
+    }));
+    activeMediaLoadsRef.current.delete(key);
+  }
+
+  async function hydrateMediaFromCache(key: string, url: string, shouldAutoLoad: boolean) {
+    if (!url || checkedMediaKeysRef.current.has(key) || activeMediaLoadsRef.current.has(key)) {
+      return;
+    }
+
+    checkedMediaKeysRef.current.add(key);
+    setMediaLoadByKey((currentValue) => {
+      const currentState = currentValue[key];
+      if (currentState?.status === "loaded" || currentState?.status === "loading") {
+        return currentValue;
+      }
+
+      return {
+        ...currentValue,
+        [key]: { status: "checking", url: "" },
+      };
+    });
+
+    const cachedUrl = await readCachedMedia(url);
+    if (cachedUrl) {
+      rememberCachedObjectUrl(cachedUrl);
+      setMediaLoadByKey((currentValue) => ({
+        ...currentValue,
+        [key]: { status: "loaded", url: cachedUrl },
+      }));
+      return;
+    }
+
+    if (shouldAutoLoad) {
+      await loadMedia(key, url);
+      return;
+    }
+
+    setMediaLoadByKey((currentValue) => {
+      const currentState = currentValue[key];
+      if (currentState?.status !== "checking") return currentValue;
+
+      const { [key]: _removed, ...nextValue } = currentValue;
+      return nextValue;
+    });
+  }
+
+  function getLoadedMediaUrl(item: { key: string; url: string }) {
+    return mediaLoadByKey[item.key]?.url || item.url;
+  }
+
+  useEffect(() => {
+    visualItems.forEach((item) => {
+      void hydrateMediaFromCache(item.key, item.url, autoDownloadMedia);
+    });
+  }, [autoDownloadMedia, visualItems.map((item) => item.key).join("\u001f")]);
+
+  useEffect(
+    () => () => {
+      cachedObjectUrlsRef.current.forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+      cachedObjectUrlsRef.current.clear();
+    },
+    [],
+  );
 
   function handleTogglePreviewVideoPlay() {
     setShouldPreviewVideoPlay((currentValue) => !currentValue);
@@ -860,42 +1052,149 @@ export function ChatMessageMedia({
     ? Math.min(100, Math.max(0, (previewVideoCurrentTime / previewVideoDuration) * 100))
     : 0;
 
-  if (mediaItems.length === 0) {
+  if (mediaItems.length === 0 && pendingUploadItems.length === 0) {
     return null;
   }
 
   return (
     <>
       <div className="space-y-2">
-        {imageItems.length > 0 ? (
+        {pendingUploadItems.length > 0 ? (
           <div
             className={cn(
               "grid gap-1.5 overflow-hidden rounded-2xl",
-              imageItems.length === 1 ? "grid-cols-1" : "grid-cols-2",
+              pendingUploadItems.length === 1 ? "grid-cols-1" : "grid-cols-2",
             )}
           >
-            {imageItems.map((item) => {
-              const isSingleImage = imageItems.length === 1;
+            {pendingUploadItems.map((item) => {
+              const isSingleImage = pendingUploadItems.length === 1;
 
               return (
-                <motion.button
-                  key={item.key}
-                  type="button"
-                  onClick={() => openImagePreview(item.key)}
-                  whileTap={{ scale: 0.985 }}
+                <div
+                  key={item.id}
                   className={cn(
-                    "relative block overflow-hidden",
+                    "relative overflow-hidden bg-card",
                     isSingleImage
                       ? "h-[min(26rem,52vh)] w-[min(24rem,80vw)] max-w-full"
                       : "aspect-square",
                   )}
                 >
-                  <motion.img
-                    src={item.url}
-                    alt=""
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                  />
+                  {item.kind === "video" ? (
+                    <video
+                      src={item.url}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="size-full object-cover blur-sm"
+                    />
+                  ) : (
+                    <img
+                      src={item.url}
+                      alt=""
+                      className="size-full object-cover blur-sm"
+                    />
+                  )}
+                  <div className="absolute inset-0 flex items-center justify-center bg-background/35">
+                    <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-popover/90 px-4 py-3 text-popover-foreground shadow-xl">
+                      <span className="size-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      <span className="text-xs font-semibold tabular-nums">
+                        {Math.round(item.progress)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {visualItems.length > 0 ? (
+          <div
+            className={cn(
+              "grid gap-1.5 overflow-hidden rounded-2xl",
+              visualItems.length === 1 ? "grid-cols-1" : "grid-cols-2",
+            )}
+          >
+            {visualItems.map((item) => {
+              const isSingle = visualItems.length === 1;
+              const loadState = mediaLoadByKey[item.key];
+              const isLoading =
+                (autoDownloadMedia && loadState?.status !== "loaded") ||
+                loadState?.status === "loading";
+              const isLoaded = loadState?.status === "loaded";
+              const loadedUrl = getLoadedMediaUrl(item);
+              const isVideo = item.kind === CHAT_MEDIA_KIND.VIDEO;
+
+              return (
+                <motion.button
+                  key={item.key}
+                  type="button"
+                  onClick={() => {
+                    if (!isLoaded) {
+                      void loadMedia(item.key, item.url);
+                      return;
+                    }
+
+                    if (isVideo) {
+                      openVideoPreview(item.key);
+                    } else {
+                      openImagePreview(item.key);
+                    }
+                  }}
+                  whileTap={{ scale: 0.985 }}
+                  className={cn(
+                    "group relative block overflow-hidden bg-card",
+                    isSingle
+                      ? "h-[min(26rem,52vh)] w-[min(24rem,80vw)] max-w-full"
+                      : "aspect-square",
+                  )}
+                >
+                  {isLoaded && !isVideo ? (
+                    <motion.img
+                      src={loadedUrl}
+                      alt=""
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : isLoaded && isVideo ? (
+                    <motion.video
+                      src={loadedUrl}
+                      muted
+                      preload="metadata"
+                      playsInline
+                      className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                    />
+                  ) : (
+                    <div className="flex size-full items-center justify-center bg-muted">
+                      <div className="absolute inset-0 scale-110 bg-sidebar opacity-90 blur-xl" />
+                      <button
+                        type="button"
+                        className="relative z-10 flex size-14 items-center justify-center rounded-2xl border border-border bg-popover/90 text-popover-foreground shadow-xl"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void loadMedia(item.key, item.url);
+                        }}
+                        aria-label={t("download")}
+                      >
+                        {isLoading ? (
+                          <span className="size-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        ) : (
+                          <IoCloudDownloadOutline className="size-7" />
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {isVideo && isLoaded ? (
+                    <>
+                      <div className="pointer-events-none absolute inset-0 bg-background/20" />
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                        <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+                          <IoPlay className="size-7 translate-x-[1px]" />
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
                 </motion.button>
               );
             })}
@@ -1254,36 +1553,6 @@ export function ChatMessageMedia({
           </div>
         ) : null}
 
-        {videoItems.length > 0 ? (
-          <div className="grid gap-1.5">
-            {videoItems.map((item) => {
-              return (
-                <motion.button
-                  key={item.key}
-                  type="button"
-                  onClick={() => openVideoPreview(item.key)}
-                  whileTap={{ scale: 0.99 }}
-                  className="group relative overflow-hidden rounded-2xl bg-card"
-                >
-                  <motion.video
-                    src={item.url}
-                    muted
-                    preload="metadata"
-                    playsInline
-                    className="aspect-video w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                  />
-
-                  <div className="pointer-events-none absolute inset-0 bg-background/20" />
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                    <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-                      <IoPlay className="size-7 translate-x-[1px]" />
-                    </div>
-                  </div>
-                </motion.button>
-              );
-            })}
-          </div>
-        ) : null}
       </div>
 
       {canUsePortal
@@ -1389,20 +1658,24 @@ export function ChatMessageMedia({
                     </>
                   ) : null}
 
-                  <motion.img
-                    key={activeImage.key}
-                    src={activeImage.url}
-                    alt=""
-                    initial={{ opacity: 0, scale: 0.94 }}
-                    animate={{ opacity: 1, scale: zoomed ? 1.15 : 1 }}
-                    exit={{ opacity: 0, scale: 0.94 }}
-                    transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.9 }}
-                    className={cn(
-                      "relative z-[122] max-h-[84vh] max-w-[84vw] rounded-2xl object-contain",
-                      zoomed ? "cursor-zoom-out" : "cursor-zoom-in",
-                    )}
-                    onClick={() => setZoomed((currentValue) => !currentValue)}
-                  />
+                  <AnimatePresence mode="wait" custom={previewSlideDirection}>
+                    <motion.img
+                      key={activeImage.key}
+                      custom={previewSlideDirection}
+                      src={getLoadedMediaUrl(activeImage)}
+                      alt=""
+                      variants={PREVIEW_MEDIA_VARIANTS}
+                      initial="enter"
+                      animate={zoomed ? "zoomed" : "center"}
+                      exit="exit"
+                      transition={PREVIEW_MEDIA_TRANSITION}
+                      className={cn(
+                        "relative z-[122] max-h-[84vh] max-w-[84vw] rounded-2xl object-contain",
+                        zoomed ? "cursor-zoom-out" : "cursor-zoom-in",
+                      )}
+                      onClick={() => setZoomed((currentValue) => !currentValue)}
+                    />
+                  </AnimatePresence>
                 </motion.div>
               ) : null}
 
@@ -1452,45 +1725,49 @@ export function ChatMessageMedia({
                       </>
                     ) : null}
 
-                    <motion.video
-                      key={activeVideo.key}
-                      id="chat-video-preview-player"
-                      ref={previewVideoRef}
-                      src={activeVideo.url}
-                      initial={{ opacity: 0, scale: 0.94 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.94 }}
-                      transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.9 }}
-                      playsInline
-                      preload="metadata"
-                      className="max-h-[70vh] w-full max-w-[84vw] rounded-2xl bg-card object-contain"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleTogglePreviewVideoPlay();
-                      }}
-                      onLoadedMetadata={(event) =>
-                        setPreviewVideoDuration(
-                          Number.isFinite(event.currentTarget.duration)
-                            ? event.currentTarget.duration
-                            : 0,
-                        )}
-                      onTimeUpdate={(event) =>
-                        setPreviewVideoCurrentTime(
-                          Number.isFinite(event.currentTarget.currentTime)
-                            ? event.currentTarget.currentTime
-                            : 0,
-                        )}
-                      onPlay={() => {
-                        setIsPreviewVideoPlaying(true);
-                        setShouldPreviewVideoPlay(true);
-                      }}
-                      onPause={() => {
-                        setIsPreviewVideoPlaying(false);
-                        setShouldPreviewVideoPlay(false);
-                      }}
-                      onVolumeChange={(event) =>
-                        setIsPreviewVideoMuted(event.currentTarget.muted)}
-                    />
+                    <AnimatePresence mode="wait" custom={previewSlideDirection}>
+                      <motion.video
+                        key={activeVideo.key}
+                        custom={previewSlideDirection}
+                        id="chat-video-preview-player"
+                        ref={previewVideoRef}
+                        src={getLoadedMediaUrl(activeVideo)}
+                        variants={PREVIEW_MEDIA_VARIANTS}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        transition={PREVIEW_MEDIA_TRANSITION}
+                        playsInline
+                        preload="metadata"
+                        className="max-h-[70vh] w-full max-w-[84vw] rounded-2xl bg-card object-contain"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleTogglePreviewVideoPlay();
+                        }}
+                        onLoadedMetadata={(event) =>
+                          setPreviewVideoDuration(
+                            Number.isFinite(event.currentTarget.duration)
+                              ? event.currentTarget.duration
+                              : 0,
+                          )}
+                        onTimeUpdate={(event) =>
+                          setPreviewVideoCurrentTime(
+                            Number.isFinite(event.currentTarget.currentTime)
+                              ? event.currentTarget.currentTime
+                              : 0,
+                          )}
+                        onPlay={() => {
+                          setIsPreviewVideoPlaying(true);
+                          setShouldPreviewVideoPlay(true);
+                        }}
+                        onPause={() => {
+                          setIsPreviewVideoPlaying(false);
+                          setShouldPreviewVideoPlay(false);
+                        }}
+                        onVolumeChange={(event) =>
+                          setIsPreviewVideoMuted(event.currentTarget.muted)}
+                      />
+                    </AnimatePresence>
 
                     <div
                       className="mt-4 w-full max-w-[84vw] rounded-[1.3rem] border border-border bg-popover/90 p-3 sm:max-w-3xl"

@@ -6,6 +6,8 @@ import { createPortal } from "react-dom";
 import { FiTrash2 } from "react-icons/fi";
 import {
   IoAdd,
+  IoChevronBack,
+  IoChevronForward,
   IoClose,
   IoDownloadOutline,
   IoPause,
@@ -15,6 +17,7 @@ import {
   IoVolumeMute,
 } from "react-icons/io5";
 import type { MouseEventHandler, RefObject, SyntheticEvent } from "react";
+import { useEffect } from "react";
 import type { SidebarPreviewState } from "./types";
 import { VIDEO_PREVIEW_CONTROL_BUTTON_CLASS } from "./utils";
 
@@ -25,6 +28,8 @@ export function RightSidebarMediaPreview({
   previewZoomed,
   setPreviewZoomed,
   closeMediaPreview,
+  canNavigateMediaPreview,
+  navigateMediaPreview,
   handleDownloadFromPreview,
   handleDeleteFromPreview,
   canDeleteActivePreviewMessage,
@@ -51,6 +56,8 @@ export function RightSidebarMediaPreview({
   previewZoomed: boolean;
   setPreviewZoomed: (value: boolean | ((current: boolean) => boolean)) => void;
   closeMediaPreview: () => void;
+  canNavigateMediaPreview: boolean;
+  navigateMediaPreview: (direction: "previous" | "next") => void;
   handleDownloadFromPreview: () => Promise<void>;
   handleDeleteFromPreview: () => Promise<void>;
   canDeleteActivePreviewMessage: boolean;
@@ -71,6 +78,28 @@ export function RightSidebarMediaPreview({
   onVolumeChange: (event: SyntheticEvent<HTMLVideoElement>) => void;
   t: (key: string, values?: Record<string, string | number>) => string;
 }) {
+  const isPreviewOpen = Boolean(activeImagePreview || activeVideoPreview);
+
+  useEffect(() => {
+    if (!isPreviewOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        navigateMediaPreview("previous");
+      }
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        navigateMediaPreview("next");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isPreviewOpen, navigateMediaPreview]);
+
   if (!canUsePortal) {
     return null;
   }
@@ -87,17 +116,17 @@ export function RightSidebarMediaPreview({
           <motion.button
             type="button"
             aria-label={t("preview.close")}
-            className="absolute inset-0 bg-black/80"
+            className="absolute inset-0 bg-background/95"
             onClick={closeMediaPreview}
           />
 
           <div className="pointer-events-none absolute inset-x-0 top-0 z-[130] flex justify-end p-3 sm:p-4">
-            <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/15 bg-black/65 p-1.5">
+            <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-popover/90 p-1.5">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="size-10 rounded-full text-white hover:bg-white/15 hover:text-white"
+                className="size-10 rounded-full text-popover-foreground hover:bg-accent hover:text-accent-foreground"
                 onClick={closeMediaPreview}
                 aria-label={t("preview.close")}
               >
@@ -108,7 +137,7 @@ export function RightSidebarMediaPreview({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="size-10 rounded-full text-white hover:bg-white/15 hover:text-white"
+                className="size-10 rounded-full text-popover-foreground hover:bg-accent hover:text-accent-foreground"
                 onClick={() => setPreviewZoomed((current) => !current)}
                 aria-label={previewZoomed ? t("preview.zoomOut") : t("preview.zoomIn")}
               >
@@ -119,7 +148,7 @@ export function RightSidebarMediaPreview({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="size-10 rounded-full text-white hover:bg-white/15 hover:text-white"
+                className="size-10 rounded-full text-popover-foreground hover:bg-accent hover:text-accent-foreground"
                 onClick={() => void handleDownloadFromPreview()}
                 aria-label={t("preview.download")}
               >
@@ -142,13 +171,48 @@ export function RightSidebarMediaPreview({
             </div>
           </div>
 
+          {canNavigateMediaPreview ? (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute left-3 top-1/2 z-[130] size-12 -translate-y-1/2 rounded-full border border-border bg-popover/90 text-popover-foreground shadow-xl backdrop-blur-md hover:bg-accent hover:text-accent-foreground sm:left-6"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  navigateMediaPreview("previous");
+                }}
+                aria-label={t("preview.previousMedia")}
+              >
+                <IoChevronBack className="size-7" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-3 top-1/2 z-[130] size-12 -translate-y-1/2 rounded-full border border-border bg-popover/90 text-popover-foreground shadow-xl backdrop-blur-md hover:bg-accent hover:text-accent-foreground sm:right-6"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  navigateMediaPreview("next");
+                }}
+                aria-label={t("preview.nextMedia")}
+              >
+                <IoChevronForward className="size-7" />
+              </Button>
+            </>
+          ) : null}
+
           <motion.img
-            layoutId={activeImagePreview.layoutId}
+            key={activeImagePreview.mediaKey}
             src={activeImagePreview.url}
             alt=""
+            initial={{ opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: previewZoomed ? 1.15 : 1 }}
+            exit={{ opacity: 0, scale: 0.94 }}
+            transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.9 }}
             className={cn(
-              "relative z-[122] max-h-[84vh] max-w-[84vw] rounded-2xl object-contain transition-transform duration-250 ease-out",
-              previewZoomed ? "scale-[1.15] cursor-zoom-out" : "scale-100 cursor-zoom-in",
+              "relative z-[122] max-h-[84vh] max-w-[84vw] rounded-2xl object-contain",
+              previewZoomed ? "cursor-zoom-out" : "cursor-zoom-in",
             )}
             onClick={() => setPreviewZoomed((current) => !current)}
           />
@@ -165,18 +229,53 @@ export function RightSidebarMediaPreview({
           <motion.button
             type="button"
             aria-label={t("preview.close")}
-            className="absolute inset-0 bg-black/85"
+            className="absolute inset-0 bg-background/95"
             onClick={closeMediaPreview}
           />
 
           <div className="relative z-[122] flex w-full flex-col items-center px-4 pb-5 pt-16">
+            {canNavigateMediaPreview ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute left-3 top-1/2 z-[130] size-12 -translate-y-1/2 rounded-full border border-border bg-popover/90 text-popover-foreground shadow-xl backdrop-blur-md hover:bg-accent hover:text-accent-foreground sm:left-6"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    navigateMediaPreview("previous");
+                  }}
+                  aria-label={t("preview.previousMedia")}
+                >
+                  <IoChevronBack className="size-7" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-3 top-1/2 z-[130] size-12 -translate-y-1/2 rounded-full border border-border bg-popover/90 text-popover-foreground shadow-xl backdrop-blur-md hover:bg-accent hover:text-accent-foreground sm:right-6"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    navigateMediaPreview("next");
+                  }}
+                  aria-label={t("preview.nextMedia")}
+                >
+                  <IoChevronForward className="size-7" />
+                </Button>
+              </>
+            ) : null}
+
             <motion.video
+              key={activeVideoPreview.mediaKey}
               ref={previewVideoRef}
-              layoutId={activeVideoPreview.layoutId}
               src={activeVideoPreview.url}
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.94 }}
+              transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.9 }}
               playsInline
               preload="metadata"
-              className="max-h-[70vh] w-full max-w-[84vw] rounded-2xl bg-black object-contain"
+              className="max-h-[70vh] w-full max-w-[84vw] rounded-2xl bg-card object-contain"
               onClick={(event) => {
                 event.stopPropagation();
                 handleTogglePreviewVideoPlay();
@@ -189,12 +288,12 @@ export function RightSidebarMediaPreview({
             />
 
             <div
-              className="mt-4 w-full max-w-[84vw] rounded-[1.3rem] border border-white/15 bg-black/65 p-3 sm:max-w-3xl"
+              className="mt-4 w-full max-w-[84vw] rounded-[1.3rem] border border-border bg-popover/90 p-3 sm:max-w-3xl"
               onClick={(event) => event.stopPropagation()}
             >
               <button
                 type="button"
-                className="relative block h-2.5 w-full overflow-hidden rounded-full bg-white/20"
+                className="relative block h-2.5 w-full overflow-hidden rounded-full bg-muted"
                 onClick={handlePreviewVideoTimelineClick}
                 aria-label={t("preview.seekVideo")}
               >
@@ -246,7 +345,7 @@ export function RightSidebarMediaPreview({
                   ) : null}
                 </div>
 
-                <span className="text-sm font-semibold tabular-nums text-white/90">
+                <span className="text-sm font-semibold tabular-nums text-popover-foreground">
                   {previewVideoCurrentTimeLabel} / {previewVideoDurationLabel}
                 </span>
 

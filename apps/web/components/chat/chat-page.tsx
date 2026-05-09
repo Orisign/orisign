@@ -1161,6 +1161,7 @@ export function ChatPage({ conversationId, focusMessageId }: ChatPageProps) {
                     >
                       <SendMessageForm
                         conversationId={activeConversationId}
+                        currentUserId={currentUserId}
                         directPeerUserId={isVirtualDirect ? (peerId ?? "") : ""}
                         isBlockedByCurrentUser={isPeerBlockedByCurrentUser}
                         isBlockedByPeer={isCurrentUserBlockedByPeer}
