@@ -77,11 +77,8 @@ export class SmsService {
 						}
 					}),
 					catchError(error => {
-						const details =
-							error.response.data ?? error.message ?? error
-
 						this.logger.error(
-							`Exolve API error (${method} ${path})\n${JSON.stringify(details)}`
+							`Exolve API error (${method} ${path}): ${describeUpstreamError(error)}`
 						)
 
 						return throwError(() => error)
@@ -93,10 +90,34 @@ export class SmsService {
 			return response.data
 		} catch (error) {
 			this.logger.error(
-				`Request failed (${method} ${path}): ${error.message}`
+				`Request failed (${method} ${path}): ${describeUpstreamError(error)}`
 			)
 
 			throw error
 		}
 	}
+}
+
+function describeUpstreamError(error: unknown) {
+	if (!error || typeof error !== 'object') {
+		return typeof error === 'string' ? error : 'unknown error'
+	}
+
+	const candidate = error as {
+		response?: { status?: number }
+		code?: string
+		message?: string
+	}
+
+	const status = candidate.response?.status
+	const code = candidate.code
+	const parts: string[] = []
+
+	if (typeof status === 'number') parts.push(`status=${status}`)
+	if (typeof code === 'string' && code.length > 0) parts.push(`code=${code}`)
+	if (typeof candidate.message === 'string' && candidate.message.length > 0) {
+		parts.push(candidate.message)
+	}
+
+	return parts.length > 0 ? parts.join(' ') : 'unknown error'
 }

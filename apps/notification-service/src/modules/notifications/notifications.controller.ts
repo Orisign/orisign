@@ -1,4 +1,4 @@
-import { Controller } from '@nestjs/common'
+import { Controller, Logger } from '@nestjs/common'
 import { Ctx, EventPattern, Payload, RmqContext } from '@nestjs/microservices'
 import { OtpRequestedEvent } from '@repo/contracts'
 import { RmqService } from 'src/infra/rmq/rmq.service'
@@ -7,6 +7,8 @@ import { NotificationsService } from './notifications.service'
 
 @Controller()
 export class NotificationsController {
+	private readonly logger = new Logger(NotificationsController.name)
+
 	constructor(
 		private readonly notificationsService: NotificationsService,
 		private readonly rmqService: RmqService
@@ -24,11 +26,19 @@ export class NotificationsController {
 
 			this.rmqService.ack(ctx, event)
 		} catch (error) {
-			console.log('Send OTP error: ', error.message ?? error)
+			this.logger.error(
+				`Send OTP failed (type=${data.type}): ${getErrorMessage(error)}`
+			)
 
 			this.rmqService.nack(ctx, event)
 
 			throw error
 		}
 	}
+}
+
+function getErrorMessage(error: unknown) {
+	if (error instanceof Error) return error.message
+	if (typeof error === 'string') return error
+	return 'unknown error'
 }
