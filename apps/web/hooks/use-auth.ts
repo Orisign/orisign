@@ -12,6 +12,7 @@ import {
 	useAccountControllerMe
 } from '@/api/generated'
 import { ApiError } from '@/lib/fetcher'
+import { clearCacheForUser } from '@/lib/cache/chat-cache-service'
 
 const ACCESS_TOKEN_COOKIE = 'accessToken'
 const TOKEN_REFRESH_BEFORE_EXPIRY_MS = 30_000
@@ -138,6 +139,7 @@ export function useAuth() {
 	}, [])
 
 	const logout = () => {
+		void clearCacheForUser(user?.id)
 		deleteCookie(ACCESS_TOKEN_COOKIE)
 		setAccessToken(null)
 		setAuthenticated(false)

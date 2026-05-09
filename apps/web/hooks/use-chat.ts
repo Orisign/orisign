@@ -29,8 +29,15 @@ import {
   CHAT_QUERY_SCOPE,
 } from "@/lib/chat.constants";
 import { customFetch } from "@/lib/fetcher";
+import {
+  readCachedMessages,
+  readCachedUsers,
+  writeCachedMessages,
+  writeCachedUsers,
+} from "@/lib/cache/chat-cache-service";
 import { coerceProtobufNumber } from "@/lib/protobuf";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 
 export interface ChatMessageDto {
   id: string;
@@ -390,8 +397,9 @@ export function useChatMessages(
   filter?: ChatMessagesFilter,
 ) {
   const normalizedFilter = normalizeChatMessagesFilter(filter);
+  const [cachedData, setCachedData] = useState<ChatMessagesQueryData | null>(null);
 
-  return useQuery<ChatMessagesQueryData>({
+  const query = useQuery<ChatMessagesQueryData>({
     queryKey: getChatMessagesQueryKey(conversationId, normalizedFilter),
     queryFn: async () => {
       const messages = await fetchChatMessagesPage({
@@ -412,6 +420,43 @@ export function useChatMessages(
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void readCachedMessages(conversationId, normalizedFilter).then((data) => {
+      if (isMounted && data) {
+        setCachedData(data);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    conversationId,
+    normalizedFilter.discussionChannelId,
+    normalizedFilter.messageId,
+    normalizedFilter.replyToId,
+  ]);
+
+  useEffect(() => {
+    if (conversationId && query.data) {
+      void writeCachedMessages(conversationId, query.data, normalizedFilter);
+    }
+  }, [
+    conversationId,
+    normalizedFilter.discussionChannelId,
+    normalizedFilter.messageId,
+    normalizedFilter.replyToId,
+    query.data,
+  ]);
+
+  return {
+    ...query,
+    data: query.data ?? cachedData ?? undefined,
+    isLoading: query.isLoading && !cachedData,
+  };
 }
 
 export function useChatInputMarkup(
@@ -551,8 +596,9 @@ export function getChatAuthorsQueryKey(authorIds: string[]) {
 
 export function useChatAuthors(authorIds: string[]) {
   const uniqueAuthorIds = [...new Set(authorIds.filter(Boolean))].sort();
+  const [cachedData, setCachedData] = useState<Record<string, UserResponseDto | null> | null>(null);
 
-  return useQuery<Record<string, UserResponseDto | null>>({
+  const query = useQuery<Record<string, UserResponseDto | null>>({
     queryKey: getChatAuthorsQueryKey(uniqueAuthorIds),
     queryFn: async () => {
       const entries = await Promise.all(
@@ -572,4 +618,32 @@ export function useChatAuthors(authorIds: string[]) {
     staleTime: 300_000,
     refetchOnWindowFocus: false,
   });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void readCachedUsers(uniqueAuthorIds).then((users) => {
+      if (isMounted && users) {
+        setCachedData(users);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [uniqueAuthorIds.join(",")]);
+
+  useEffect(() => {
+    if (query.data) {
+      void writeCachedUsers(query.data);
+    }
+  }, [query.data]);
+
+  const data = query.data ?? cachedData ?? undefined;
+
+  return {
+    ...query,
+    data,
+    isLoading: query.isLoading && !data,
+  };
 }

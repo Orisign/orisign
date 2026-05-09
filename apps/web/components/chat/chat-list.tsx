@@ -1,6 +1,6 @@
 "use client";
 
-import { useConversationsControllerMy } from "@/api/generated";
+import { useCachedConversations } from "@/hooks/use-cached-chat";
 import { getConversationSubtitle, getConversationTitle } from "@/lib/chat";
 import { filterConversationsByChatFolder, type ChatFolder } from "@/lib/chat-folders";
 import { Skeleton, SkeletonGroup } from "@repo/ui";
@@ -15,7 +15,7 @@ interface ChatListProps {
 
 export const ChatList = ({ activeFolder = null, searchQuery = "" }: ChatListProps) => {
   const t = useTranslations("chat.list");
-  const { data, isLoading } = useConversationsControllerMy();
+  const { data, isLoading } = useCachedConversations();
 
   const allConversations = useMemo(
     () =>

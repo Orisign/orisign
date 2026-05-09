@@ -22,6 +22,9 @@ interface GeneralSettingsState {
   chatAnimationsLevel: number;
   interfaceAnimationsEnabled: boolean;
   browserNotificationsEnabled: boolean;
+  autoDownloadMedia: boolean;
+  cacheTtlDays: number;
+  cacheSizeLimitMb: number;
   setMessageTextSize: (value: number) => void;
   setAnimationsEnabled: (value: boolean) => void;
   setSelectedWallpaper: (value: string) => void;
@@ -36,6 +39,9 @@ interface GeneralSettingsState {
   setChatAnimationsLevel: (value: number) => void;
   setInterfaceAnimationsEnabled: (value: boolean) => void;
   setBrowserNotificationsEnabled: (value: boolean) => void;
+  setAutoDownloadMedia: (value: boolean) => void;
+  setCacheTtlDays: (value: number) => void;
+  setCacheSizeLimitMb: (value: number) => void;
 }
 
 export const useGeneralSettingsStore = create<GeneralSettingsState>()(
@@ -55,6 +61,9 @@ export const useGeneralSettingsStore = create<GeneralSettingsState>()(
       chatAnimationsLevel: 3,
       interfaceAnimationsEnabled: true,
       browserNotificationsEnabled: false,
+      autoDownloadMedia: true,
+      cacheTtlDays: 7,
+      cacheSizeLimitMb: 0,
       setMessageTextSize: (value) => set({ messageTextSize: value }),
       setAnimationsEnabled: (value) =>
         set((state) =>
@@ -96,25 +105,40 @@ export const useGeneralSettingsStore = create<GeneralSettingsState>()(
         set({ interfaceAnimationsEnabled: value }),
       setBrowserNotificationsEnabled: (value) =>
         set({ browserNotificationsEnabled: value }),
+      setAutoDownloadMedia: (value) => set({ autoDownloadMedia: value }),
+      setCacheTtlDays: (value) => set({ cacheTtlDays: value }),
+      setCacheSizeLimitMb: (value) => set({ cacheSizeLimitMb: value }),
     }),
     {
       name: "general-settings",
       storage: createJSONStorage(() => localStorage),
-      version: 3,
+      version: 4,
       migrate: (persistedState, version) => {
         if (!persistedState || typeof persistedState !== "object") {
           return persistedState as GeneralSettingsState;
         }
 
-        if (version >= 3) {
+        if (version >= 4) {
           return persistedState as GeneralSettingsState;
         }
 
         const state = persistedState as Partial<GeneralSettingsState>;
+        if (version >= 3) {
+          return {
+            ...state,
+            autoDownloadMedia: state.autoDownloadMedia ?? true,
+            cacheTtlDays: state.cacheTtlDays ?? 7,
+            cacheSizeLimitMb: state.cacheSizeLimitMb ?? 0,
+          } as GeneralSettingsState;
+        }
+
         if (version >= 2) {
           return {
             ...state,
             browserNotificationsEnabled: Boolean(state.browserNotificationsEnabled),
+            autoDownloadMedia: true,
+            cacheTtlDays: 7,
+            cacheSizeLimitMb: 0,
           } as GeneralSettingsState;
         }
 
@@ -130,6 +154,9 @@ export const useGeneralSettingsStore = create<GeneralSettingsState>()(
           interactiveEffectsLevel: countToMask(state.interactiveEffectsLevel, 3),
           chatAnimationsLevel: countToMask(state.chatAnimationsLevel, 2),
           browserNotificationsEnabled: Boolean(state.browserNotificationsEnabled),
+          autoDownloadMedia: true,
+          cacheTtlDays: 7,
+          cacheSizeLimitMb: 0,
         } as GeneralSettingsState;
       },
     },

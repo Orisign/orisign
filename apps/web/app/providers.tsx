@@ -1,12 +1,15 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useBrowserNotifications } from "@/hooks/use-browser-notifications";
 import { useChatListRealtime } from "@/hooks/use-chat-list-realtime";
+import { useCachedQueryPersistence } from "@/hooks/use-cached-chat";
 import { useChatSound } from "@/hooks/use-chat-sound";
 import { useGeneralSettingsSync } from "@/hooks/use-general-settings-sync";
+import { useGeneralSettingsStore } from "@/store/settings/general-settings.store";
+import { pruneCacheForUser } from "@/lib/cache/chat-cache-service";
 import { ApiError } from "@/lib/fetcher";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { TwemojiProvider } from "@/components/providers/twemoji-provider";
@@ -15,8 +18,17 @@ import { useMessages } from "next-intl";
 
 function AuthBootstrap() {
   const { user } = useAuth();
+  const cacheTtlDays = useGeneralSettingsStore((state) => state.cacheTtlDays);
+  useCachedQueryPersistence(user?.id);
   useChatListRealtime(user?.id);
   useBrowserNotifications(user?.id);
+
+  useEffect(() => {
+    if (user?.id) {
+      void pruneCacheForUser(cacheTtlDays, user.id);
+    }
+  }, [cacheTtlDays, user?.id]);
+
   return null;
 }
 

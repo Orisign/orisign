@@ -286,6 +286,8 @@
       "zoomOut": "Zoom out",
       "download": "Download",
       "delete": "Delete",
+      "previousMedia": "Previous media",
+      "nextMedia": "Next media",
       "seekVideo": "Seek video",
       "pauseVideo": "Pause",
       "playVideo": "Play",
@@ -646,6 +648,34 @@
       "revokeSuccess": "Session terminated",
       "revokeAllSuccess": "All other sessions terminated",
       "revokeAllError": "Failed to terminate some sessions"
+    }
+  },
+  "dataAndStorageSidebar": {
+    "title": "Data and Storage",
+    "autoDownload": {
+      "title": "Media auto-download",
+      "enabled": "Download automatically",
+      "photo": "Photo",
+      "video": "Video",
+      "files": "Files",
+      "allChats": "Enabled for all chats",
+      "fileLimit": "Up to 3.0 MB for all chats",
+      "reset": "Reset auto-download settings"
+    },
+    "storage": {
+      "title": "Estimated storage usage",
+      "cachedFiles": "Cached files",
+      "delete": "Delete",
+      "photos": "Photos",
+      "video": "Video",
+      "messages": "Messages and users",
+      "other": "Other",
+      "autoDelete": "Auto-remove cached files",
+      "days": "{count, plural, one {# day} other {# days}}",
+      "maxSize": "Maximum cache size",
+      "auto": "Auto",
+      "clearAll": "Clear all cache",
+      "caption": "Cached data required for the app to function properly will not be removed."
     }
   },
   "languageSidebar": {

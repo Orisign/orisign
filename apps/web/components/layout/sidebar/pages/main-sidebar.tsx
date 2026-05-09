@@ -2,7 +2,6 @@
 
 import {
   type UserResponseDto,
-  useConversationsControllerMy,
   useUsersControllerMe,
 } from "@/api/generated";
 import { ChatItem } from "@/components/chat/chat-item";
@@ -23,6 +22,7 @@ import {
   useUpsertSearchHistory,
 } from "@/hooks/use-search-history";
 import { useUsersList } from "@/hooks/use-users-list";
+import { useCachedConversations } from "@/hooks/use-cached-chat";
 import { getConversationTitle } from "@/lib/chat";
 import {
   CHAT_FOLDER_ALL_TAB_ID,
@@ -70,8 +70,7 @@ export const MainSidebar = () => {
   const me = useUsersControllerMe();
   const currentUser = me.data?.user ?? null;
   const { data: foldersData } = useChatFolders();
-  const { data: searchData, isLoading: isSearchLoading } =
-    useConversationsControllerMy();
+  const { data: searchData, isLoading: isSearchLoading } = useCachedConversations();
 
   const [activeFolderId, setActiveFolderId] = useState(CHAT_FOLDER_ALL_TAB_ID);
   const [isSearchOpen, setIsSearchOpen] = useState(false);

@@ -39,6 +39,7 @@ import { ChatFolderChatsSidebar } from "./sidebar/pages/chat-folder-chats-sideba
 import { ChatFolderShareSidebar } from "./sidebar/pages/chat-folder-share-sidebar";
 import { ChatSearchSidebar } from "./sidebar/pages/chat-search-sidebar";
 import { SessionsSidebar } from "./sidebar/pages/sessions-sidebar";
+import { DataAndStorageSidebar } from "./sidebar/pages/data-and-storage-sidebar";
 import { RightSidebar } from "./right-sidebar";
 import { ChatMusicPlayer } from "../chat/chat-music-player";
 
@@ -105,6 +106,8 @@ function renderSidebarPage(route: SidebarRoute) {
       return <ChatSearchSidebar />;
     case "sessions":
       return <SessionsSidebar />;
+    case "data-and-storage":
+      return <DataAndStorageSidebar />;
     default:
       return null;
   }

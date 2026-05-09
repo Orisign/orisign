@@ -54,6 +54,7 @@ import {
   type ChatMessagesQueryData,
   type ChatMessageDto,
   type ChatLastMessagePreviewData,
+  CHAT_MESSAGE_KIND,
   appendChatMessageToData,
   bumpConversationInListData,
   bumpConversationQueryData,
@@ -61,6 +62,7 @@ import {
   getChatMessagesQueryKey,
   getConversationQueryKey,
   normalizeChatMessage,
+  removeChatMessageFromData,
 } from "@/hooks/use-chat";
 import { cn } from "@/lib/utils";
 import {
@@ -166,19 +168,20 @@ type PendingAttachmentMetadata = {
   size: number;
 };
 
+type PendingUploadPreviewMetadata = {
+  id: string;
+  url: string | null;
+  kind: PendingAttachmentMetadata["kind"];
+  fileName: string;
+  progress: number;
+};
+
 type ActiveBotReplyKeyboard = {
   message: ChatReplyMarkupCarrier;
   markup: ChatReplyKeyboardMarkup;
 };
 
-const IMAGE_EDITOR_COLORS = [
-  "hsl(var(--foreground))",
-  "hsl(var(--primary))",
-  "hsl(var(--destructive))",
-  "hsl(var(--muted-foreground))",
-  "hsl(var(--accent-foreground))",
-  "hsl(var(--secondary-foreground))",
-];
+const DEFAULT_IMAGE_EDITOR_COLOR = "#ff3366";
 const IMAGE_TEXT_PLACEMENT_CURSOR =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M7 5h14M14 5v18' stroke='white' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M7 5h14M14 5v18' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E\") 14 14, text";
 
@@ -292,6 +295,23 @@ function buildPendingAttachmentMetadata(
     mimeType: attachment.file.type,
     size: attachment.file.size,
   };
+}
+
+function buildPendingUploadMetadata(
+  attachments: PendingAttachment[],
+  progressById: Record<string, number> = {},
+) {
+  return JSON.stringify({
+    pendingMediaUpload: {
+      items: attachments.map((attachment): PendingUploadPreviewMetadata => ({
+        id: attachment.id,
+        url: attachment.previewUrl,
+        kind: getAttachmentMetadataKind(attachment),
+        fileName: attachment.file.name,
+        progress: Math.round(progressById[attachment.id] ?? attachment.progress ?? 0),
+      })),
+    },
+  });
 }
 
 function createPendingAttachment(file: File): PendingAttachment {
@@ -484,6 +504,7 @@ function createRecordedFileFromBlob(
 
 export function SendMessageForm({
   conversationId,
+  currentUserId = "",
   directPeerUserId = "",
   isBlockedByCurrentUser = false,
   isBlockedByPeer = false,
@@ -501,6 +522,7 @@ export function SendMessageForm({
   messageFilter,
 }: {
   conversationId: string;
+  currentUserId?: string;
   directPeerUserId?: string;
   isBlockedByCurrentUser?: boolean;
   isBlockedByPeer?: boolean;
@@ -547,8 +569,12 @@ export function SendMessageForm({
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [editingAttachmentId, setEditingAttachmentId] = useState<string | null>(null);
   const [imageEditorTool, setImageEditorTool] = useState<ImageEditorTool>("draw");
-  const [imageEditorColor, setImageEditorColor] = useState(IMAGE_EDITOR_COLORS[0]);
-  const [imageEditorCustomColor, setImageEditorCustomColor] = useState("#ff3366");
+  const [imageEditorColor, setImageEditorColor] = useState(DEFAULT_IMAGE_EDITOR_COLOR);
+  const [imageEditorColorHsv, setImageEditorColorHsv] = useState<HsvColor>(
+    () => hexToHsv(DEFAULT_IMAGE_EDITOR_COLOR) ?? { h: 345, s: 80, v: 100 },
+  );
+  const [imageEditorHexDraft, setImageEditorHexDraft] = useState(DEFAULT_IMAGE_EDITOR_COLOR);
+  const [isImageColorPickerOpen, setIsImageColorPickerOpen] = useState(false);
   const [imageEditorBrushSize, setImageEditorBrushSize] = useState(8);
   const [activeImageTextId, setActiveImageTextId] = useState<string | null>(null);
   const [isImageTextPlacementArmed, setIsImageTextPlacementArmed] = useState(false);
@@ -1412,13 +1438,13 @@ export function SendMessageForm({
     payload: Omit<SendMessageRequestDto, "conversationId">,
   ) {
     if (conversationId) {
-      await sendMessage({
+      return await sendMessage({
         data: {
           conversationId,
           ...payload,
         },
       });
-      return;
+      return null;
     }
 
     if (!directPeerUserId) {
@@ -1433,6 +1459,8 @@ export function SendMessageForm({
     if (!response.conversation?.id) {
       throw new Error("Direct conversation was not created");
     }
+
+    return response;
   }
 
   async function sendTextMessage(options: {
@@ -1450,6 +1478,110 @@ export function SendMessageForm({
       replyToId: options.replyToId || undefined,
       locale,
     });
+  }
+
+  async function sendMediaMessageWithOptimisticUpload(text: string, replyToId?: string) {
+    if (!currentUserId) return;
+
+    const attachmentSnapshot = [...attachments];
+    const optimisticMessageId = `pending-media-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const progressById: Record<string, number> = {};
+    const optimisticMessage: ChatMessageDto = {
+      id: optimisticMessageId,
+      conversationId,
+      authorId: currentUserId,
+      kind: CHAT_MESSAGE_KIND.MEDIA,
+      text: text || "",
+      replyToId: replyToId || "",
+      mediaKeys: [],
+      createdAt: Date.now(),
+      editedAt: 0,
+      deletedAt: 0,
+      entitiesJson: "",
+      replyMarkupJson: "",
+      attachmentsJson: "",
+      sourceBotId: "",
+      metadataJson: buildPendingUploadMetadata(attachmentSnapshot, progressById),
+      replyMarkup: null,
+    };
+
+    const updateOptimisticProgress = (attachmentId: string, progress: number) => {
+      progressById[attachmentId] = progress;
+      queryClient.setQueryData<ChatMessagesQueryData>(
+        getChatMessagesQueryKey(conversationId, messageFilter),
+        (currentData) => appendChatMessageToData(currentData, {
+          ...optimisticMessage,
+          metadataJson: buildPendingUploadMetadata(attachmentSnapshot, progressById),
+        }),
+      );
+    };
+
+    queryClient.setQueryData<ChatMessagesQueryData>(
+      getChatMessagesQueryKey(conversationId, messageFilter),
+      (currentData) => appendChatMessageToData(currentData, optimisticMessage),
+    );
+    window.dispatchEvent(
+      new CustomEvent(CHAT_FORCE_SCROLL_BOTTOM_EVENT, {
+        detail: { conversationId },
+      }),
+    );
+
+    form.reset({
+      text: "",
+      replyToId: implicitReplyTarget?.id ?? "",
+    });
+    onCancelReply();
+    setAttachments([]);
+
+    const uploadedMediaKeys: string[] = [];
+    try {
+      for (const attachment of attachmentSnapshot) {
+        const uploadedKey = await uploadAttachmentForOptimisticMessage(
+          attachment,
+          updateOptimisticProgress,
+        );
+        uploadedMediaKeys.push(uploadedKey);
+      }
+
+      const uploadedAttachmentMetadata = attachmentSnapshot.map((attachment, index) =>
+        buildPendingAttachmentMetadata(attachment, uploadedMediaKeys[index] ?? ""),
+      );
+
+      await sendMessagePayload({
+        kind: SendMessageRequestDtoKind.MEDIA,
+        text: text || undefined,
+        replyToId: replyToId || undefined,
+        mediaKeys: uploadedMediaKeys,
+        attachmentsJson: JSON.stringify(uploadedAttachmentMetadata),
+        locale,
+      });
+
+      queryClient.setQueryData<ChatMessagesQueryData>(
+        getChatMessagesQueryKey(conversationId, messageFilter),
+        (currentData) => removeChatMessageFromData(currentData, optimisticMessageId),
+      );
+    } catch (error) {
+      if (uploadedMediaKeys.length > 0) {
+        await Promise.allSettled(uploadedMediaKeys.map((key) => deleteConversationMedia(key)));
+      }
+      queryClient.setQueryData<ChatMessagesQueryData>(
+        getChatMessagesQueryKey(conversationId, messageFilter),
+        (currentData) => removeChatMessageFromData(currentData, optimisticMessageId),
+      );
+      setAttachments(attachmentSnapshot.map((attachment) => ({
+        ...attachment,
+        progress: 0,
+        status: "pending",
+        uploadedKey: null,
+      })));
+      showSendError(error);
+    } finally {
+      attachmentSnapshot.forEach((attachment) => {
+        if (attachment.previewUrl) {
+          URL.revokeObjectURL(attachment.previewUrl);
+        }
+      });
+    }
   }
 
   async function handleRecordGestureCancel() {
@@ -1596,6 +1728,11 @@ export function SendMessageForm({
           conversationId,
         },
       });
+      return;
+    }
+
+    if (hasAttachedMedia && conversationId && currentUserId) {
+      await sendMediaMessageWithOptimisticUpload(text, data.replyToId || undefined);
       return;
     }
 
@@ -1770,6 +1907,29 @@ export function SendMessageForm({
     return { keys, metadata };
   }
 
+  async function uploadAttachmentForOptimisticMessage(
+    attachment: PendingAttachment,
+    onProgress: (attachmentId: string, progress: number) => void,
+  ): Promise<string> {
+    if (attachment.uploadedKey) {
+      return attachment.uploadedKey;
+    }
+
+    const uploadMediaKind = attachment.mediaKind === "music" && !conversationId
+      ? "messages"
+      : attachment.mediaKind;
+    const fileToUpload = await createEditedImageFile(attachment);
+    const uploaded = await uploadConversationMedia(fileToUpload, (progress) => {
+      onProgress(attachment.id, progress);
+    }, {
+      mediaKind: uploadMediaKind,
+      conversationId: uploadMediaKind === "messages" ? undefined : conversationId,
+    });
+
+    onProgress(attachment.id, 100);
+    return uploaded.key;
+  }
+
   function addPendingFiles(files: File[]) {
     if (files.length === 0) return;
 
@@ -1883,6 +2043,52 @@ export function SendMessageForm({
         color,
       });
     }
+  }
+
+  function applyImageEditorHsv(nextHsv: HsvColor) {
+    const normalizedHsv = {
+      h: clampNumber(nextHsv.h, 0, 359),
+      s: clampNumber(nextHsv.s, 0, 100),
+      v: clampNumber(nextHsv.v, 0, 100),
+    };
+    const hex = hsvToHex(normalizedHsv);
+    setImageEditorColorHsv(normalizedHsv);
+    setImageEditorHexDraft(hex);
+    applyImageEditorColor(hex);
+  }
+
+  function handleColorFieldPointer(event: ReactPointerEvent<HTMLDivElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    const saturation = ((event.clientX - rect.left) / rect.width) * 100;
+    const value = 100 - ((event.clientY - rect.top) / rect.height) * 100;
+    applyImageEditorHsv({
+      ...imageEditorColorHsv,
+      s: saturation,
+      v: value,
+    });
+  }
+
+  function handleHuePointer(event: ReactPointerEvent<HTMLDivElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.width <= 0) return;
+
+    applyImageEditorHsv({
+      ...imageEditorColorHsv,
+      h: ((event.clientX - rect.left) / rect.width) * 359,
+    });
+  }
+
+  function handleHexColorChange(value: string) {
+    const prefixedValue = value.startsWith("#") ? value : `#${value}`;
+    setImageEditorHexDraft(prefixedValue);
+
+    const nextHsv = hexToHsv(prefixedValue);
+    if (!nextHsv) return;
+
+    setImageEditorColorHsv(nextHsv);
+    applyImageEditorColor(hsvToHex(nextHsv));
   }
 
   function handleImageTextLayerCreate(event: ReactPointerEvent<HTMLDivElement>) {
@@ -2736,7 +2942,11 @@ export function SendMessageForm({
               </div>
 
               <div className="flex min-h-0 flex-1 items-center justify-center px-4 pb-44 pt-16 sm:px-8">
-                <div className="relative inline-flex max-h-full max-w-full">
+                <motion.div
+                  layout
+                  transition={{ type: "spring", stiffness: 360, damping: 34 }}
+                  className="relative inline-flex max-h-full max-w-full items-center justify-center"
+                >
                   <canvas
                     ref={imageEditorCanvasRef}
                     className={cn(
@@ -2746,8 +2956,8 @@ export function SendMessageForm({
                     style={imageEditorCanvasSize
                       ? {
                           aspectRatio: `${imageEditorCanvasSize.width} / ${imageEditorCanvasSize.height}`,
-                          width: imageEditorCanvasSize.width,
-                          height: imageEditorCanvasSize.height,
+                          width: "auto",
+                          height: "auto",
                         }
                       : undefined}
                     onPointerDown={handleImageCanvasPointerDown}
@@ -2834,7 +3044,7 @@ export function SendMessageForm({
                       );
                     })}
                   </div>
-                </div>
+                </motion.div>
               </div>
 
               <div className="absolute inset-x-0 bottom-0 z-20 border-t border-border bg-card/95 px-4 pb-4 pt-4 backdrop-blur-md">
@@ -2907,41 +3117,92 @@ export function SendMessageForm({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    {IMAGE_EDITOR_COLORS.map((color) => (
+                    <div className="relative">
                       <button
-                        key={color}
                         type="button"
-                        className={cn(
-                          "size-8 rounded-full border-2 border-border shadow transition-transform hover:scale-105",
-                          imageEditorColor === color && "border-foreground ring-2 ring-primary",
-                        )}
-                        style={{ backgroundColor: color }}
-                        onClick={() => applyImageEditorColor(color)}
-                        aria-label={color}
-                      />
-                    ))}
-
-                    <label
-                      className={cn(
-                        "relative flex size-8 items-center justify-center overflow-hidden rounded-full border-2 border-border shadow transition-transform hover:scale-105",
-                        imageEditorColor === imageEditorCustomColor &&
-                          "border-foreground ring-2 ring-primary",
-                      )}
-                      style={{ backgroundColor: imageEditorCustomColor }}
-                      title={t("customColor")}
-                    >
-                      <input
-                        type="color"
-                        value={imageEditorCustomColor}
-                        onChange={(event) => {
-                          const color = event.target.value;
-                          setImageEditorCustomColor(color);
-                          applyImageEditorColor(color);
-                        }}
-                        className="absolute inset-0 size-full cursor-pointer opacity-0"
+                        className="flex size-9 items-center justify-center rounded-full border-2 border-border bg-popover shadow transition-transform hover:scale-105"
+                        onClick={() => setIsImageColorPickerOpen((currentValue) => !currentValue)}
                         aria-label={t("customColor")}
-                      />
-                    </label>
+                        title={t("customColor")}
+                      >
+                        <span
+                          className="block size-6 rounded-full border border-border"
+                          style={{ backgroundColor: imageEditorColor }}
+                        />
+                      </button>
+
+                      <AnimatePresence>
+                        {isImageColorPickerOpen ? (
+                          <motion.div
+                            key="image-color-picker"
+                            initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                            className="absolute bottom-full left-0 z-40 mb-3 w-64 rounded-2xl border border-border bg-popover p-3 text-popover-foreground shadow-2xl"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <div
+                              className="relative h-36 cursor-crosshair overflow-hidden rounded-xl border border-border"
+                              style={{
+                                background:
+                                  `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent), hsl(${imageEditorColorHsv.h} 100% 50%)`,
+                              }}
+                              onPointerDown={(event) => {
+                                event.currentTarget.setPointerCapture(event.pointerId);
+                                handleColorFieldPointer(event);
+                              }}
+                              onPointerMove={(event) => {
+                                if (event.buttons === 1) handleColorFieldPointer(event);
+                              }}
+                            >
+                              <span
+                                className="absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background shadow"
+                                style={{
+                                  left: `${imageEditorColorHsv.s}%`,
+                                  top: `${100 - imageEditorColorHsv.v}%`,
+                                  backgroundColor: imageEditorColor,
+                                }}
+                              />
+                            </div>
+
+                            <div
+                              className="relative mt-3 h-4 cursor-pointer rounded-full border border-border"
+                              style={{
+                                background:
+                                  "linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)",
+                              }}
+                              onPointerDown={(event) => {
+                                event.currentTarget.setPointerCapture(event.pointerId);
+                                handleHuePointer(event);
+                              }}
+                              onPointerMove={(event) => {
+                                if (event.buttons === 1) handleHuePointer(event);
+                              }}
+                            >
+                              <span
+                                className="absolute top-1/2 size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-popover shadow"
+                                style={{ left: `${(imageEditorColorHsv.h / 359) * 100}%` }}
+                              />
+                            </div>
+
+                            <div className="mt-3 flex items-center gap-2">
+                              <span
+                                className="size-9 shrink-0 rounded-full border border-border"
+                                style={{ backgroundColor: imageEditorColor }}
+                              />
+                              <input
+                                value={imageEditorHexDraft}
+                                onChange={(event) => handleHexColorChange(event.target.value)}
+                                onBlur={() => setImageEditorHexDraft(imageEditorColor)}
+                                className="h-9 min-w-0 flex-1 rounded-full border border-border bg-background px-3 text-sm font-semibold text-foreground outline-none focus:border-primary"
+                                aria-label={t("customColor")}
+                                spellCheck={false}
+                              />
+                            </div>
+                          </motion.div>
+                        ) : null}
+                      </AnimatePresence>
+                    </div>
 
                     {imageEditorTool === "draw" ? (
                       <label className="ml-auto flex min-w-44 items-center gap-3 rounded-full bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">
