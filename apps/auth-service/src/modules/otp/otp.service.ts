@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { RpcException } from '@nestjs/microservices'
 import { RpcStatus } from '@repo/common'
-import { createHash } from 'crypto'
+import { createHash, randomInt } from 'crypto'
 import { v4 as uuidv4 } from 'uuid'
 
 import { RedisService } from '@/infra/redis/redis.service'
@@ -21,11 +21,7 @@ type OtpChallengePayload = {
 export class OtpService {
 	public constructor(private readonly redisService: RedisService) {}
 
-	public async send(
-		identifier: string,
-		type: OtpKind,
-		deviceId: string
-	) {
+	public async send(identifier: string, type: OtpKind, deviceId: string) {
 		const { code, hash } = this.generateCode()
 		const challengeId = uuidv4()
 		const payload: OtpChallengePayload = {
@@ -56,7 +52,9 @@ export class OtpService {
 			deviceId: string
 		}
 	) {
-		const payload = await this.redisService.get(this.challengeKey(challengeId))
+		const payload = await this.redisService.get(
+			this.challengeKey(challengeId)
+		)
 		if (!payload) {
 			throw new RpcException({
 				code: RpcStatus.NOT_FOUND,
@@ -117,9 +115,7 @@ export class OtpService {
 	}
 
 	private generateCode() {
-		const code = Math.floor(Math.random() * 1000000)
-			.toString()
-			.padStart(6, '0')
+		const code = randomInt(0, 1_000_000).toString().padStart(6, '0')
 		const hash = createHash('sha256').update(code).digest('hex')
 
 		return { code, hash }

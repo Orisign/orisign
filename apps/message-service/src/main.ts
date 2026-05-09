@@ -26,7 +26,7 @@ async function bootstrap() {
     },
   });
 
-  app.startAllMicroservices();
-  app.init();
+  await app.startAllMicroservices();
+  await app.init();
 }
 bootstrap();

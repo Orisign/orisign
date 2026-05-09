@@ -67,8 +67,6 @@ export class AuthService {
 			code
 		})
 
-		console.log('CODE: ', code)
-
 		return {
 			ok: true,
 			challengeId
