@@ -109,3 +109,59 @@ The cleanup is complete when:
 - No commented-out code remains.
 - No unused imports or variables remain.
 - All functions have a single clear responsibility.
+
+---
+
+## Workflows & Commands
+
+Monorepo managed with [Turborepo](./turbo.json) and Bun (`packageManager: bun@1.2.10`). Workspaces: `apps/*`, `packages/*`.
+
+### Root scripts (from `package.json`)
+
+- `bun run build` — Turbo build across all workspaces.
+- `bun run dev` — Turbo dev across all workspaces (concurrency 15).
+- `bun run lint` — Turbo lint across all workspaces.
+- `bun run db:push` — `prisma db push` for every service that owns a schema (auth, conversation, handle, message, users, bot).
+- `bun run db:generate` — `prisma generate` for the same set of services.
+- `bun run db:sync` — runs `db:push` then `db:generate`.
+
+### Per-service scripts (NestJS apps)
+
+Most services under `apps/*` (auth, conversation, handle, message, users, gateway, notification, call, bot) share this layout:
+
+- `bun run --filter <service> dev` — `nest start --watch`.
+- `bun run --filter <service> build` — `nest build`.
+- `bun run --filter <service> start:prod` — `node dist/main`.
+- `bun run --filter <service> lint` — ESLint with `--fix`.
+- `bun run --filter <service> test` / `test:watch` / `test:cov` / `test:e2e` — Jest (e2e config: `test/jest-e2e.json`).
+- `bun run --filter <service> format` — Prettier on `src/**/*.ts` and `test/**/*.ts` (where defined).
+- `bun run --filter <service> prisma:push` / `prisma:generate` — Prisma using `prisma.config.ts` (services with a schema only).
+
+Service-specific entry points:
+
+- `bot-service` exposes additional dev entries: `dev:dispatcher` (`main.dispatcher`) and `dev:delivery` (`main.delivery`).
+- `media-service` uses Windows `cmd /c dev.cmd` / `build.cmd` scripts — TODO: confirm cross-platform usage.
+
+### Web app (`apps/web`, Next.js)
+
+- `bun run --filter web dev` — `next dev`.
+- `bun run --filter web build` — `next build`.
+- `bun run --filter web start` — `next start`.
+- `bun run --filter web lint` — `eslint`.
+- `bun run --filter web pull:api` — runs `scripts/pull-api.mjs` (fetches OpenAPI specs).
+- `bun run --filter web generate:api` — `pull:api` then `orval` codegen using `orval.config.ts`.
+
+### Local infrastructure
+
+`docker/docker-compose.yml` provides Postgres (5433→5432), Redis (6379), and RabbitMQ (with management). Bring it up with:
+
+```
+docker compose -f docker/docker-compose.yml up -d
+```
+
+Required env vars referenced by the compose file: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD` (plus any RabbitMQ vars defined further down). TODO: document the canonical `.env` location once confirmed.
+
+### Other surfaces
+
+- `sdks/python` — Python SDK (TODO: document build/test commands once standardized).
+- `packages/*` (`common`, `contracts`, `ui`, `bot-sdk`) — internal workspace packages consumed via `workspace:*`.
