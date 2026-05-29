@@ -130,17 +130,19 @@ Monorepo managed with [Turborepo](./turbo.json) and Bun (`packageManager: bun@1.
 Most services under `apps/*` (auth, conversation, handle, message, users, gateway, notification, call, bot) share this layout:
 
 - `bun run --filter <service> dev` — `nest start --watch`.
+- `bun run --filter <service> start` — `nest start` (no watch).
+- `bun run --filter <service> start:debug` — `nest start --debug --watch` (auth, call, conversation, gateway, message, notification, users; not bot/handle).
 - `bun run --filter <service> build` — `nest build`.
 - `bun run --filter <service> start:prod` — `node dist/main`.
 - `bun run --filter <service> lint` — ESLint with `--fix`.
-- `bun run --filter <service> test` / `test:watch` / `test:cov` / `test:e2e` — Jest (e2e config: `test/jest-e2e.json`).
-- `bun run --filter <service> format` — Prettier on `src/**/*.ts` and `test/**/*.ts` (where defined).
-- `bun run --filter <service> prisma:push` / `prisma:generate` — Prisma using `prisma.config.ts` (services with a schema only).
+- `bun run --filter <service> test` — Jest. The full matrix `test:watch` / `test:cov` / `test:debug` (`node --inspect-brk` + ts-node) / `test:e2e` (config: `test/jest-e2e.json`) is defined for auth, call, conversation, gateway, message, notification, users. `bot-service` and `handle-service` only define `test`.
+- `bun run --filter <service> format` — Prettier on `src/**/*.ts` and `test/**/*.ts` (auth, call, conversation, gateway, message, notification, users; not bot/handle).
+- `bun run --filter <service> prisma:push` / `prisma:generate` — Prisma using `prisma.config.ts` (auth, bot, conversation, handle, message, users only).
 
 Service-specific entry points:
 
 - `bot-service` exposes additional dev entries: `dev:dispatcher` (`main.dispatcher`) and `dev:delivery` (`main.delivery`).
-- `media-service` uses Windows `cmd /c dev.cmd` / `build.cmd` scripts — TODO: confirm cross-platform usage.
+- `media-service` is a Go service (`main.go`, `go.mod`). Its `dev` / `build` package.json scripts shell out to Windows `dev.cmd` / `build.cmd` which set `GOCACHE` / `GOPATH` and run `go run main.go` / `go build -o dist/media-service main.go`. On non-Windows, run the equivalent `go run main.go` / `go build -o dist/media-service main.go` directly. TODO: add cross-platform npm scripts.
 
 ### Web app (`apps/web`, Next.js)
 
@@ -159,9 +161,15 @@ Service-specific entry points:
 docker compose -f docker/docker-compose.yml up -d
 ```
 
-Required env vars referenced by the compose file: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD` (plus any RabbitMQ vars defined further down). TODO: document the canonical `.env` location once confirmed.
+Required env vars referenced by the compose file: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `RABBITMQ_DEFAULT_USER`, `RABBITMQ_DEFAULT_PASS`. Exposed host ports: Postgres `5433` → container `5432`, Redis `6379`, RabbitMQ AMQP `5672`, RabbitMQ management UI `15672`. TODO: document the canonical `.env` location once confirmed.
+
+### Workspace packages (`packages/*`)
+
+- `@orisign/bot-sdk` (`packages/bot-sdk`) — `bun run --filter @orisign/bot-sdk build` (`tsc -p tsconfig.json`), `test` (`bun test`).
+- `@repo/common` (`packages/common`) — `build` (`tsc -p tsconfig.build.json`), `format` (Prettier on `src/**/*.ts`).
+- `@repo/contracts` (`packages/contracts`) — `build` (runs both `tsconfig.build.json` and `tsconfig.gen.json`), `build:gen` (gen-only), `generate` (regenerates TS from `proto/*.proto` via `protoc` + `ts_proto` with NestJS flavor, then `build:gen`). Requires a working `protoc` on PATH.
+- `@repo/ui` (`packages/ui`) — `lint` (`eslint . --max-warnings 0`), `storybook` (`storybook dev -p 6006`), `build-storybook` (`storybook build`).
 
 ### Other surfaces
 
-- `sdks/python` — Python SDK (TODO: document build/test commands once standardized).
-- `packages/*` (`common`, `contracts`, `ui`, `bot-sdk`) — internal workspace packages consumed via `workspace:*`.
+- `sdks/python/orisign-bot-sdk` — Python SDK (`pyproject.toml`, setuptools build backend). Runtime deps: `httpx`, `pydantic`. Optional extras: `webhook` (`fastapi`), `dev` (`pytest`, `pytest-asyncio`). No `Makefile` or wrapper scripts yet — install with `pip install -e '.[dev]'` and run tests with `pytest` from the package directory. TODO: standardize build/publish commands.
