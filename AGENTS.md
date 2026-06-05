@@ -140,7 +140,10 @@ Most services under `apps/*` (auth, conversation, handle, message, users, gatewa
 Service-specific entry points:
 
 - `bot-service` exposes additional dev entries: `dev:dispatcher` (`main.dispatcher`) and `dev:delivery` (`main.delivery`).
-- `media-service` uses Windows `cmd /c dev.cmd` / `build.cmd` scripts — TODO: confirm cross-platform usage.
+- `media-service` is a Go service (`go.mod`, `main.go`). Its npm scripts wrap Windows `cmd /c dev.cmd` / `build.cmd` — TODO: confirm cross-platform usage; on Linux/macOS run `go run .` / `go build` directly.
+- `bot-service` and `handle-service` do not expose a `format` script — run Prettier manually if needed.
+- `gateway-service`, `call-service`, and `notification-service` have no Prisma scripts (no schema).
+- `auth-service`, `call-service`, `conversation-service`, `gateway-service`, `message-service`, `notification-service`, and `users-service` expose `start:debug` (`nest start --debug --watch`) and `test:debug` for Node inspector debugging.
 
 ### Web app (`apps/web`, Next.js)
 
@@ -161,7 +164,22 @@ docker compose -f docker/docker-compose.yml up -d
 
 Required env vars referenced by the compose file: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD` (plus any RabbitMQ vars defined further down). TODO: document the canonical `.env` location once confirmed.
 
-### Other surfaces
+### Workspace packages (`packages/*`)
 
-- `sdks/python` — Python SDK (TODO: document build/test commands once standardized).
-- `packages/*` (`common`, `contracts`, `ui`, `bot-sdk`) — internal workspace packages consumed via `workspace:*`.
+Internal packages consumed via `workspace:*`:
+
+- `@repo/common` — `bun run --filter @repo/common build` (`tsc -p tsconfig.build.json`), `format` (Prettier on `src/**/*.ts`).
+- `@repo/contracts` — `bun run --filter @repo/contracts build` (runs both `tsconfig.build.json` and `tsconfig.gen.json`); `build:gen` for the generated-only build; `generate` runs `protoc` against `proto/*.proto` with `ts-proto` (`nestJs=true,package=omit,stringEnums=true`) into `gen/ts`, then `build:gen`. Requires `protoc` on `PATH`.
+- `@repo/ui` — `bun run --filter @repo/ui lint` (`eslint . --max-warnings 0`), `storybook` (`storybook dev -p 6006`), `build-storybook`.
+- `@orisign/bot-sdk` (`packages/bot-sdk`) — `bun run --filter @orisign/bot-sdk build` (`tsc -p tsconfig.json`), `test` (`bun test`).
+
+### Python SDK (`sdks/python/orisign-bot-sdk`)
+
+Standard `pyproject.toml` (setuptools backend). Common commands from that directory:
+
+- `pip install -e .` — install the SDK in editable mode.
+- `pip install -e '.[webhook]'` — include the optional FastAPI webhook extra.
+- `pip install -e '.[dev]'` — include test dependencies (`pytest`, `pytest-asyncio`).
+- `pytest` — run the test suite under `tests/`.
+
+Runtime deps: `httpx>=0.27`, `pydantic>=2.7`.
