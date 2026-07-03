@@ -131,16 +131,26 @@ Most services under `apps/*` (auth, conversation, handle, message, users, gatewa
 
 - `bun run --filter <service> dev` — `nest start --watch`.
 - `bun run --filter <service> build` — `nest build`.
+- `bun run --filter <service> start` — `nest start` (no watch).
+- `bun run --filter <service> start:debug` — `nest start --debug --watch`.
 - `bun run --filter <service> start:prod` — `node dist/main`.
 - `bun run --filter <service> lint` — ESLint with `--fix`.
 - `bun run --filter <service> test` / `test:watch` / `test:cov` / `test:e2e` — Jest (e2e config: `test/jest-e2e.json`).
-- `bun run --filter <service> format` — Prettier on `src/**/*.ts` and `test/**/*.ts` (where defined).
-- `bun run --filter <service> prisma:push` / `prisma:generate` — Prisma using `prisma.config.ts` (services with a schema only).
+- `bun run --filter <service> test:debug` — Jest under Node inspector (`--inspect-brk`).
+- `bun run --filter <service> format` — Prettier on `src/**/*.ts` and `test/**/*.ts` (available in auth, call, conversation, gateway, message, notification, users).
+- `bun run --filter <service> prisma:push` / `prisma:generate` — Prisma using `prisma.config.ts` (auth, conversation, handle, message, users, bot only — call, gateway, notification have no schema).
 
 Service-specific entry points:
 
 - `bot-service` exposes additional dev entries: `dev:dispatcher` (`main.dispatcher`) and `dev:delivery` (`main.delivery`).
 - `media-service` uses Windows `cmd /c dev.cmd` / `build.cmd` scripts — TODO: confirm cross-platform usage.
+- `handle-service` and `bot-service` omit `format`, `start:debug`, `test:watch`, `test:cov`, `test:debug`, and `test:e2e` scripts present in other NestJS services.
+
+### Crowdin / i18n
+
+The web app uses [next-intl](https://next-intl.dev/) for internationalization. Translation source is `apps/web/messages/ru.json` with `en.json` alongside.
+
+Crowdin CLI (`@crowdin/cli`) is installed at root. Config at `apps/web/crowdin.yml` maps `messages/ru.json` → `messages/%two_letters_code%.json`. Requires `CROWDIN_PROJECT_ID` and `CROWDIN_PERSONAL_TOKEN` env vars.
 
 ### Web app (`apps/web`, Next.js)
 
@@ -148,8 +158,8 @@ Service-specific entry points:
 - `bun run --filter web build` — `next build`.
 - `bun run --filter web start` — `next start`.
 - `bun run --filter web lint` — `eslint`.
-- `bun run --filter web pull:api` — runs `scripts/pull-api.mjs` (fetches OpenAPI specs).
-- `bun run --filter web generate:api` — `pull:api` then `orval` codegen using `orval.config.ts`.
+- `bun run --filter web pull:api` — runs `scripts/pull-api.mjs`, fetches `/openapi.yaml` from `NEXT_PUBLIC_API_URL` (defaults to `http://localhost:4000`) and saves to `api/openapi.yaml`.
+- `bun run --filter web generate:api` — `pull:api` then `orval` codegen (react-query client, custom fetcher from `lib/fetcher.ts`) outputting `api/generated.ts`.
 
 ### Local infrastructure
 
@@ -159,9 +169,22 @@ Service-specific entry points:
 docker compose -f docker/docker-compose.yml up -d
 ```
 
-Required env vars referenced by the compose file: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD` (plus any RabbitMQ vars defined further down). TODO: document the canonical `.env` location once confirmed.
+Required env vars: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `RABBITMQ_DEFAULT_USER`, `RABBITMQ_DEFAULT_PASS`. TODO: document the canonical `.env` location once confirmed.
+
+Bot-service also ships its own `apps/bot-service/docker-compose.yml` with a separate Postgres (port 5436, DB `photon_bots`), Redis (port 6380), and RabbitMQ — used for isolated bot development.
 
 ### Other surfaces
 
-- `sdks/python` — Python SDK (TODO: document build/test commands once standardized).
-- `packages/*` (`common`, `contracts`, `ui`, `bot-sdk`) — internal workspace packages consumed via `workspace:*`.
+- `sdks/python/orisign-bot-sdk` — async-first Python SDK (httpx + pydantic, optional FastAPI webhook adapter).
+  - Build: `pip install -e .` (setuptools).
+  - Test: `pytest` (requires `pytest-asyncio` via `[dev]` extras).
+  - Example: `examples/weather_bot.py`.
+- `packages/contracts` — protobuf definitions and generated TypeScript clients.
+  - `bun run --filter contracts generate` — runs `protoc` on `proto/*.proto` (account, auth, bots, call, conversations, handles, media, messages, users) with `ts_proto` plugin, then compiles generated TS via `build:gen`.
+  - `bun run --filter contracts build` — `tsc -p tsconfig.build.json && tsc -p tsconfig.gen.json`.
+- `packages/bot-sdk` — `bun run --filter bot-sdk build` (`tsc`), `bun run --filter bot-sdk test` (`bun test`).
+- `packages/common` — `bun run --filter common build` (`tsc -p tsconfig.build.json`), `bun run --filter common format` (Prettier).
+- `packages/ui` — component library with Storybook.
+  - `bun run --filter ui lint` — `eslint . --max-warnings 0`.
+  - `bun run --filter ui storybook` — `storybook dev -p 6006`.
+  - `bun run --filter ui build-storybook` — `storybook build`.
