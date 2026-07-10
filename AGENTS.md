@@ -134,6 +134,8 @@ Most services under `apps/*` (auth, conversation, handle, message, users, gatewa
 - `bun run --filter <service> start:prod` — `node dist/main`.
 - `bun run --filter <service> lint` — ESLint with `--fix`.
 - `bun run --filter <service> test` / `test:watch` / `test:cov` / `test:e2e` — Jest (e2e config: `test/jest-e2e.json`).
+- `bun run --filter <service> test:debug` — Jest with `--inspect-brk` via `tsconfig-paths` + `ts-node` (most services).
+- `bun run --filter <service> start:debug` — `nest start --debug --watch` (most services).
 - `bun run --filter <service> format` — Prettier on `src/**/*.ts` and `test/**/*.ts` (where defined).
 - `bun run --filter <service> prisma:push` / `prisma:generate` — Prisma using `prisma.config.ts` (services with a schema only).
 
@@ -159,9 +161,23 @@ Service-specific entry points:
 docker compose -f docker/docker-compose.yml up -d
 ```
 
-Required env vars referenced by the compose file: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD` (plus any RabbitMQ vars defined further down). TODO: document the canonical `.env` location once confirmed.
+Required env vars referenced by the compose file: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `RABBITMQ_DEFAULT_USER`, `RABBITMQ_DEFAULT_PASS`.
+
+No `.env.example` file exists in the repo. TODO: add one or document the canonical `.env` location once confirmed.
 
 ### Other surfaces
 
-- `sdks/python` — Python SDK (TODO: document build/test commands once standardized).
-- `packages/*` (`common`, `contracts`, `ui`, `bot-sdk`) — internal workspace packages consumed via `workspace:*`.
+- `sdks/python/orisign-bot-sdk` — Python SDK (async-first, httpx + pydantic).
+  - `pip install -e .[dev]` — dev install with pytest.
+  - `pytest` — run tests.
+  - `pip install -e .[webhook]` — install with FastAPI webhook adapter.
+- `packages/contracts` — Protobuf contracts + generated TS code.
+  - `bun run --filter contracts generate` — `protoc` + `ts_proto` codegen from `proto/*.proto` → `gen/ts/`.
+  - `bun run --filter contracts build` — compiles both `tsconfig.build.json` and `tsconfig.gen.json`.
+- `packages/ui` — Shared UI component library (Tailwind + shadcn).
+  - `bun run --filter ui storybook` — Storybook dev server on port 6006.
+  - `bun run --filter ui build-storybook` — static Storybook build.
+- `packages/bot-sdk` — TypeScript bot SDK.
+  - `bun run --filter bot-sdk test` — `bun test`.
+- `packages/common` — Shared utilities.
+  - `bun run --filter common format` — Prettier on `src/**/*.ts`.
