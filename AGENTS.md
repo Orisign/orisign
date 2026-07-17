@@ -130,6 +130,7 @@ Monorepo managed with [Turborepo](./turbo.json) and Bun (`packageManager: bun@1.
 Most services under `apps/*` (auth, conversation, handle, message, users, gateway, notification, call, bot) share this layout:
 
 - `bun run --filter <service> dev` — `nest start --watch`.
+- `bun run --filter <service> start:debug` — `nest start --debug --watch` (where defined).
 - `bun run --filter <service> build` — `nest build`.
 - `bun run --filter <service> start:prod` — `node dist/main`.
 - `bun run --filter <service> lint` — ESLint with `--fix`.
@@ -150,6 +151,7 @@ Service-specific entry points:
 - `bun run --filter web lint` — `eslint`.
 - `bun run --filter web pull:api` — runs `scripts/pull-api.mjs` (fetches OpenAPI specs).
 - `bun run --filter web generate:api` — `pull:api` then `orval` codegen using `orval.config.ts`.
+- i18n: `next-intl` with message files in `apps/web/messages/` (`en.json`, `ru.json`). Translations are managed via Crowdin (`apps/web/crowdin.yml`, requires `CROWDIN_PROJECT_ID` / `CROWDIN_PERSONAL_TOKEN`); TODO: add an npm script wrapping the `crowdin` CLI (`@crowdin/cli` is a root devDependency).
 
 ### Local infrastructure
 
@@ -159,9 +161,22 @@ Service-specific entry points:
 docker compose -f docker/docker-compose.yml up -d
 ```
 
-Required env vars referenced by the compose file: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD` (plus any RabbitMQ vars defined further down). TODO: document the canonical `.env` location once confirmed.
+Required env vars referenced by the compose file: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `RABBITMQ_DEFAULT_USER`, `RABBITMQ_DEFAULT_PASS`. RabbitMQ exposes AMQP on `5672` and the management UI on `15672`. No `.env.example` is committed yet — TODO: add one (`.env` is gitignored; `.env.example` / `.env.*.example` are whitelisted in `.gitignore`).
 
-### Other surfaces
+### Internal packages (`packages/*`)
 
-- `sdks/python` — Python SDK (TODO: document build/test commands once standardized).
-- `packages/*` (`common`, `contracts`, `ui`, `bot-sdk`) — internal workspace packages consumed via `workspace:*`.
+- `packages/contracts` (`@repo/contracts`) — gRPC/protobuf contract definitions in `proto/*.proto`. `bun run --filter @repo/contracts generate` runs `protoc` with the `ts_proto` plugin (requires `protoc` + `ts_proto` installed) into `gen/ts`, then `build:gen`; `build` compiles both `tsconfig.build.json` and `tsconfig.gen.json`. The `gen/ts` output is currently committed to the repo.
+- `packages/ui` (`@repo/ui`) — Storybook component library (config in `.storybook/`). `bun run --filter @repo/ui storybook` (dev server on `:6006`), `build-storybook`, `lint` (`eslint . --max-warnings 0`).
+- `packages/common` (`@repo/common`) — `bun run --filter @repo/common build` (`tsc -p tsconfig.build.json`), `format` (Prettier on `src/**/*.ts`).
+- `packages/bot-sdk` (`@orisign/bot-sdk`) — `bun run --filter @orisign/bot-sdk build` (`tsc`), `test` (`bun test`).
+
+### Python SDK (`sdks/python/orisign-bot-sdk`)
+
+Setuptools project `orisign-bot-sdk` (deps: `httpx`, `pydantic`; optional `webhook` extra adds FastAPI). Install with dev extras, then run tests:
+
+```
+pip install -e '.[dev]'
+pytest
+```
+
+Tests live in `tests/` and use `pytest` + `pytest-asyncio` (via the `dev` extra). No build script is defined — use standard `pip install -e .` / `python -m build`. TODO: confirm a canonical publish/release command.
