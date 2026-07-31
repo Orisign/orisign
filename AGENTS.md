@@ -150,6 +150,7 @@ Service-specific entry points:
 - `bun run --filter web lint` — `eslint`.
 - `bun run --filter web pull:api` — runs `scripts/pull-api.mjs` (fetches OpenAPI specs).
 - `bun run --filter web generate:api` — `pull:api` then `orval` codegen using `orval.config.ts`.
+- i18n — localization via `@crowdin/cli` (config: `apps/web/crowdin.yml`); source `messages/ru.json`, output `messages/%two_letters_code%.json` (currently `en.json`, `ru.json`). Run `bunx crowdin` from `apps/web` (requires `CROWDIN_PROJECT_ID`, `CROWDIN_PERSONAL_TOKEN`).
 
 ### Local infrastructure
 
@@ -159,7 +160,13 @@ Service-specific entry points:
 docker compose -f docker/docker-compose.yml up -d
 ```
 
-Required env vars referenced by the compose file: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD` (plus any RabbitMQ vars defined further down). TODO: document the canonical `.env` location once confirmed.
+Required env vars referenced by the compose file: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `RABBITMQ_DEFAULT_USER`, `RABBITMQ_DEFAULT_PASS`. TODO: document the canonical `.env` location once confirmed.
+
+`apps/bot-service/docker-compose.yml` provides a service-local stack for bot development: Postgres (5436→5432, db `photon_bots`), Redis (6380→6379), RabbitMQ (5672, 15672 management). Bring it up from the bot-service directory:
+
+```
+docker compose -f apps/bot-service/docker-compose.yml up -d
+```
 
 ### Workspace packages
 
