@@ -140,7 +140,7 @@ Most services under `apps/*` (auth, conversation, handle, message, users, gatewa
 Service-specific entry points:
 
 - `bot-service` exposes additional dev entries: `dev:dispatcher` (`main.dispatcher`) and `dev:delivery` (`main.delivery`).
-- `media-service` uses Windows `cmd /c dev.cmd` / `build.cmd` scripts — TODO: confirm cross-platform usage.
+- `media-service` is a Go service (`apps/media-service/main.go`). Its `package.json` scripts shell out to Windows `dev.cmd` / `build.cmd`, which just set `GOCACHE`/`GOPATH` and call `go run main.go` / `go build -o dist/media-service main.go`. On non-Windows hosts run those `go` commands directly — TODO: add cross-platform npm scripts.
 
 ### Web app (`apps/web`, Next.js)
 
@@ -150,6 +150,7 @@ Service-specific entry points:
 - `bun run --filter web lint` — `eslint`.
 - `bun run --filter web pull:api` — runs `scripts/pull-api.mjs` (fetches OpenAPI specs).
 - `bun run --filter web generate:api` — `pull:api` then `orval` codegen using `orval.config.ts`.
+- i18n — localization via `@crowdin/cli` (config: `apps/web/crowdin.yml`); source `messages/ru.json`, output `messages/%two_letters_code%.json` (currently `en.json`, `ru.json`). Run `bunx crowdin` from `apps/web` (requires `CROWDIN_PROJECT_ID`, `CROWDIN_PERSONAL_TOKEN`).
 
 ### Local infrastructure
 
@@ -159,9 +160,21 @@ Service-specific entry points:
 docker compose -f docker/docker-compose.yml up -d
 ```
 
-Required env vars referenced by the compose file: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD` (plus any RabbitMQ vars defined further down). TODO: document the canonical `.env` location once confirmed.
+Required env vars referenced by the compose file: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `RABBITMQ_DEFAULT_USER`, `RABBITMQ_DEFAULT_PASS`. TODO: document the canonical `.env` location once confirmed.
+
+`apps/bot-service/docker-compose.yml` provides a service-local stack for bot development: Postgres (5436→5432, db `photon_bots`), Redis (6380→6379), RabbitMQ (5672, 15672 management). Bring it up from the bot-service directory:
+
+```
+docker compose -f apps/bot-service/docker-compose.yml up -d
+```
+
+### Workspace packages
+
+- `packages/common` (`@repo/common`) — `bun run --filter @repo/common build` (`tsc -p tsconfig.build.json`), `format` (Prettier on `src/**/*.ts`). No lint/test scripts defined.
+- `packages/contracts` (`@repo/contracts`) — `build` runs both `tsconfig.build.json` and `tsconfig.gen.json`; `build:gen` runs only the generated-code tsconfig. `generate` invokes `protoc` over `packages/contracts/proto/*.proto` with `ts-proto` (`nestJs=true,package=omit,stringEnums=true`) into `gen/ts`, then runs `build:gen`. Requires `protoc` on `PATH`.
+- `packages/ui` (`@repo/ui`) — `bun run --filter @repo/ui lint` (`eslint . --max-warnings 0`), `storybook` (`storybook dev -p 6006`), `build-storybook`. No build script — package is consumed directly from `src/`.
+- `packages/bot-sdk` (`@orisign/bot-sdk`) — `bun run --filter @orisign/bot-sdk build` (`tsc -p tsconfig.json`) and `test` (`bun test`).
 
 ### Other surfaces
 
-- `sdks/python` — Python SDK (TODO: document build/test commands once standardized).
-- `packages/*` (`common`, `contracts`, `ui`, `bot-sdk`) — internal workspace packages consumed via `workspace:*`.
+- `sdks/python/orisign-bot-sdk` — Python SDK (`pyproject.toml`, setuptools build). Runtime deps: `httpx`, `pydantic`. Optional extras: `webhook` (`fastapi`), `dev` (`pytest`, `pytest-asyncio`). Install for development with `pip install -e '.[dev,webhook]'` and run tests with `pytest` from the package dir. TODO: confirm canonical Python version / virtualenv setup.
